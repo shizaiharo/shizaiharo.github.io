@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dec Page</title>
+    <title>TextDecoder64Dec</title>
     <style>
       /* Add some basic styles for the list items */
       #booksList li {
@@ -65,6 +65,15 @@
         }
       }
 
+      //   function bufferToBase64(buffer) {
+      //     return atob(
+      //       new Uint8Array(buffer).reduce(
+      //         (data, byte) => data + String.fromCharCode(byte),
+      //         ""
+      //       )
+      //     );
+      //   }
+
       async function selectBook(bookName) {
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${bookName}?ref=${branch}`;
         const response = await fetch(url, {
@@ -93,14 +102,26 @@
         }
       }
 
-      async function decryptFolder(encryptedData, iv, password) {
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function decryptFolder(base64EncryptedData, base64Iv, password) {
+        const encryptedData = base64ToArrayBuffer(base64EncryptedData);
+        const iv = base64ToArrayBuffer(base64Iv);
+
         const key = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(password)
         );
 
         const decryptedData = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv },
+          { name: "AES-GCM", iv: new Uint8Array(iv) },
           await crypto.subtle.importKey(
             "raw",
             key,
