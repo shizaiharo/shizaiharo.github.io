@@ -84,15 +84,17 @@
 
         if (response.ok) {
           const fileData = await response.json();
-          const encryptedData = Uint8Array.from(atob(fileData.content), (c) =>
-            c.charCodeAt(0)
-          );
+        //   const encryptedData = Uint8Array.from(atob(fileData.content), (c) =>
+        //     c.charCodeAt(0)
+        //   );
+          const combinedData = base64ToArrayBuffer(fileData.content);
 
           const folderName = bookName.replace(".zip", "");
           const numberInFolderName = folderName.match(/\d+/)[0];
           const password = combine("Kyaru", numberInFolderName);
+          console.log(password);
 
-          const zip = await decryptFolder(encryptedData, password);
+          const zip = await decryptFolder(combinedData, password);
           displayImages(zip);
         } else {
           alert("Failed to fetch the book. Please try again.");
@@ -109,6 +111,7 @@
       }
 
       async function decryptFolder(combinedData, password) {
+        
         // Extract IV from the first 12 bytes
         const iv = combinedData.slice(0, 12);
 

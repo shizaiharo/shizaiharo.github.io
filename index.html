@@ -167,6 +167,7 @@
         const folderName = files[0].webkitRelativePath.split("/")[0];
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
+        console.log(password);
 
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
