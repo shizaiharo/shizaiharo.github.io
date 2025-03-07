@@ -82,27 +82,41 @@
             const path = file.webkitRelativePath || file.name; // Keep folder structure
 
             const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-            const response = await fetch(url, {
-              method: "PUT",
-              headers: {
-                Authorization: `token ${token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                message: `Upload ${file.name}`,
-                content: base64,
-                branch: branch,
-              }),
-            });
+            let response;
+            let retries = 10; // Number of retries
 
-            if (response.ok) {
-              document.getElementById(
-                "status"
-              ).textContent = `Uploaded ${file.name} ✅`;
-            } else {
-              document.getElementById(
-                "status"
-              ).textContent = `Failed to upload ${file.name} ❌`;
+            while (retries > 0) {
+              response = await fetch(url, {
+                method: "PUT",
+                headers: {
+                  Authorization: `token ${token}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  message: `Upload ${file.name}`,
+                  content: base64,
+                  branch: branch,
+                }),
+              });
+
+              if (response.ok) {
+                document.getElementById(
+                  "status"
+                ).textContent = `Uploaded ${file.name} ✅`;
+                break;
+              } else if (response.status === 409) {
+                retries--;
+                if (retries === 0) {
+                  document.getElementById(
+                    "status"
+                  ).textContent = `Conflict: ${file.name} already exists ❌`;
+                }
+              } else {
+                document.getElementById(
+                  "status"
+                ).textContent = `Failed to upload ${file.name} ❌`;
+                break;
+              }
             }
           };
         }
