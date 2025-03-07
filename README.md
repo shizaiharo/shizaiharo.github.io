@@ -1,0 +1,1 @@
+# shizaiharo.github.io
