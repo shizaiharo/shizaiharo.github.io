@@ -6,7 +6,7 @@
     <title>GitHub File Uploader</title>
   </head>
   <body>
-    <h2>TextDecoder</h2>
+    <h2>TextDecoder64</h2>
     <input type="file" id="tokenInput" accept=".txt" />
     <button onclick="uploadToken()">Upload Token</button>
     <br />
@@ -83,7 +83,9 @@
       }
 
       function bufferToBase64(buffer) {
-        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+        return btoa(
+            new Uint8Array(buffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+        );
       }
 
       async function encryptFolder(files, password) {
