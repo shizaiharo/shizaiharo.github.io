@@ -6,7 +6,7 @@
     <title>GitHub File Uploader</title>
   </head>
   <body>
-    <h2>base64</h2>
+    <h2>TextDecoder</h2>
     <input type="file" id="tokenInput" accept=".txt" />
     <button onclick="uploadToken()">Upload Token</button>
     <br />
@@ -82,6 +82,10 @@
         return combined.join("");
       }
 
+      function bufferToBase64(buffer) {
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      }
+
       async function encryptFolder(files, password) {
         const zip = new JSZip();
 
@@ -136,12 +140,15 @@
 
         const { encryptedData, iv } = await encryptFolder(files, password);
 
-        const base64EncryptedData = btoa(
-          String.fromCharCode.apply(null, new Uint8Array(encryptedData))
-        );
-        const base64Iv = btoa(
-          String.fromCharCode.apply(null, new Uint8Array(iv))
-        );
+        // const base64EncryptedData = btoa(
+        //   String.fromCharCode.apply(null, new Uint8Array(encryptedData))
+        // );
+        // const base64Iv = btoa(
+        //   String.fromCharCode.apply(null, new Uint8Array(iv))
+        // );
+
+        const base64EncryptedData = bufferToBase64(encryptedData);
+        const base64Iv = bufferToBase64(iv);
 
         const path = `${folderName}.zip`; // Use the folder name for the zip file
 
