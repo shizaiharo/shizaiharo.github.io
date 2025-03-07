@@ -4,34 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>GitHub File Uploader</title>
-    <style>
-      .inline-container {
-        display: flex;
-        align-items: center;
-      }
-    </style>
   </head>
   <body>
     <h2>Upload Files to GitHub</h2>
     <input type="file" id="tokenInput" accept=".txt" />
     <button onclick="uploadToken()">Upload Token</button>
     <br />
-    <div class="inline-container">
-      <input
-        type="file"
-        id="bookInput"
-        multiple
-        webkitdirectory
-        style="display: none"
-      />
-      <button
-        id="uploadBookButton"
-        onclick="uploadBook()"
-        style="display: none"
-      >
-        Upload Book
-      </button>
-    </div>
+    <input
+      type="file"
+      id="bookInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
+      Upload Book
+    </button>
     <p id="status"></p>
 
     <script>
@@ -96,6 +84,22 @@
 
           const path = file.webkitRelativePath || file.name; // Keep folder structure
 
+          // Get the current SHA of the file
+        //   const shaResponse = await fetch(
+        //     `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        //     {
+        //       headers: {
+        //         Authorization: `token ${token}`,
+        //       },
+        //     }
+        //   );
+
+        //   let sha = "";
+        //   if (shaResponse.ok) {
+        //     const shaData = await shaResponse.json();
+        //     sha = shaData.sha;
+        //   }
+
           const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
           const response = await fetch(url, {
             method: "PUT",
@@ -107,6 +111,7 @@
               message: `Upload ${file.name}`,
               content: base64,
               branch: branch,
+            //   sha: sha, // Include the SHA for updating
             }),
           });
 
