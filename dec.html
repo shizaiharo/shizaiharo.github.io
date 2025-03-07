@@ -18,7 +18,7 @@
     </style>
   </head>
   <body>
-    <h2>DecBug</h2>
+    <h2>Dec</h2>
     <button onclick="window.location.href='index.html'">Enc</button>
     <!-- <p>Welcome to the Dec page!</p> -->
     <button id="browseBookButton" onclick="browseBooks()" style="display: none">
@@ -84,12 +84,23 @@
 
         if (response.ok) {
           const fileData = await response.json();
-          console.log("Base64 Encoded Content:", fileData.content.substring(0, 50)); // First 50 chars
+          let base64Data = fileData.content;
 
-        //   const encryptedData = Uint8Array.from(atob(fileData.content), (c) =>
-        //     c.charCodeAt(0)
-        //   );
-          const combinedData = base64ToArrayBuffer(fileData.content);
+          if (!fileData.content && fileData.download_url) {
+            console.warn("File too large, using download_url instead.");
+            const fileResponse = await fetch(fileData.download_url, {
+              headers: { Authorization: `token ${token}` },
+            });
+            base64Data = await fileResponse.text();
+            console.log(
+              "Fetched from download_url:",
+              base64Data.substring(0, 50)
+            ); // Log first 50 chars
+          } else {
+            console.log("Base64 Encoded Content:", base64Data.substring(0, 50)); // First 50 chars
+          }
+
+          const combinedData = base64ToArrayBuffer(base64Data);
 
           const folderName = bookName.replace(".zip", "");
           const numberInFolderName = folderName.match(/\d+/)[0];
@@ -99,8 +110,13 @@
           const zip = await decryptFolder(combinedData, password);
           displayImages(zip);
         } else {
+          console.error("Failed to fetch the book:", await response.text());
           alert("Failed to fetch the book. Please try again.");
+          return;
         }
+
+        const fileData = await response.json();
+        console.log("GitHub API Response:", fileData);
       }
 
       function base64ToArrayBuffer(base64) {
@@ -113,10 +129,9 @@
       }
 
       async function decryptFolder(combinedData, password) {
-        
         // Extract IV from the first 12 bytes
         const iv = combinedData.slice(0, 12);
-        console.log("IV length:", iv.byteLength); 
+        console.log("IV length:", iv.byteLength);
         if (iv.byteLength !== 12) {
           console.error("IV is incorrect:", iv);
         }
