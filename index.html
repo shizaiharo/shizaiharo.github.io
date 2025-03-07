@@ -85,20 +85,20 @@
           const path = file.webkitRelativePath || file.name; // Keep folder structure
 
           // Get the current SHA of the file
-          const shaResponse = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
-            {
-              headers: {
-                Authorization: `token ${token}`,
-              },
-            }
-          );
+        //   const shaResponse = await fetch(
+        //     `https://api.github.com/repos/${owner}/${repo}/contents/${path}`,
+        //     {
+        //       headers: {
+        //         Authorization: `token ${token}`,
+        //       },
+        //     }
+        //   );
 
-          let sha = "";
-          if (shaResponse.ok) {
-            const shaData = await shaResponse.json();
-            sha = shaData.sha;
-          }
+        //   let sha = "";
+        //   if (shaResponse.ok) {
+        //     const shaData = await shaResponse.json();
+        //     sha = shaData.sha;
+        //   }
 
           const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
           const response = await fetch(url, {
@@ -111,7 +111,7 @@
               message: `Upload ${file.name}`,
               content: base64,
               branch: branch,
-              sha: sha, // Include the SHA for updating
+            //   sha: sha, // Include the SHA for updating
             }),
           });
 
