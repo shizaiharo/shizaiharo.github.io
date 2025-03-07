@@ -4,6 +4,18 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Dec Page</title>
+    <style>
+      /* Add some basic styles for the list items */
+      #booksList li {
+        cursor: pointer;
+        padding: 5px;
+        border: 1px solid #ccc;
+        margin: 5px 0;
+      }
+      #booksList li:hover {
+        background-color: #f0f0f0;
+      }
+    </style>
   </head>
   <body>
     <h2>Dec</h2>
@@ -13,7 +25,9 @@
       Browse Books
     </button>
     <ul id="booksList"></ul>
+    <div id="imagesContainer"></div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
       const repo = "Amrita"; // Change to your repository name
       const owner = "shizaiharo"; // Change to your GitHub username
@@ -41,6 +55,7 @@
           files.forEach((file) => {
             const listItem = document.createElement("li");
             listItem.textContent = file.name;
+            listItem.onclick = () => selectBook(file.name);
             booksList.appendChild(listItem);
           });
         } else {
@@ -48,6 +63,91 @@
             "Failed to fetch books. Please check your token and try again."
           );
         }
+      }
+
+      async function selectBook(bookName) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${bookName}?ref=${branch}`;
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `token ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const fileData = await response.json();
+          const encryptedData = Uint8Array.from(atob(fileData.content), (c) =>
+            c.charCodeAt(0)
+          );
+          const iv = Uint8Array.from(atob(fileData.sha), (c) =>
+            c.charCodeAt(0)
+          ).slice(0, 12); // Assuming IV is stored in the SHA
+
+          const folderName = bookName.replace(".zip", "");
+          const numberInFolderName = folderName.match(/\d+/)[0];
+          const password = combine("Kyaru", numberInFolderName);
+
+          const zip = await decryptFolder(encryptedData, iv, password);
+          displayImages(zip);
+        } else {
+          alert("Failed to fetch the book. Please try again.");
+        }
+      }
+
+      async function decryptFolder(encryptedData, iv, password) {
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+
+        const decryptedData = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"]
+          ),
+          encryptedData
+        );
+
+        const zip = await JSZip.loadAsync(decryptedData);
+        return zip;
+      }
+
+      function displayImages(zip) {
+        const imagesContainer = document.getElementById("imagesContainer");
+        imagesContainer.innerHTML = ""; // Clear previous images
+
+        zip.forEach(async (relativePath, file) => {
+          if (!file.dir && /\.(jpe?g|png|gif)$/i.test(relativePath)) {
+            const blob = await file.async("blob");
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(blob);
+            imagesContainer.appendChild(img);
+          }
+        });
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+
+        return combined.join("");
       }
 
       // Function to get the token from URL parameters
