@@ -97,32 +97,39 @@
       }
 
       function bufferToBase64(buffer) {
-        return btoa(
-          new Uint8Array(buffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ""
-          )
-        );
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
       }
 
       async function encryptFolder(files, password) {
         const zip = new JSZip();
 
-        // Add files to ZIP
+        // Add all files to a ZIP archive
         files.forEach((file) =>
           zip.file(file.webkitRelativePath || file.name, file)
         );
 
-        // Generate ZIP Blob
+        // Convert ZIP to a Blob
         const zipBlob = await zip.generateAsync({ type: "blob" });
 
-        // Encrypt ZIP Blob
+        // Generate a random IV (12 bytes for AES-GCM)
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        // Generate encryption key
         const key = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(password)
         );
-        const iv = crypto.getRandomValues(new Uint8Array(12));
 
+        // Encrypt the ZIP file
         const encryptedData = await crypto.subtle.encrypt(
           { name: "AES-GCM", iv },
           await crypto.subtle.importKey(
@@ -135,7 +142,14 @@
           await zipBlob.arrayBuffer()
         );
 
-        return { encryptedData, iv };
+        // Combine IV + Encrypted Data (IV is needed for decryption)
+        const combinedData = new Uint8Array(
+          iv.length + encryptedData.byteLength
+        );
+        combinedData.set(iv, 0);
+        combinedData.set(new Uint8Array(encryptedData), iv.length);
+
+        return combinedData; // Return IV + Encrypted Data
       }
 
       async function uploadBook() {
@@ -157,10 +171,9 @@
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
 
-        const { encryptedData, iv } = await encryptFolder(files, password);
+        const combinedData = await encryptFolder(files, password);
 
-        const base64EncryptedData = bufferToBase64(encryptedData);
-        const base64Iv = bufferToBase64(iv);
+        const base64CombinedData = bufferToBase64(combinedData);
 
         const path = `Books/${folderName}.zip`; // Use the folder name for the zip file
 
@@ -169,11 +182,11 @@
           method: "PUT",
           headers: {
             Authorization: `token ${token}`,
-            "Content-Type": "application/json",
+            "Content-Type": "application/octet-stream", // Ensures correct encoding
           },
           body: JSON.stringify({
             message: `Upload encrypted folder`,
-            content: base64EncryptedData,
+            content: base64CombinedData,
             branch: branch,
           }),
         });

@@ -87,15 +87,12 @@
           const encryptedData = Uint8Array.from(atob(fileData.content), (c) =>
             c.charCodeAt(0)
           );
-          const iv = Uint8Array.from(atob(fileData.sha), (c) =>
-            c.charCodeAt(0)
-          ).slice(0, 12); // Assuming IV is stored in the SHA
 
           const folderName = bookName.replace(".zip", "");
           const numberInFolderName = folderName.match(/\d+/)[0];
           const password = combine("Kyaru", numberInFolderName);
 
-          const zip = await decryptFolder(encryptedData, iv, password);
+          const zip = await decryptFolder(encryptedData, password);
           displayImages(zip);
         } else {
           alert("Failed to fetch the book. Please try again.");
@@ -111,17 +108,22 @@
         return bytes.buffer;
       }
 
-      async function decryptFolder(base64EncryptedData, base64Iv, password) {
-        const encryptedData = base64ToArrayBuffer(base64EncryptedData);
-        const iv = base64ToArrayBuffer(base64Iv);
+      async function decryptFolder(combinedData, password) {
+        // Extract IV from the first 12 bytes
+        const iv = combinedData.slice(0, 12);
 
+        // Extract actual encrypted data
+        const encryptedData = combinedData.slice(12);
+
+        // Generate decryption key
         const key = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(password)
         );
 
+        // Decrypt data
         const decryptedData = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv: new Uint8Array(iv) },
+          { name: "AES-GCM", iv },
           await crypto.subtle.importKey(
             "raw",
             key,
@@ -132,22 +134,24 @@
           encryptedData
         );
 
-        const zip = await JSZip.loadAsync(decryptedData);
-        return zip;
+        // Load decrypted ZIP archive
+        return JSZip.loadAsync(decryptedData);
       }
 
-      function displayImages(zip) {
+      async function displayImages(zip) {
         const imagesContainer = document.getElementById("imagesContainer");
         imagesContainer.innerHTML = ""; // Clear previous images
 
-        zip.forEach(async (relativePath, file) => {
-          if (!file.dir && /\.(jpe?g|png|gif)$/i.test(relativePath)) {
+        for (const fileName of Object.keys(zip.files)) {
+          const file = zip.files[fileName];
+
+          if (!file.dir && /\.(jpe?g|png|gif)$/i.test(fileName)) {
             const blob = await file.async("blob");
             const img = document.createElement("img");
             img.src = URL.createObjectURL(blob);
             imagesContainer.appendChild(img);
           }
-        });
+        }
       }
 
       function combine(str1, str2) {
