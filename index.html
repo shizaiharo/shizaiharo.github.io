@@ -6,7 +6,7 @@
     <title>GitHub File Uploader</title>
   </head>
   <body>
-    <h2>Upload Files to GitHub</h2>
+    <h2>base64</h2>
     <input type="file" id="tokenInput" accept=".txt" />
     <button onclick="uploadToken()">Upload Token</button>
     <br />
@@ -137,11 +137,13 @@
         const { encryptedData, iv } = await encryptFolder(files, password);
 
         const base64EncryptedData = btoa(
-          String.fromCharCode(...new Uint8Array(encryptedData))
+          String.fromCharCode.apply(null, new Uint8Array(encryptedData))
         );
-        const base64Iv = btoa(String.fromCharCode(...new Uint8Array(iv)));
+        const base64Iv = btoa(
+          String.fromCharCode.apply(null, new Uint8Array(iv))
+        );
 
-        const path = "encrypted_folder.zip"; // You can change the path as needed
+        const path = `${folderName}.zip`; // Use the folder name for the zip file
 
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
         const response = await fetch(url, {
