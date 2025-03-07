@@ -1,15 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Upload and Encrypt Folder</title>
-</head>
-<body>
-    <h1>Upload and Encrypt Folder</h1>
-    <input type="file" id="folderInput" webkitdirectory directory multiple>
-    <button onclick="uploadAndEncrypt()">Upload and Encrypt</button>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitHub File Uploader</title>
+  </head>
+  <body>
+    <h2>Upload Files to GitHub</h2>
+    <input type="file" id="tokenInput" accept=".txt" />
+    <button onclick="uploadToken()">Upload Token</button>
+    <br />
+    <input
+      type="file"
+      id="bookInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
+      Upload Book
+    </button>
+    <p id="status"></p>
 
-    <script src="encrypt.js"></script>
-</body>
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the uploaded file
+
+      async function uploadToken() {
+        const tokenFile = document.getElementById("tokenInput").files[0];
+        if (!tokenFile) {
+          alert("Please upload the token file.");
+          return;
+        }
+
+        const tokenReader = new FileReader();
+        tokenReader.onload = async () => {
+          token = tokenReader.result.trim(); // Read token from file
+
+          // Validate token
+          const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}`,
+            {
+              headers: {
+                Authorization: `token ${token}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            alert("Token uploaded and validated successfully.");
+            document.getElementById("bookInput").style.display = "block";
+            document.getElementById("uploadBookButton").style.display = "block";
+          } else {
+            alert("Invalid token. Please reupload a valid token.");
+          }
+        };
+        tokenReader.readAsText(tokenFile);
+      }
+
+      async function uploadBook() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = document.getElementById("bookInput").files;
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        document.getElementById("status").textContent = "Uploading...";
+
+        for (const file of files) {
+          const reader = new FileReader();
+          reader.readAsDataURL(file);
+          reader.onload = async () => {
+            const base64 = reader.result.split(",")[1]; // Extract base64 data
+            const path = file.webkitRelativePath || file.name; // Keep folder structure
+
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+            const response = await fetch(url, {
+              method: "PUT",
+              headers: {
+                Authorization: `token ${token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                message: `Upload ${file.name}`,
+                content: base64,
+                branch: branch,
+              }),
+            });
+
+            if (response.ok) {
+              document.getElementById(
+                "status"
+              ).textContent = `Uploaded ${file.name} ✅`;
+            } else {
+              document.getElementById(
+                "status"
+              ).textContent = `Failed to upload ${file.name} ❌`;
+            }
+          };
+        }
+      }
+    </script>
+  </body>
 </html>
