@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>TextDecoder64Dec</title>
+    <title>indexedDB</title>
     <style>
       /* Add some basic styles for the list items */
       #booksList li {
@@ -65,14 +65,38 @@
         }
       }
 
-      //   function bufferToBase64(buffer) {
-      //     return atob(
-      //       new Uint8Array(buffer).reduce(
-      //         (data, byte) => data + String.fromCharCode(byte),
-      //         ""
-      //       )
-      //     );
-      //   }
+      async function storeBookData(bookName, base64Data, password) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("bookDatabase", 1);
+
+          request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains("books")) {
+              db.createObjectStore("books", { keyPath: "name" });
+            }
+          };
+
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+            const transaction = db.transaction("books", "readwrite");
+            const store = transaction.objectStore("books");
+
+            store.put({ name: bookName, data: base64Data, password: password });
+
+            transaction.oncomplete = function () {
+              resolve();
+            };
+
+            transaction.onerror = function () {
+              reject(transaction.error);
+            };
+          };
+
+          request.onerror = function () {
+            reject(request.error);
+          };
+        });
+      }
 
       async function selectBook(bookName) {
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${bookName}?ref=${branch}`;
@@ -121,8 +145,7 @@
             const password = combine("Kyaru", numberInFolderName);
             console.log("Decryption Password:", password);
 
-            localStorage.setItem("bookData", base64Data);
-            localStorage.setItem("bookPassword", password);
+            await storeBookData(bookName, base64Data, password);
             window.open("book.html", "_blank");
           } else {
             alert("No content found in the file.");
@@ -177,22 +200,6 @@
 
         // Load decrypted ZIP archive
         return JSZip.loadAsync(decryptedData);
-      }
-
-      async function displayImages(zip) {
-        const imagesContainer = document.getElementById("imagesContainer");
-        imagesContainer.innerHTML = ""; // Clear previous images
-
-        for (const fileName of Object.keys(zip.files)) {
-          const file = zip.files[fileName];
-
-          if (!file.dir && /\.(jpe?g|png|gif)$/i.test(fileName)) {
-            const blob = await file.async("blob");
-            const img = document.createElement("img");
-            img.src = URL.createObjectURL(blob);
-            imagesContainer.appendChild(img);
-          }
-        }
       }
 
       function combine(str1, str2) {

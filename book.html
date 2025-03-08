@@ -27,16 +27,44 @@
       }
 
       async function loadBook() {
-        const base64Data = localStorage.getItem("bookData");
-        const password = localStorage.getItem("bookPassword");
+        const bookName = new URLSearchParams(window.location.search).get(
+          "bookName"
+        );
 
-        if (base64Data && password) {
-          const combinedData = base64ToArrayBuffer(base64Data);
-          const zip = await decryptFolder(combinedData, password);
-          displayImages(zip);
-        } else {
-          alert("Missing data or password.");
+        if (!bookName) {
+          alert("Missing book name.");
+          return;
         }
+
+        const request = indexedDB.open("bookDatabase", 1);
+
+        request.onsuccess = function (event) {
+          const db = event.target.result;
+          const transaction = db.transaction("books", "readonly");
+          const store = transaction.objectStore("books");
+
+          const getRequest = store.get(bookName);
+
+          getRequest.onsuccess = async function () {
+            const bookData = getRequest.result;
+
+            if (bookData) {
+              const combinedData = base64ToArrayBuffer(bookData.data);
+              const zip = await decryptFolder(combinedData, bookData.password);
+              displayImages(zip);
+            } else {
+              alert("Book data not found.");
+            }
+          };
+
+          getRequest.onerror = function () {
+            alert("Failed to retrieve book data.");
+          };
+        };
+
+        request.onerror = function () {
+          alert("Failed to open database.");
+        };
       }
 
       function base64ToArrayBuffer(base64) {
