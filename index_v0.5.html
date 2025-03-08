@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TextDecoder64</title>
+  </head>
+  <body>
+    <h2>Enc</h2>
+    <button id="jumpDecButton" style="display: none">Dec</button>
+    <br />
+    <input type="file" id="tokenInput" accept=".txt" />
+    <button onclick="uploadToken()">Check Token</button>
+    <br />
+    <input
+      type="file"
+      id="bookInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
+      Upload Book
+    </button>
+    <p id="status"></p>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the uploaded file
+
+      async function uploadToken() {
+        const tokenFile = document.getElementById("tokenInput").files[0];
+        if (!tokenFile) {
+          alert("Please upload the token file.");
+          return;
+        }
+
+        const tokenReader = new FileReader();
+        tokenReader.onload = async () => {
+          token = tokenReader.result.trim(); // Read token from file
+
+          // Validate token
+          const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}`,
+            {
+              headers: {
+                Authorization: `token ${token}`,
+              },
+            }
+          );
+
+          if (response.ok) {
+            alert("Token uploaded and validated successfully.");
+            document.getElementById("jumpDecButton").style.display = "block";
+            document.getElementById("bookInput").style.display = "inline";
+            document.getElementById("uploadBookButton").style.display =
+              "inline";
+
+            // Store token in localStorage
+            localStorage.setItem("githubToken", token);
+
+            // Update the jumpDecButton href with the token
+            document.getElementById("jumpDecButton").onclick = function () {
+              window.location.href = `dec.html?token=${encodeURIComponent(
+                token
+              )}`;
+            };
+          } else {
+            alert("Invalid token. Please reupload a valid token.");
+          }
+        };
+        tokenReader.readAsText(tokenFile);
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+
+        return combined.join("");
+      }
+
+      function bufferToBase64(buffer) {
+        return btoa(String.fromCharCode(...new Uint8Array(buffer)));
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function encryptFolder(files, password) {
+        const zip = new JSZip();
+
+        // Add all files to a ZIP archive
+        files.forEach((file) =>
+          zip.file(file.webkitRelativePath || file.name, file)
+        );
+
+        // Convert ZIP to a Blob
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+
+        // Generate a random IV (12 bytes for AES-GCM)
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        // Generate encryption key
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+
+        // Encrypt the ZIP file
+        const encryptedData = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt"]
+          ),
+          await zipBlob.arrayBuffer()
+        );
+
+        // Combine IV + Encrypted Data (IV is needed for decryption)
+        const combinedData = new Uint8Array(
+          iv.length + encryptedData.byteLength
+        );
+        combinedData.set(iv, 0);
+        combinedData.set(new Uint8Array(encryptedData), iv.length);
+
+        return combinedData; // Return IV + Encrypted Data
+      }
+
+      async function uploadBook() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = Array.from(document.getElementById("bookInput").files);
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        const folderName = files[0].webkitRelativePath.split("/")[0];
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        const password = combine("Kyaru", numberInFolderName);
+        console.log(password);
+
+        document.getElementById("status").textContent =
+          "Encrypting and uploading...";
+
+        const combinedData = await encryptFolder(files, password);
+
+        const base64CombinedData = bufferToBase64(combinedData);
+
+        const path = `Books/${folderName}.zip`; // Use the folder name for the zip file
+
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${token}`,
+            "Content-Type": "application/octet-stream", // Ensures correct encoding
+          },
+          body: JSON.stringify({
+            message: `Upload encrypted folder`,
+            content: base64CombinedData,
+            branch: branch,
+          }),
+        });
+
+        if (response.ok) {
+          document.getElementById(
+            "status"
+          ).textContent = `Uploaded encrypted folder ✅`;
+        } else {
+          document.getElementById(
+            "status"
+          ).textContent = `Failed to upload encrypted folder ❌`;
+        }
+      }
+    </script>
+  </body>
+</html>
