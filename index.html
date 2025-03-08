@@ -8,8 +8,10 @@
   <body>
     <h2>Main</h2>
     <br />
-    <input type="text" id="tokenInput" placeholder="Enter your token" />
-    <button onclick="checkToken()">Check</button>
+    <div id="tokenSection">
+      <input type="text" id="tokenInput" placeholder="Enter your token" />
+      <button onclick="checkToken()">Check</button>
+    </div>
     <br />
     <button id="jumpEncButton" style="display: none">Enc</button>
     <button id="jumpDecButton" style="display: none">Dec</button>
@@ -36,6 +38,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
         if (token) {
+          document.getElementById("tokenSection").style.display = "none";
           document.getElementById("jumpEncButton").style.display = "block";
           document.getElementById("jumpDecButton").style.display = "block";
           document.getElementById("jumpEncButton").onclick = function () {
@@ -70,6 +73,7 @@
 
         if (response.ok) {
           alert("Token validated successfully.");
+          document.getElementById("tokenSection").style.display = "none";
           document.getElementById("jumpEncButton").style.display = "block";
           document.getElementById("jumpDecButton").style.display = "block";
 
