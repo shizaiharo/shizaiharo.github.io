@@ -42,6 +42,7 @@
         const bookNumberWithBrackets = "[" + bookNumber + "]";
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
+        document.getElementById("bookNameBeforeNumber").textContent = bookNameBeforeNumber;
 
         try {
           const bookData = await getBookData(bookName);
