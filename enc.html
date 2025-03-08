@@ -27,7 +27,7 @@
       let token = null;
       const repo = "Amrita"; // Change to your repository name
       const owner = "shizaiharo"; // Change to your GitHub username
-      const branch = "master"; // Change to your default branch
+      const branch = "main"; // Change to your default branch
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -121,45 +121,48 @@
 
       async function getOrCreateRelease(folderName) {
         const releasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+        
         let response = await fetch(releasesUrl, {
-          headers: { Authorization: `token ${token}` },
+            headers: { Authorization: `token ${token}` },
         });
 
         let releases = await response.json();
         console.log("GitHub Releases API Response:", releases);
 
         if (!Array.isArray(releases)) {
-          console.error("GitHub API Error:", releases);
-          return null;
+            console.error("GitHub API Error:", releases);
+            return null;
         }
 
         let release = releases.find(r => r.tag_name === folderName);
         if (release) {
-          return release.id;
+            return release.id;
         }
 
         console.log("Creating new release...");
+        
+        const uniqueTag = `${folderName}-${Date.now()}`; // Ensure a unique tag
         response = await fetch(releasesUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `token ${token}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            tag_name: folderName,
-            name: folderName,
-            target_commitish: branch,
-            draft: false,
-            prerelease: false,
-          }),
+            method: "POST",
+            headers: {
+                Authorization: `token ${token}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                tag_name: uniqueTag,  // Ensure unique tag
+                name: folderName,
+                target_commitish: branch,  // Set correct branch
+                draft: false,
+                prerelease: false
+            }),
         });
 
         let newRelease = await response.json();
         console.log("New Release API Response:", newRelease);
 
         if (!newRelease.id) {
-          console.error("Failed to create release:", newRelease);
-          return null;
+            console.error("Failed to create release:", newRelease);
+            return null;
         }
 
         return newRelease.id;
