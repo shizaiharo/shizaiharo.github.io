@@ -121,6 +121,7 @@
 
       async function getOrCreateRelease(folderName) {
         const releasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+        
         let response = await fetch(releasesUrl, {
           headers: { Authorization: `token ${token}` },
         });
@@ -139,6 +140,8 @@
         }
 
         console.log("Creating new release...");
+        
+        const uniqueTag = `${folderName}-${Date.now()}`; // Ensure a unique tag
         response = await fetch(releasesUrl, {
           method: "POST",
           headers: {
@@ -146,10 +149,11 @@
             "Content-Type": "application/json",
           },
           body: JSON.stringify({
-            tag_name: folderName,
+            tag_name: uniqueTag,  // Ensure unique tag
             name: folderName,
+            target_commitish: branch,  // Set correct branch
             draft: false,
-            prerelease: false,
+            prerelease: false
           }),
         });
 
