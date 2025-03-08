@@ -77,46 +77,61 @@
       async function selectBook(bookName) {
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${bookName}?ref=${branch}`;
         const response = await fetch(url, {
-          headers: {
-            Authorization: `token ${token}`,
-          },
+          headers: { Authorization: `token ${token}` },
         });
 
-        if (response.ok) {
-          const fileData = await response.json();
-          let base64Data = fileData.content;
-
-          if (!fileData.content && fileData.download_url) {
-            console.warn("File too large, using download_url instead.");
-            const fileResponse = await fetch(fileData.download_url, {
-              headers: { Authorization: `token ${token}` },
-            });
-            base64Data = await fileResponse.text();
-            console.log(
-              "Fetched from download_url:",
-              base64Data.substring(0, 50)
-            ); // Log first 50 chars
-          } else {
-            console.log("Base64 Encoded Content:", base64Data.substring(0, 50)); // First 50 chars
-          }
-
-          const combinedData = base64ToArrayBuffer(base64Data);
-
-          const folderName = bookName.replace(".zip", "");
-          const numberInFolderName = folderName.match(/\d+/)[0];
-          const password = combine("Kyaru", numberInFolderName);
-          console.log(password);
-
-          const zip = await decryptFolder(combinedData, password);
-          displayImages(zip);
-        } else {
-          console.error("Failed to fetch the book:", await response.text());
+        if (!response.ok) {
+          console.error(
+            "Failed to fetch file metadata:",
+            await response.text()
+          );
           alert("Failed to fetch the book. Please try again.");
           return;
         }
 
         const fileData = await response.json();
-        console.log("GitHub API Response:", fileData);
+        console.log("File Metadata Response:", fileData);
+
+        if (fileData.git_url) {
+          const gitResponse = await fetch(fileData.git_url, {
+            headers: { Authorization: `token ${token}` },
+          });
+
+          if (!gitResponse.ok) {
+            console.error(
+              "Failed to fetch file content:",
+              await gitResponse.text()
+            );
+            alert("Failed to retrieve file content.");
+            return;
+          }
+
+          const gitFileData = await gitResponse.json();
+          console.log("Git Blob Response:", gitFileData);
+
+          if (gitFileData.content) {
+            const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
+            console.log(
+              "Base64 Encoded Data (first 50 chars):",
+              base64Data.substring(0, 50)
+            );
+
+            const combinedData = base64ToArrayBuffer(base64Data);
+            console.log("Decoded ArrayBuffer Length:", combinedData.byteLength);
+
+            const folderName = bookName.replace(".zip", "");
+            const numberInFolderName = folderName.match(/\d+/)[0];
+            const password = combine("Kyaru", numberInFolderName);
+            console.log("Decryption Password:", password);
+
+            const zip = await decryptFolder(combinedData, password);
+            displayImages(zip);
+          } else {
+            alert("No content found in the file.");
+          }
+        } else {
+          alert("Git URL not found. The file may be too large.");
+        }
       }
 
       function base64ToArrayBuffer(base64) {
