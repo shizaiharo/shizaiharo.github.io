@@ -7,6 +7,8 @@
   </head>
   <body>
     <h2>Enc</h2>
+    <h5>Upload a folder containing the book images</h5>
+    <button id="backToIndexButton">Main</button>
     <input
       type="file"
       id="bookInput"
@@ -18,7 +20,6 @@
       Upload Book
     </button>
     <p id="status"></p>
-    <button id="backToIndexButton">Main</button>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
@@ -86,19 +87,32 @@
       async function encryptFolder(files, password) {
         const zip = new JSZip();
 
-        files.forEach((file) =>
-          zip.file(file.webkitRelativePath || file.name, file)
+        files.forEach((file) => {
+          console.log(
+            `Adding file to zip: ${file.webkitRelativePath || file.name}`
+          );
+          zip.file(file.webkitRelativePath || file.name, file);
+        });
+
+        console.log("Generating zip blob...");
+        const zipStartTime = performance.now();
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipEndTime = performance.now();
+        console.log(
+          `Zip generation time: ${(zipEndTime - zipStartTime).toFixed(2)} ms`
         );
 
-        const zipBlob = await zip.generateAsync({ type: "blob" });
-
+        console.log("Generating IV...");
         const iv = crypto.getRandomValues(new Uint8Array(12));
 
+        console.log("Generating key...");
         const key = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(password)
         );
 
+        console.log("Encrypting data...");
+        const encryptStartTime = performance.now();
         const encryptedData = await crypto.subtle.encrypt(
           { name: "AES-GCM", iv },
           await crypto.subtle.importKey(
@@ -110,6 +124,12 @@
           ),
           await zipBlob.arrayBuffer()
         );
+        const encryptEndTime = performance.now();
+        console.log(
+          `Encryption time: ${(encryptEndTime - encryptStartTime).toFixed(
+            2
+          )} ms`
+        );
 
         const combinedData = new Uint8Array(
           iv.length + encryptedData.byteLength
@@ -117,6 +137,7 @@
         combinedData.set(iv, 0);
         combinedData.set(new Uint8Array(encryptedData), iv.length);
 
+        console.log("Encryption complete.");
         return combinedData;
       }
 
@@ -135,17 +156,20 @@
         const folderName = files[0].webkitRelativePath.split("/")[0];
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
-        console.log(password);
+        console.log(`Password generated: ${password}`);
 
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
 
+        console.log("Starting encryption...");
         const combinedData = await encryptFolder(files, password);
 
+        console.log("Converting encrypted data to base64...");
         const base64CombinedData = bufferToBase64(combinedData);
 
         const path = `Books/${folderName}.zip`;
 
+        console.log(`Uploading to GitHub at path: ${path}`);
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
         const response = await fetch(url, {
           method: "PUT",
@@ -161,10 +185,12 @@
         });
 
         if (response.ok) {
+          console.log("Upload successful.");
           document.getElementById(
             "status"
           ).textContent = `Uploaded encrypted folder ✅`;
         } else {
+          console.log("Upload failed.");
           document.getElementById(
             "status"
           ).textContent = `Failed to upload encrypted folder ❌`;
