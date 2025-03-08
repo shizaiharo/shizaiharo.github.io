@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enc</title>
+  </head>
+  <body>
+    <h2>Enc</h2>
+    <h4>Upload a folder containing the book images</h4>
+    <button id="backToIndexButton">Main</button>
+    </br>
+    <input
+      type="file"
+      id="bookInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
+      Upload Book
+    </button>
+    <p id="status"></p>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      let token = null;
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+          document.getElementById("bookInput").style.display = "inline";
+          document.getElementById("uploadBookButton").style.display = "inline";
+        } else {
+          alert("Please upload the token file first.");
+        }
+        document.getElementById("backToIndexButton").onclick = function () {
+          window.location.href = `index.html${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`;
+        };
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+
+        return combined.join("");
+      }
+
+      // Don't change this function because of error "RangeError: too many arguments provided for a function call"
+      function bufferToBase64(buffer) {
+        return btoa(
+          new Uint8Array(buffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ""
+          )
+        );
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function generateAndUploadZip(zip, password, zipIndex, folderName) {
+        console.log("Generating zip blob...");
+        document.getElementById("status").textContent = `Generating zip blob ${zipIndex}...`;
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+        const encryptedData = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["encrypt"]),
+          await zipBlob.arrayBuffer()
+        );
+
+        const combinedData = new Uint8Array(iv.length + encryptedData.byteLength);
+        combinedData.set(iv, 0);
+        combinedData.set(new Uint8Array(encryptedData), iv.length);
+
+        const fileName = `${folderName}_part${zipIndex}.zip.enc`;
+
+        console.log(`Final encrypted data size: ${combinedData.length} bytes`);
+
+        // Check if a release exists; if not, create one
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        let releaseId = await getOrCreateRelease(numberInFolderName);
+
+        if (!releaseId) {
+            console.error("Failed to create or fetch release.");
+            document.getElementById("status").textContent = "Failed to create release ❌";
+            return;
+        }
+
+        // Upload the encrypted ZIP file to the GitHub release
+        await uploadToRelease(releaseId, fileName, combinedData);
+      }
+
+      async function getOrCreateRelease(numberInFolderName) {
+        const releasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+        
+        let response = await fetch(releasesUrl, {
+            headers: { Authorization: `token ${token}` },
+        });
+
+        let releases = await response.json();
+        console.log("GitHub Releases API Response:", releases);
+
+        if (!Array.isArray(releases)) {
+            console.error("GitHub API Error:", releases);
+            return null;
+        }
+
+        let release = releases.find(r => r.tag_name === numberInFolderName);
+        if (release) {
+            return release.id;
+        }
+
+        console.log("Creating new release...");
+        
+        const uniqueTag = `${numberInFolderName}-${Date.now()}`; // Ensure a unique tag
+        response = await fetch(releasesUrl, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Accept": "application/vnd.github+json",
+                "Content-Type": "application/vnd.github+json",
+            },
+            body: JSON.stringify({
+                tag_name: uniqueTag,  // Ensure unique tag
+                name: numberInFolderName,
+                // target_commitish: branch,  // Set correct branch
+                draft: false,
+                prerelease: false
+            }),
+        });
+
+        let newRelease = await response.json();
+        console.log("New Release API Response:", newRelease);
+
+        if (!newRelease.id) {
+            console.error("Failed to create release:", newRelease);
+            return null;
+        }
+
+        return newRelease.id;
+      }
+
+      async function uploadToRelease(releaseId, fileName, fileData) {
+        const uploadUrl = `https://uploads.github.com/repos/${owner}/${repo}/releases/${releaseId}/assets?name=${fileName}`;
+        
+        console.log(`Uploading ${fileName} to release ID ${releaseId}...`);
+        document.getElementById("status").textContent = `Uploading ${fileName}...`;
+
+        let response = await fetch(uploadUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/octet-stream",
+          },
+          body: fileData,
+        });
+
+        if (response.ok) {
+          console.log(`Uploaded ${fileName} successfully.`);
+          document.getElementById("status").textContent = `Uploaded ${fileName} ✅`;
+        } else {
+          console.error("Upload failed", await response.text());
+          document.getElementById("status").textContent = `Upload failed ❌`;
+        }
+      }
+
+      async function uploadBook() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = Array.from(document.getElementById("bookInput").files);
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        const folderName = files[0].webkitRelativePath.split("/")[0];
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        const password = combine("Kyaru", numberInFolderName);
+        console.log(`Password generated: ${password}`);
+
+        document.getElementById("status").textContent = "Encrypting and uploading...";
+
+        console.log("Starting encryption...");
+        const zip = new JSZip();
+        files.forEach((file) => {
+          console.log(`Adding file to zip: ${file.webkitRelativePath || file.name}`);
+          zip.file(file.webkitRelativePath || file.name, file);
+        });
+
+        await generateAndUploadZip(zip, password, 1, folderName);
+      }
+
+      // Call getTokenFromUrl on page load
+      window.onload = getTokenFromUrl;
+    </script>
+  </body>
+</html>
