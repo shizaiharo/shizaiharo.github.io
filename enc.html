@@ -28,7 +28,7 @@
       const repo = "Amrita"; // Change to your repository name
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
-      const MAX_ZIP_SIZE = 100 * 1024 * 1024; // 100MB
+      const MAX_ZIP_SIZE = 99 * 1024 * 1024; // 99MB
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -93,7 +93,7 @@
 
         for (const file of files) {
           const fileSize = file.size;
-          if (currentZipSize + fileSize >= MAX_ZIP_SIZE) {
+          if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
             // Generate the current zip blob and reset for the next zip
             await generateAndUploadZip(zip, password, zipIndex, folderName);
             zip = new JSZip();
