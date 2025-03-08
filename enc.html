@@ -147,6 +147,7 @@
             method: "POST",
             headers: {
                 Authorization: `Bearer ${token}`,
+                "Accept": "application/vnd.github+json",
                 "Content-Type": "application/vnd.github+json",
             },
             body: JSON.stringify({
@@ -178,7 +179,8 @@
         let response = await fetch(uploadUrl, {
           method: "POST",
           headers: {
-            Authorization: `token ${token}`,
+            Authorization: `Bearer ${token}`,
+            "Accept": "application/vnd.github+json",
             "Content-Type": "application/octet-stream",
           },
           body: fileData,
