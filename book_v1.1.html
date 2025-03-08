@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Book Images</title>
+  </head>
+  <body>
+    <div id="imagesContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      async function displayImages(zip) {
+        const imagesContainer = document.getElementById("imagesContainer");
+        imagesContainer.innerHTML = ""; // Clear previous images
+
+        for (const fileName of Object.keys(zip.files)) {
+          const file = zip.files[fileName];
+
+          if (!file.dir && /\.(jpe?g|png|gif)$/i.test(fileName)) {
+            const blob = await file.async("blob");
+            const img = document.createElement("img");
+            img.src = URL.createObjectURL(blob);
+            imagesContainer.appendChild(img);
+          }
+        }
+      }
+
+      async function loadBook() {
+        const bookName = new URLSearchParams(window.location.search).get(
+          "bookName"
+        );
+
+        if (!bookName) {
+          alert("Missing book name.");
+          return;
+        }
+
+        try {
+          const bookData = await getBookData(bookName);
+
+          if (bookData) {
+            const combinedData = base64ToArrayBuffer(bookData.data);
+            const zip = await decryptFolder(combinedData, bookData.password);
+            displayImages(zip);
+          } else {
+            alert("Book data not found.");
+          }
+        } catch (error) {
+          alert("Failed to retrieve book data.");
+        }
+      }
+
+      async function getBookData(bookName) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("bookDatabase", 1);
+
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+            const transaction = db.transaction("books", "readonly");
+            const store = transaction.objectStore("books");
+
+            const query = store.get(bookName);
+
+            query.onsuccess = function () {
+              resolve(query.result);
+            };
+
+            query.onerror = function () {
+              reject(query.error);
+            };
+          };
+
+          request.onerror = function () {
+            reject(request.error);
+          };
+        });
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function decryptFolder(combinedData, password) {
+        const iv = combinedData.slice(0, 12);
+        const encryptedData = combinedData.slice(12);
+
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+
+        const decryptedData = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"]
+          ),
+          encryptedData
+        );
+
+        return JSZip.loadAsync(decryptedData);
+      }
+
+      window.onload = loadBook;
+    </script>
+  </body>
+</html>
