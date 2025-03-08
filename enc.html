@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Enc</title>
+  </head>
+  <body>
+    <h2>Enc</h2>
+    <input
+      type="file"
+      id="bookInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
+      Upload Book
+    </button>
+    <p id="status"></p>
+    <button id="backToIndexButton">Main</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      let token = null;
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+          document.getElementById("bookInput").style.display = "inline";
+          document.getElementById("uploadBookButton").style.display = "inline";
+        } else {
+          alert("Please upload the token file first.");
+        }
+        document.getElementById("backToIndexButton").onclick = function () {
+          window.location.href = `index.html${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`;
+        };
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+
+        return combined.join("");
+      }
+
+      // Don't change this function because of error "RangeError: too many arguments provided for a function call"
+      function bufferToBase64(buffer) {
+        return btoa(
+          new Uint8Array(buffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ""
+          )
+        );
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function encryptFolder(files, password) {
+        const zip = new JSZip();
+
+        files.forEach((file) =>
+          zip.file(file.webkitRelativePath || file.name, file)
+        );
+
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+
+        const encryptedData = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt"]
+          ),
+          await zipBlob.arrayBuffer()
+        );
+
+        const combinedData = new Uint8Array(
+          iv.length + encryptedData.byteLength
+        );
+        combinedData.set(iv, 0);
+        combinedData.set(new Uint8Array(encryptedData), iv.length);
+
+        return combinedData;
+      }
+
+      async function uploadBook() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = Array.from(document.getElementById("bookInput").files);
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        const folderName = files[0].webkitRelativePath.split("/")[0];
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        const password = combine("Kyaru", numberInFolderName);
+        console.log(password);
+
+        document.getElementById("status").textContent =
+          "Encrypting and uploading...";
+
+        const combinedData = await encryptFolder(files, password);
+
+        const base64CombinedData = bufferToBase64(combinedData);
+
+        const path = `Books/${folderName}.zip`;
+
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `token ${token}`,
+            "Content-Type": "application/octet-stream",
+          },
+          body: JSON.stringify({
+            message: `Upload encrypted folder`,
+            content: base64CombinedData,
+            branch: branch,
+          }),
+        });
+
+        if (response.ok) {
+          document.getElementById(
+            "status"
+          ).textContent = `Uploaded encrypted folder ✅`;
+        } else {
+          document.getElementById(
+            "status"
+          ).textContent = `Failed to upload encrypted folder ❌`;
+        }
+      }
+
+      // Call getTokenFromUrl on page load
+      window.onload = getTokenFromUrl;
+    </script>
+  </body>
+</html>

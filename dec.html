@@ -19,7 +19,7 @@
   </head>
   <body>
     <h2>Dec</h2>
-    <button onclick="window.location.href='index.html'">Enc</button>
+    <button id="backToIndexButton">Main</button>
     <!-- <p>Welcome to the Dec page!</p> -->
     <button id="browseBookButton" onclick="browseBooks()" style="display: none">
       Browse Books
@@ -33,6 +33,21 @@
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
       let token = ""; // Token will be read from the URL parameter
+
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+            document.getElementById("browseBookButton").style.display = "block";
+        } else {
+          alert("Please upload the token file first.");
+        }
+        document.getElementById("backToIndexButton").onclick = function () {
+          window.location.href = `index.html${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`;
+        };
+      }
 
       async function browseBooks() {
         if (!token) {
@@ -227,13 +242,13 @@
       }
 
       // Function to get the token from URL parameters
-      function getTokenFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        token = urlParams.get("token");
-        if (token) {
-          document.getElementById("browseBookButton").style.display = "block";
-        }
-      }
+    //   function getTokenFromUrl() {
+    //     const urlParams = new URLSearchParams(window.location.search);
+    //     token = urlParams.get("token");
+    //     if (token) {
+    //       document.getElementById("browseBookButton").style.display = "block";
+    //     }
+    //   }
 
       // Get the token when the page loads
       window.onload = getTokenFromUrl;
