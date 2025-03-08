@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>indexedDB</title>
+    <title>URLBookName</title>
     <style>
       /* Add some basic styles for the list items */
       #booksList li {
@@ -146,7 +146,10 @@
             console.log("Decryption Password:", password);
 
             await storeBookData(bookName, base64Data, password);
-            window.open("book.html", "_blank");
+            window.open(
+              `book.html?bookName=${encodeURIComponent(bookName)}`,
+              "_blank"
+            );
           } else {
             alert("No content found in the file.");
           }

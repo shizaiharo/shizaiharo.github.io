@@ -36,35 +36,45 @@
           return;
         }
 
-        const request = indexedDB.open("bookDatabase", 1);
+        try {
+          const bookData = await getBookData(bookName);
 
-        request.onsuccess = function (event) {
-          const db = event.target.result;
-          const transaction = db.transaction("books", "readonly");
-          const store = transaction.objectStore("books");
+          if (bookData) {
+            const combinedData = base64ToArrayBuffer(bookData.data);
+            const zip = await decryptFolder(combinedData, bookData.password);
+            displayImages(zip);
+          } else {
+            alert("Book data not found.");
+          }
+        } catch (error) {
+          alert("Failed to retrieve book data.");
+        }
+      }
 
-          const getRequest = store.get(bookName);
+      async function getBookData(bookName) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("bookDatabase", 1);
 
-          getRequest.onsuccess = async function () {
-            const bookData = getRequest.result;
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+            const transaction = db.transaction("books", "readonly");
+            const store = transaction.objectStore("books");
 
-            if (bookData) {
-              const combinedData = base64ToArrayBuffer(bookData.data);
-              const zip = await decryptFolder(combinedData, bookData.password);
-              displayImages(zip);
-            } else {
-              alert("Book data not found.");
-            }
+            const query = store.get(bookName);
+
+            query.onsuccess = function () {
+              resolve(query.result);
+            };
+
+            query.onerror = function () {
+              reject(query.error);
+            };
           };
 
-          getRequest.onerror = function () {
-            alert("Failed to retrieve book data.");
+          request.onerror = function () {
+            reject(request.error);
           };
-        };
-
-        request.onerror = function () {
-          alert("Failed to open database.");
-        };
+        });
       }
 
       function base64ToArrayBuffer(base64) {
