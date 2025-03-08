@@ -86,7 +86,7 @@
         return bytes.buffer;
       }
 
-      async function encryptFolder(files, password) {
+      async function encryptFolder(files, password, folderName) {
         let currentZipSize = 0;
         let zipIndex = 1;
         let zip = new JSZip();
@@ -95,7 +95,7 @@
           const fileSize = file.size;
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
             // Generate the current zip blob and reset for the next zip
-            await generateAndUploadZip(zip, password, zipIndex);
+            await generateAndUploadZip(zip, password, zipIndex, folderName);
             zip = new JSZip();
             currentZipSize = 0;
             zipIndex++;
@@ -109,11 +109,11 @@
 
         // Generate and upload the last zip
         if (currentZipSize > 0) {
-          await generateAndUploadZip(zip, password, zipIndex);
+          await generateAndUploadZip(zip, password, zipIndex, folderName);
         }
       }
 
-      async function generateAndUploadZip(zip, password, zipIndex) {
+      async function generateAndUploadZip(zip, password, zipIndex, folderName) {
         console.log("Generating zip blob...");
         document.getElementById(
           "status"
@@ -233,7 +233,7 @@
           "Encrypting and uploading...";
 
         console.log("Starting encryption...");
-        await encryptFolder(files, password);
+        await encryptFolder(files, password, folderName);
       }
 
       // Call getTokenFromUrl on page load
