@@ -107,7 +107,8 @@
         console.log(`Final encrypted data size: ${combinedData.length} bytes`);
 
         // Check if a release exists; if not, create one
-        let releaseId = await getOrCreateRelease(folderName);
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        let releaseId = await getOrCreateRelease(numberInFolderName);
 
         if (!releaseId) {
             console.error("Failed to create or fetch release.");
@@ -119,7 +120,7 @@
         await uploadToRelease(releaseId, fileName, combinedData);
       }
 
-      async function getOrCreateRelease(folderName) {
+      async function getOrCreateRelease(numberInFolderName) {
         const releasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
         
         let response = await fetch(releasesUrl, {
@@ -134,23 +135,23 @@
             return null;
         }
 
-        let release = releases.find(r => r.tag_name === folderName);
+        let release = releases.find(r => r.tag_name === numberInFolderName);
         if (release) {
             return release.id;
         }
 
         console.log("Creating new release...");
         
-        const uniqueTag = `${folderName}-${Date.now()}`; // Ensure a unique tag
+        const uniqueTag = `${numberInFolderName}-${Date.now()}`; // Ensure a unique tag
         response = await fetch(releasesUrl, {
             method: "POST",
             headers: {
-                Authorization: `token ${token}`,
+                Authorization: `Bearer ${token}`,
                 "Content-Type": "application/vnd.github+json",
             },
             body: JSON.stringify({
                 tag_name: uniqueTag,  // Ensure unique tag
-                name: folderName,
+                name: numberInFolderName,
                 // target_commitish: branch,  // Set correct branch
                 draft: false,
                 prerelease: false
