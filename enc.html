@@ -197,7 +197,7 @@
             method: "PUT",
             headers: {
               Authorization: `token ${token}`,
-              "Content-Type": "application/json",
+              "Content-Type": "application/octet-stream",
             },
             body: JSON.stringify({
               message: `Upload encrypted folder part ${zipIndex}`,
