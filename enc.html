@@ -126,13 +126,18 @@
         });
 
         let releases = await response.json();
-        let release = releases.find(r => r.tag_name === folderName);
+        console.log("GitHub Releases API Response:", releases);
 
-        if (release) {
-          return release.id; // Return existing release ID
+        if (!Array.isArray(releases)) {
+          console.error("GitHub API Error:", releases);
+          return null;
         }
 
-        // If no release found, create one
+        let release = releases.find(r => r.tag_name === folderName);
+        if (release) {
+          return release.id;
+        }
+
         console.log("Creating new release...");
         response = await fetch(releasesUrl, {
           method: "POST",
@@ -149,6 +154,13 @@
         });
 
         let newRelease = await response.json();
+        console.log("New Release API Response:", newRelease);
+
+        if (!newRelease.id) {
+          console.error("Failed to create release:", newRelease);
+          return null;
+        }
+
         return newRelease.id;
       }
 
