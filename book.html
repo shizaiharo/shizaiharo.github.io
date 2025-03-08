@@ -3,9 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Book Images</title>
+    <title id="pageTitle">Book Images</title>
   </head>
   <body>
+    <h2 id="bookNameBeforeNumber">Book's name</h2>
     <div id="imagesContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
@@ -35,6 +36,12 @@
           alert("Missing book name.");
           return;
         }
+
+        // Extract the number from the bookName and set it as the title
+        const bookNumber = bookName.match(/\d+/)[0];
+        const bookNumberWithBrackets = "[" + bookNumber + "]";
+        const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
+        document.getElementById("pageTitle").textContent = bookNumber;
 
         try {
           const bookData = await getBookData(bookName);
