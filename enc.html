@@ -186,29 +186,49 @@
           "status"
         ).textContent = `Uploading to GitHub at path: ${path}`;
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-        const response = await fetch(url, {
-          method: "PUT",
-          headers: {
-            Authorization: `token ${token}`,
-            "Content-Type": "application/octet-stream",
-          },
-          body: JSON.stringify({
-            message: `Upload encrypted folder part ${zipIndex}`,
-            content: base64CombinedData,
-            branch: branch,
-          }),
-        });
 
-        if (response.ok) {
-          console.log("Upload successful.");
+        let uploadSuccess = false;
+        let attempts = 0;
+        const maxAttempts = 3;
+
+        while (!uploadSuccess && attempts < maxAttempts) {
+          attempts++;
+          const response = await fetch(url, {
+            method: "PUT",
+            headers: {
+              Authorization: `token ${token}`,
+              "Content-Type": "application/octet-stream",
+            },
+            body: JSON.stringify({
+              message: `Upload encrypted folder part ${zipIndex}`,
+              content: base64CombinedData,
+              branch: branch,
+            }),
+          });
+
+          if (response.ok) {
+            console.log("Upload successful.");
+            document.getElementById(
+              "status"
+            ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
+            uploadSuccess = true;
+          } else {
+            console.log(`Upload failed (attempt ${attempts}).`);
+            document.getElementById(
+              "status"
+            ).textContent = `Failed to upload encrypted folder part ${zipIndex} (attempt ${attempts}) ❌`;
+            if (attempts < maxAttempts) {
+              console.log("Retrying upload...");
+              document.getElementById("status").textContent += " Retrying...";
+            }
+          }
+        }
+
+        if (!uploadSuccess) {
+          console.log("Upload failed after maximum attempts.");
           document.getElementById(
             "status"
-          ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
-        } else {
-          console.log("Upload failed.");
-          document.getElementById(
-            "status"
-          ).textContent = `Failed to upload encrypted folder part ${zipIndex} ❌`;
+          ).textContent = `Failed to upload encrypted folder part ${zipIndex} after ${maxAttempts} attempts ❌`;
         }
       }
 
