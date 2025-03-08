@@ -116,16 +116,15 @@
               base64Data.substring(0, 50)
             );
 
-            const combinedData = base64ToArrayBuffer(base64Data);
-            console.log("Decoded ArrayBuffer Length:", combinedData.byteLength);
-
             const folderName = bookName.replace(".zip", "");
             const numberInFolderName = folderName.match(/\d+/)[0];
             const password = combine("Kyaru", numberInFolderName);
             console.log("Decryption Password:", password);
 
-            const zip = await decryptFolder(combinedData, password);
-            displayImages(zip);
+            const newTabUrl = `book.html?data=${encodeURIComponent(
+              base64Data
+            )}&password=${encodeURIComponent(password)}`;
+            window.open(newTabUrl, "_blank");
           } else {
             alert("No content found in the file.");
           }
