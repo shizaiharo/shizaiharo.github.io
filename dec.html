@@ -121,10 +121,9 @@
             const password = combine("Kyaru", numberInFolderName);
             console.log("Decryption Password:", password);
 
-            const newTabUrl = `book.html?data=${encodeURIComponent(
-              base64Data
-            )}&password=${encodeURIComponent(password)}`;
-            window.open(newTabUrl, "_blank");
+            localStorage.setItem("bookData", base64Data);
+            localStorage.setItem("bookPassword", password);
+            window.open("book.html", "_blank");
           } else {
             alert("No content found in the file.");
           }

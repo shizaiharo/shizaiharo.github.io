@@ -27,9 +27,8 @@
       }
 
       async function loadBook() {
-        const params = new URLSearchParams(window.location.search);
-        const base64Data = params.get("data");
-        const password = params.get("password");
+        const base64Data = localStorage.getItem("bookData");
+        const password = localStorage.getItem("bookPassword");
 
         if (base64Data && password) {
           const combinedData = base64ToArrayBuffer(base64Data);
