@@ -197,7 +197,7 @@
             method: "PUT",
             headers: {
               Authorization: `token ${token}`,
-              "Content-Type": "application/octet-stream",
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               message: `Upload encrypted folder part ${zipIndex}`,
@@ -213,7 +213,8 @@
             ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
             uploadSuccess = true;
           } else {
-            console.log(`Upload failed (attempt ${attempts}).`);
+            const errorResponse = await response.json();
+            console.log(`Upload failed (attempt ${attempts}).`, errorResponse);
             document.getElementById(
               "status"
             ).textContent = `Failed to upload encrypted folder part ${zipIndex} (attempt ${attempts}) ❌`;
