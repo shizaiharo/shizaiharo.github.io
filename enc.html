@@ -9,7 +9,7 @@
     <h2>Enc</h2>
     <h4>Upload a folder containing the book images</h4>
     <button id="backToIndexButton">Main</button>
-    </br>
+    <br />
     <input
       type="file"
       id="bookInput"
@@ -28,6 +28,7 @@
       const repo = "Amrita"; // Change to your repository name
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
+      const MAX_ZIP_SIZE = 100 * 1024 * 1024; // 100MB
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -85,113 +86,154 @@
         return bytes.buffer;
       }
 
+      async function encryptFolder(files, password, folderName) {
+        let currentZipSize = 0;
+        let zipIndex = 1;
+        let zip = new JSZip();
+
+        for (const file of files) {
+          const fileSize = file.size;
+          if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
+            // Generate the current zip blob and reset for the next zip
+            await generateAndUploadZip(zip, password, zipIndex, folderName);
+            zip = new JSZip();
+            currentZipSize = 0;
+            zipIndex++;
+          }
+          console.log(
+            `Adding file to zip: ${file.webkitRelativePath || file.name}`
+          );
+          zip.file(file.webkitRelativePath || file.name, file);
+          currentZipSize += fileSize;
+        }
+
+        // Generate and upload the last zip
+        if (currentZipSize > 0) {
+          await generateAndUploadZip(zip, password, zipIndex, folderName);
+        }
+      }
+
       async function generateAndUploadZip(zip, password, zipIndex, folderName) {
         console.log("Generating zip blob...");
-        document.getElementById("status").textContent = `Generating zip blob ${zipIndex}...`;
-
+        document.getElementById(
+          "status"
+        ).textContent = `Generating zip blob ${zipIndex}...`;
+        const zipStartTime = performance.now();
         const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipEndTime = performance.now();
+        console.log(
+          `Zip generation time: ${(zipEndTime - zipStartTime).toFixed(2)} ms`
+        );
+        document.getElementById(
+          "status"
+        ).textContent = `Zip generation time: ${(
+          zipEndTime - zipStartTime
+        ).toFixed(2)} ms`;
+
+        console.log("Generating IV...");
+        document.getElementById("status").textContent = "Generating IV...";
         const iv = crypto.getRandomValues(new Uint8Array(12));
-        const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
-        const encryptedData = await crypto.subtle.encrypt(
-          { name: "AES-GCM", iv },
-          await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["encrypt"]),
-          await zipBlob.arrayBuffer()
+
+        console.log("Generating key...");
+        document.getElementById("status").textContent = "Generating key...";
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
         );
 
-        const combinedData = new Uint8Array(iv.length + encryptedData.byteLength);
+        console.log("Encrypting data...");
+        document.getElementById("status").textContent = "Encrypting data...";
+        const encryptStartTime = performance.now();
+        const encryptedData = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt"]
+          ),
+          await zipBlob.arrayBuffer()
+        );
+        const encryptEndTime = performance.now();
+        console.log(
+          `Encryption time: ${(encryptEndTime - encryptStartTime).toFixed(
+            2
+          )} ms`
+        );
+        document.getElementById("status").textContent = `Encryption time: ${(
+          encryptEndTime - encryptStartTime
+        ).toFixed(2)} ms`;
+
+        const combinedData = new Uint8Array(
+          iv.length + encryptedData.byteLength
+        );
         combinedData.set(iv, 0);
         combinedData.set(new Uint8Array(encryptedData), iv.length);
 
-        const fileName = `${folderName}_part${zipIndex}.zip.enc`;
-
+        console.log("Encryption complete.");
         console.log(`Final encrypted data size: ${combinedData.length} bytes`);
+        document.getElementById("status").textContent = "Encryption complete.";
 
-        // Check if a release exists; if not, create one
-        const numberInFolderName = folderName.match(/\d+/)[0];
-        let releaseId = await getOrCreateRelease(numberInFolderName);
-
-        if (!releaseId) {
-            console.error("Failed to create or fetch release.");
-            document.getElementById("status").textContent = "Failed to create release ❌";
-            return;
-        }
-
-        // Upload the encrypted ZIP file to the GitHub release
-        await uploadToRelease(releaseId, fileName, combinedData);
-      }
-
-      async function getOrCreateRelease(numberInFolderName) {
-        const releasesUrl = `https://api.github.com/repos/${owner}/${repo}/releases`;
+        console.log("Converting encrypted data to base64...");
+        document.getElementById("status").textContent =
+          "Converting encrypted data to base64...";
         
-        let response = await fetch(releasesUrl, {
-            headers: { Authorization: `token ${token}` },
-        });
+          const base64CombinedData = bufferToBase64(combinedData);
 
-        let releases = await response.json();
-        console.log("GitHub Releases API Response:", releases);
+        const path = `Books/${folderName}_part${zipIndex}.zip`;
 
-        if (!Array.isArray(releases)) {
-            console.error("GitHub API Error:", releases);
-            return null;
-        }
+        console.log(`Uploading to GitHub at path: ${path}`);
+        document.getElementById(
+          "status"
+        ).textContent = `Uploading to GitHub at path: ${path}`;
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-        let release = releases.find(r => r.tag_name === numberInFolderName);
-        if (release) {
-            return release.id;
-        }
+        let uploadSuccess = false;
+        let attempts = 0;
+        const maxAttempts = 3;
 
-        console.log("Creating new release...");
-        
-        const uniqueTag = `${numberInFolderName}-${Date.now()}`; // Ensure a unique tag
-        response = await fetch(releasesUrl, {
-            method: "POST",
+        // while (!uploadSuccess && attempts < maxAttempts) {
+        //   attempts++;
+          const response = await fetch(url, {
+            method: "PUT",
             headers: {
-                Authorization: `Bearer ${token}`,
-                "Accept": "application/vnd.github+json",
-                "Content-Type": "application/vnd.github+json",
+              Authorization: `Bearer ${token}`,
+              "Accept": "application/vnd.github+json",
+              "Content-Type": "application/octet-stream",
             },
             body: JSON.stringify({
-                tag_name: uniqueTag,  // Ensure unique tag
-                name: numberInFolderName,
-                // target_commitish: branch,  // Set correct branch
-                draft: false,
-                prerelease: false
+              message: `Upload encrypted folder part ${zipIndex}`,
+              content: base64CombinedData,
+              branch: branch,
             }),
-        });
+          });
+        //   });
 
-        let newRelease = await response.json();
-        console.log("New Release API Response:", newRelease);
+          if (response.ok) {
+            console.log("Upload successful.");
+            document.getElementById(
+              "status"
+            ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
+            uploadSuccess = true;
+          } else {
+            const errorResponse = await response.json();
+            console.log(`Upload failed (attempt ${attempts}).`, errorResponse);
+            document.getElementById(
+              "status"
+            ).textContent = `Failed to upload encrypted folder part ${zipIndex} (attempt ${attempts}) ❌`;
+            // if (attempts < maxAttempts) {
+            //   console.log("Retrying upload...");
+            //   document.getElementById("status").textContent += " Retrying...";
+            // }
+          }
+        // }
 
-        if (!newRelease.id) {
-            console.error("Failed to create release:", newRelease);
-            return null;
-        }
-
-        return newRelease.id;
-      }
-
-      async function uploadToRelease(releaseId, fileName, fileData) {
-        const uploadUrl = `https://uploads.github.com/repos/${owner}/${repo}/releases/${releaseId}/assets?name=${fileName}`;
-        
-        console.log(`Uploading ${fileName} to release ID ${releaseId}...`);
-        document.getElementById("status").textContent = `Uploading ${fileName}...`;
-
-        let response = await fetch(uploadUrl, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Accept": "application/vnd.github+json",
-            "Content-Type": "application/octet-stream",
-          },
-          body: fileData,
-        });
-
-        if (response.ok) {
-          console.log(`Uploaded ${fileName} successfully.`);
-          document.getElementById("status").textContent = `Uploaded ${fileName} ✅`;
-        } else {
-          console.error("Upload failed", await response.text());
-          document.getElementById("status").textContent = `Upload failed ❌`;
+        if (!uploadSuccess) {
+          console.log("Upload failed after maximum attempts.");
+          document.getElementById(
+            "status"
+          ).textContent = `Failed to upload encrypted folder part ${zipIndex} after ${maxAttempts} attempts ❌`;
         }
       }
 
@@ -212,16 +254,11 @@
         const password = combine("Kyaru", numberInFolderName);
         console.log(`Password generated: ${password}`);
 
-        document.getElementById("status").textContent = "Encrypting and uploading...";
+        document.getElementById("status").textContent =
+          "Encrypting and uploading...";
 
         console.log("Starting encryption...");
-        const zip = new JSZip();
-        files.forEach((file) => {
-          console.log(`Adding file to zip: ${file.webkitRelativePath || file.name}`);
-          zip.file(file.webkitRelativePath || file.name, file);
-        });
-
-        await generateAndUploadZip(zip, password, 1, folderName);
+        await encryptFolder(files, password, folderName);
       }
 
       // Call getTokenFromUrl on page load
