@@ -90,10 +90,10 @@
 
             query.onsuccess = function () {
               const item = query.result;
-              if (item) {
+              if (item && item.parts) {
                 resolve(
                   item.parts.map((part) => ({
-                    data: base64ToArrayBuffer(part.data),
+                    data: base64ToArrayBuffer(part),
                     password: item.password,
                   }))
                 );
