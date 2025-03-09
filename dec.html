@@ -201,7 +201,11 @@
         console.log("Decrypted Data Array:", decryptedDataArray);
         const combinedData = combineArrayBuffers(decryptedDataArray);
         console.log("Combined Data Length:", combinedData.byteLength);
-        await storeBookData(bookName, combinedData, password);
+        
+        const base64CombinedData = arrayBufferToBase64(combinedData);
+        console.log("Base64 Combined Data Length:", base64CombinedData.length);
+        
+        await storeBookData(bookName, base64CombinedData, password);
         window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
       }
 
@@ -212,6 +216,15 @@
           bytes[i] = binaryString.charCodeAt(i);
         }
         return bytes.buffer;
+      }
+
+      function arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
       }
 
       async function decryptFolder(combinedData, password) {
