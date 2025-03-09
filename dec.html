@@ -181,6 +181,7 @@
               console.log("Decryption Password:", password);
 
               const decryptedData = await decryptFolder(combinedData, password);
+              console.log("Decrypted Data:", decryptedData);
               decryptedDataArray.push(decryptedData);
             } else {
               alert("No content found in the file.");
