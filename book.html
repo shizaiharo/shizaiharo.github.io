@@ -59,25 +59,10 @@
           bookNameBeforeNumber;
 
         try {
-          const bookDataArray = await getBookDataArray(bookName);
+          const bookData = await getBookData(bookName);
 
-          if (bookDataArray && bookDataArray.length > 0) {
-            const decryptedDataArray = [];
-            for (const bookData of bookDataArray) {
-              console.log("Decrypting with password:", bookData.password);
-              const decryptedData = await decryptFolder(
-                bookData.data,
-                bookData.password
-              );
-              if (decryptedData) {
-                decryptedDataArray.push(decryptedData);
-              } else {
-                console.error("Decryption failed for part of the book data.");
-                return;
-              }
-            }
-
-            const combinedData = combineArrayBuffers(decryptedDataArray);
+          if (bookData) {
+            const combinedData = base64ToArrayBuffer(bookData.data);
             const zip = await JSZip.loadAsync(combinedData);
             displayImages(zip);
           } else {
@@ -89,7 +74,7 @@
         }
       }
 
-      async function getBookDataArray(bookName) {
+      async function getBookData(bookName) {
         return new Promise((resolve, reject) => {
           const request = indexedDB.open("bookDatabase", 1);
 
@@ -103,20 +88,13 @@
             query.onsuccess = function () {
               const item = query.result;
               if (item) {
-                const bookData = query.result;
-                console.log("Retrieved data type:", typeof bookData.data);
-                console.log("First 50 chars:", bookData.data.slice(0, 50));
-                console.log("Last 50 chars:", bookData.data.slice(-50));
-
-                resolve([
-                  {
-                    data: base64ToArrayBuffer(item.data),
-                    password: item.password,
-                  },
-                ]);
+                console.log("Retrieved data type:", typeof item.data);
+                console.log("First 50 chars:", item.data.slice(0, 50));
+                console.log("Last 50 chars:", item.data.slice(-50));
+                resolve(item);
               } else {
                 console.log("No data found for book:", bookName);
-                resolve([]);
+                resolve(null);
               }
             };
 
@@ -131,28 +109,6 @@
             reject(request.error);
           };
         });
-      }
-
-      function combineArrayBuffers(dataArray) {
-        const totalLength = dataArray.reduce(
-          (acc, data) => acc + data.byteLength,
-          0
-        );
-        const combinedArray = new Uint8Array(totalLength);
-        let offset = 0;
-
-        dataArray.forEach((data, index) => {
-          const arrayBuffer = new Uint8Array(data);
-          combinedArray.set(arrayBuffer, offset);
-          offset += arrayBuffer.byteLength;
-          console.log(
-            `Combined data part ${index + 1} length:`,
-            arrayBuffer.byteLength
-          );
-        });
-
-        console.log("Total combined data length:", combinedArray.byteLength);
-        return combinedArray.buffer;
       }
 
       function base64ToArrayBuffer(base64) {
@@ -174,42 +130,6 @@
         } catch (error) {
           console.error("Base64 conversion failed:", error.message, base64);
           alert("Base64 decoding error. The book file might be corrupted.");
-          return null;
-        }
-      }
-
-      async function decryptFolder(combinedData, password) {
-        const iv = combinedData.slice(0, 12);
-        const encryptedData = combinedData.slice(12);
-
-        console.log("IV length:", iv.byteLength);
-        console.log("Encrypted Data Length:", encryptedData.byteLength);
-
-        const key = await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(password)
-        );
-
-        console.log("Key generated:", key);
-
-        try {
-          const decryptedData = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv },
-            await crypto.subtle.importKey(
-              "raw",
-              key,
-              { name: "AES-GCM" },
-              false,
-              ["decrypt"]
-            ),
-            encryptedData
-          );
-
-          console.log("Decryption successful");
-          return decryptedData;
-        } catch (error) {
-          console.error("Decryption failed:", error);
-          alert("Decryption error. The book file might be corrupted.");
           return null;
         }
       }
