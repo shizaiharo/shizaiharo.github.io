@@ -139,7 +139,7 @@
       }
 
       async function selectBook(bookName, parts) {
-        const base64DataArray = [];
+        const decryptedDataArray = [];
 
         for (const part of parts) {
           const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
@@ -173,7 +173,14 @@
 
             if (gitFileData.content) {
               const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
-              base64DataArray.push(base64Data);
+              const combinedData = base64ToArrayBuffer(base64Data);
+              const folderName = bookName.replace(".zip", "");
+              const numberInFolderName = folderName.match(/\d+/)[0];
+              const password = combine("Kyaru", numberInFolderName);
+              console.log("Decryption Password:", password);
+
+              const decryptedData = await decryptFolder(combinedData, password);
+              decryptedDataArray.push(decryptedData);
             } else {
               alert("No content found in the file.");
             }
@@ -182,14 +189,8 @@
           }
         }
 
-        const combinedBase64Data = base64DataArray.join("");
-        console.log("Final Combined Base64:", combinedBase64Data.slice(0, 100));
-        const folderName = bookName.replace(".zip", "");
-        const numberInFolderName = folderName.match(/\d+/)[0];
-        const password = combine("Kyaru", numberInFolderName);
-        console.log("Decryption Password:", password);
-
-        await storeBookData(bookName, combinedBase64Data, password);
+        const combinedData = combineArrayBuffers(decryptedDataArray);
+        await storeBookData(bookName, combinedData, password);
         window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
       }
 
