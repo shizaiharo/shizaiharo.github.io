@@ -149,16 +149,19 @@
         const decryptPromises = bufferParts.map((buffer) => decryptFolder(buffer, password));
         const decryptedZips = await Promise.all(decryptPromises);
 
-        // Step 4: Extract files from all decrypted ZIPs
-        const decryptedDataArray = [];
-        for (const zip of decryptedZips) {
-          for (const fileName in zip.files) {
-            if (!zip.files[fileName].dir) {
-              const fileData = await zip.files[fileName].async("arraybuffer");
-              decryptedDataArray.push({ fileName, fileData });
-            }
-          }
-        }
+        // Step 4: Extract files from all decrypted ZIPs concurrently
+        const fileExtractionPromises = decryptedZips.flatMap((zip) =>
+          Object.keys(zip.files)
+            .filter((fileName) => !zip.files[fileName].dir) // Exclude directories
+            .map((fileName) =>
+              zip.files[fileName].async("arraybuffer").then((fileData) => ({
+                fileName,
+                fileData,
+              }))
+            )
+        );
+
+        const decryptedDataArray = await Promise.all(fileExtractionPromises);
 
         console.log("Decrypted Data Array:", decryptedDataArray);
         
