@@ -180,9 +180,16 @@
               
               console.log("Decryption Password:", password);
 
-              const decryptedData = await decryptFolder(combinedData, password);
-              console.log("Decrypted Data:", decryptedData);
-              decryptedDataArray.push(decryptedData);
+              const decryptedZip = await decryptFolder(combinedData, password);
+              console.log("Decrypted Data:", decryptedZip);
+
+              // Extract ArrayBuffers from the JSZip object
+              for (const fileName in decryptedZip.files) {
+                if (!decryptedZip.files[fileName].dir) {
+                  const fileData = await decryptedZip.files[fileName].async("arraybuffer");
+                  decryptedDataArray.push(fileData);
+                }
+              }
             } else {
               alert("No content found in the file.");
             }
