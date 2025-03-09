@@ -130,71 +130,135 @@
         });
       }
 
-      async function selectBook(bookName, parts) {
-        const decryptedDataArray = [];
-        const folderName = bookName.replace(".zip", "");
-        const numberInFolderName = folderName.match(/\d+/)[0];
-        const password = combine("Kyaru", numberInFolderName);
+    //   async function selectBook(bookName, parts) {
+    //     const decryptedDataArray = [];
+    //     const folderName = bookName.replace(".zip", "");
+    //     const numberInFolderName = folderName.match(/\d+/)[0];
+    //     const password = combine("Kyaru", numberInFolderName);
 
-        for (const part of parts) {
-          const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
-          console.log("Fetching file metadata:", url);
-          const response = await fetch(url, {
-            headers: { Authorization: `token ${token}` },
-          });
+    //     for (const part of parts) {
+    //       const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
+    //       console.log("Fetching file metadata:", url);
+    //       const response = await fetch(url, {
+    //         headers: { Authorization: `Bearer ${token}` },
+    //       });
 
-          if (!response.ok) {
-            console.error("Failed to fetch file metadata:", await response.text());
-            alert("Failed to fetch the book. Please try again.");
-            return;
-          }
+    //       if (!response.ok) {
+    //         console.error("Failed to fetch file metadata:", await response.text());
+    //         alert("Failed to fetch the book. Please try again.");
+    //         return;
+    //       }
 
-          const fileData = await response.json();
-          console.log("File Metadata Response:", fileData);
+    //       const fileData = await response.json();
+    //       console.log("File Metadata Response:", fileData);
 
-          if (fileData.git_url) {
-            const gitResponse = await fetch(fileData.git_url, {
-              headers: { Authorization: `token ${token}` },
-            });
+    //       if (fileData.git_url) {
+    //         const gitResponse = await fetch(fileData.git_url, {
+    //           headers: { Authorization: `Bearer ${token}` },
+    //         });
 
-            if (!gitResponse.ok) {
-              console.error("Failed to fetch file content:", await gitResponse.text());
-              alert("Failed to retrieve file content.");
-              return;
-            }
+    //         if (!gitResponse.ok) {
+    //           console.error("Failed to fetch file content:", await gitResponse.text());
+    //           alert("Failed to retrieve file content.");
+    //           return;
+    //         }
 
-            const gitFileData = await gitResponse.json();
-            console.log("Git Blob Response:", gitFileData);
+    //         const gitFileData = await gitResponse.json();
+    //         console.log("Git Blob Response:", gitFileData);
 
-            if (gitFileData.content) {
-              const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
-              const combinedData = base64ToArrayBuffer(base64Data);
+    //         if (gitFileData.content) {
+    //           const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
+    //           const combinedData = base64ToArrayBuffer(base64Data);
               
-              console.log("Decryption Password:", password);
+    //           console.log("Decryption Password:", password);
 
-              const decryptedZip = await decryptFolder(combinedData, password);
-              console.log("Decrypted Data:", decryptedZip);
+    //           const decryptedZip = await decryptFolder(combinedData, password);
+    //           console.log("Decrypted Data:", decryptedZip);
 
-              // Extract ArrayBuffers from the JSZip object
-              for (const fileName in decryptedZip.files) {
-                if (!decryptedZip.files[fileName].dir) {
-                  const fileData = await decryptedZip.files[fileName].async("arraybuffer");
-                  decryptedDataArray.push({ fileName, fileData });
-                }
-              }
-            } else {
-              alert("No content found in the file.");
-            }
-          } else {
-            alert("Git URL not found. The file may be too large.");
+    //           // Extract ArrayBuffers from the JSZip object
+    //           for (const fileName in decryptedZip.files) {
+    //             if (!decryptedZip.files[fileName].dir) {
+    //               const fileData = await decryptedZip.files[fileName].async("arraybuffer");
+    //               decryptedDataArray.push({ fileName, fileData });
+    //             }
+    //           }
+    //         } else {
+    //           alert("No content found in the file.");
+    //         }
+    //       } else {
+    //         alert("Git URL not found. The file may be too large.");
+    //       }
+    //     }
+
+    //     console.log("Decrypted Data Array:", decryptedDataArray);
+        
+    //     await storeBookData(bookName, decryptedDataArray, password);
+    //     window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
+    //   }
+    async function selectBook(bookName, parts) {
+      const folderName = bookName.replace(".zip", "");
+      const numberInFolderName = folderName.match(/\d+/)[0];
+      const password = combine("Kyaru", numberInFolderName);
+
+      const fetchPromises = parts.map(async (part) => {
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
+        const response = await fetch(url, {
+          headers: { Authorization: `token ${token}` },
+        });
+
+        if (!response.ok) {
+          console.error("Failed to fetch file metadata:", await response.text());
+          throw new Error("Failed to fetch the book.");
+        }
+
+        const fileData = await response.json();
+        if (!fileData.git_url) {
+          throw new Error("Git URL not found. The file may be too large.");
+        }
+
+        const gitResponse = await fetch(fileData.git_url, {
+          headers: { Authorization: `token ${token}` },
+        });
+
+        if (!gitResponse.ok) {
+          console.error("Failed to fetch file content:", await gitResponse.text());
+          throw new Error("Failed to retrieve file content.");
+        }
+
+        const gitFileData = await gitResponse.json();
+        if (!gitFileData.content) {
+          throw new Error("No content found in the file.");
+        }
+
+        return base64ToArrayBuffer(gitFileData.content.replace(/\n/g, ""));
+      });
+
+      try {
+        const encryptedDataArray = await Promise.all(fetchPromises);
+        console.log("Fetched all parts successfully.");
+
+        const combinedData = combineArrayBuffers(encryptedDataArray);
+        console.log("Decryption Password:", password);
+
+        const decryptedZip = await decryptFolder(combinedData, password);
+        console.log("Decryption complete.");
+
+        const decryptedDataArray = [];
+        for (const fileName in decryptedZip.files) {
+          if (!decryptedZip.files[fileName].dir) {
+            const fileData = await decryptedZip.files[fileName].async("arraybuffer");
+            decryptedDataArray.push({ fileName, fileData });
           }
         }
 
-        console.log("Decrypted Data Array:", decryptedDataArray);
-        
+        console.log("Extracted all files.");
         await storeBookData(bookName, decryptedDataArray, password);
         window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
+
+      } catch (error) {
+        alert(error.message);
       }
+    }
 
       function base64ToArrayBuffer(base64) {
         const binaryString = atob(base64);
