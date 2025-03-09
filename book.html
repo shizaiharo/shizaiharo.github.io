@@ -140,12 +140,14 @@
       function base64ToArrayBuffer(base64) {
         try {
           const cleanedBase64 = cleanBase64String(base64);
+          console.log("Cleaned OK")
 
           if (!/^[A-Za-z0-9+/=]+$/.test(cleanedBase64)) {
             throw new Error("Invalid base64 characters detected!");
           }
 
           const binaryString = atob(cleanedBase64);
+          console.log("atob OK")
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
