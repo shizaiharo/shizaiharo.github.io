@@ -64,11 +64,17 @@
           if (bookDataArray && bookDataArray.length > 0) {
             const decryptedDataArray = [];
             for (const bookData of bookDataArray) {
+              console.log("Decrypting with password:", bookData.password);
               const decryptedData = await decryptFolder(
                 bookData.data,
                 bookData.password
               );
-              decryptedDataArray.push(decryptedData);
+              if (decryptedData) {
+                decryptedDataArray.push(decryptedData);
+              } else {
+                console.error("Decryption failed for part of the book data.");
+                return;
+              }
             }
 
             const combinedData = combineArrayBuffers(decryptedDataArray);
@@ -184,7 +190,7 @@
           new TextEncoder().encode(password)
         );
 
-        console.log("Key generated");
+        console.log("Key generated:", key);
 
         try {
           const decryptedData = await crypto.subtle.decrypt(
