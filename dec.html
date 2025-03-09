@@ -190,7 +190,9 @@
           }
         }
 
+        console.log("Decrypted Data Array:", decryptedDataArray);
         const combinedData = combineArrayBuffers(decryptedDataArray);
+        console.log("Combined Data Length:", combinedData.byteLength);
         await storeBookData(bookName, combinedData, password);
         window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
       }
