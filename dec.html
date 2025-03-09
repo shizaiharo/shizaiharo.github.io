@@ -45,7 +45,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
         if (token) {
-            document.getElementById("browseBookButton").style.display = "block";
+            document.getElementById("browseBookButton").style.display = "inline";
         } else {
           alert("Please upload the token file first.");
         }
