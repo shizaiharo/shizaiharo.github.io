@@ -106,32 +106,32 @@
       
         return new Promise((resolve, reject) => {
           const request = indexedDB.open("bookDatabase", 1);
-      
+
           request.onupgradeneeded = function (event) {
             const db = event.target.result;
             if (!db.objectStoreNames.contains("books")) {
               db.createObjectStore("books", { keyPath: "name" });
             }
           };
-      
+
           request.onsuccess = function (event) {
             const db = event.target.result;
             const transaction = db.transaction("books", "readwrite");
             const store = transaction.objectStore("books");
-      
+
             store.put({ name: bookName, data: base64Data, password: password });
-      
+
             transaction.oncomplete = function () {
               console.log(`Book ${bookName} stored successfully`);
               resolve();
             };
-      
+
             transaction.onerror = function () {
-              console.error("IndexedDB Transaction Failed:", transaction.error);
-              reject(transaction.error);
+                console.error("IndexedDB Transaction Failed:", transaction.error);
+                reject(transaction.error);
             };
           };
-      
+
           request.onerror = function () {
             reject(request.error);
           };
@@ -142,24 +142,48 @@
         const base64DataArray = [];
 
         for (const part of parts) {
-          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Books/${part}`;
-          console.log("Fetching raw file:", rawUrl);
-          
-          const fileResponse = await fetch(rawUrl);
-          if (!fileResponse.ok) {
-            console.error("Failed to fetch file:", fileResponse.status, fileResponse.statusText);
-            alert(`Failed to fetch ${part}: ${fileResponse.statusText}`);
+          const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
+          console.log("Fetching file metadata:", url);
+          const response = await fetch(url, {
+            headers: { Authorization: `token ${token}` },
+          });
+
+          if (!response.ok) {
+            console.error("Failed to fetch file metadata:", await response.text());
+            alert("Failed to fetch the book. Please try again.");
             return;
           }
 
-          let base64Data = await fileResponse.text();
-          base64Data = base64Data.replace(/\s+/g, ""); // Clean up unwanted spaces/newlines
-          base64DataArray.push(base64Data);
+          const fileData = await response.json();
+          console.log("File Metadata Response:", fileData);
+
+          if (fileData.git_url) {
+            const gitResponse = await fetch(fileData.git_url, {
+              headers: { Authorization: `token ${token}` },
+            });
+
+            if (!gitResponse.ok) {
+              console.error("Failed to fetch file content:", await gitResponse.text());
+              alert("Failed to retrieve file content.");
+              return;
+            }
+
+            const gitFileData = await gitResponse.json();
+            console.log("Git Blob Response:", gitFileData);
+
+            if (gitFileData.content) {
+              const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
+              base64DataArray.push(base64Data);
+            } else {
+              alert("No content found in the file.");
+            }
+          } else {
+            alert("Git URL not found. The file may be too large.");
+          }
         }
 
-        const combinedBase64Data = base64DataArray.join(""); // Merge all parts
+        const combinedBase64Data = base64DataArray.join("");
         console.log("Final Combined Base64:", combinedBase64Data.slice(0, 100));
-
         const folderName = bookName.replace(".zip", "");
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
