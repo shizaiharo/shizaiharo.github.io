@@ -133,21 +133,17 @@
         return combinedArray.buffer;
       }
 
-      function cleanBase64String(base64) {
-        return base64.replace(/[^A-Za-z0-9+/=]/g, "");
-      }
-
       function base64ToArrayBuffer(base64) {
         try {
-          const cleanedBase64 = cleanBase64String(base64);
-          console.log("Cleaned OK")
+          let cleanedBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, "");
+          cleanedBase64 = cleanedBase64.replace(/-/g, "+").replace(/_/g, "/"); // Fix URL-safe encoding issues
 
-          if (!/^[A-Za-z0-9+/=]+$/.test(cleanedBase64)) {
-            throw new Error("Invalid base64 characters detected!");
-          }
+          console.log("Cleaned base64 length:", cleanedBase64.length);
+          console.log("Last 10 chars:", cleanedBase64.slice(-10));
 
           const binaryString = atob(cleanedBase64);
-          console.log("atob OK")
+          console.log("atob OK");
+
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
             bytes[i] = binaryString.charCodeAt(i);
