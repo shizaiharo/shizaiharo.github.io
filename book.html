@@ -83,13 +83,20 @@
             const transaction = db.transaction("books", "readonly");
             const store = transaction.objectStore("books");
 
-            const query = store.getAll();
+            const query = store.get(bookName);
 
             query.onsuccess = function () {
-              const results = query.result.filter((item) =>
-                item.name.startsWith(bookName)
-              );
-              resolve(results);
+              const item = query.result;
+              if (item) {
+                resolve([
+                  {
+                    data: base64ToArrayBuffer(item.data),
+                    password: item.password,
+                  },
+                ]);
+              } else {
+                resolve([]);
+              }
             };
 
             query.onerror = function () {
@@ -112,8 +119,9 @@
         let offset = 0;
 
         dataArray.forEach((data) => {
-          combinedArray.set(new Uint8Array(data.data), offset);
-          offset += data.data.byteLength;
+          const arrayBuffer = new Uint8Array(data.data);
+          combinedArray.set(arrayBuffer, offset);
+          offset += arrayBuffer.byteLength;
         });
 
         return combinedArray.buffer;
