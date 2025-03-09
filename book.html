@@ -135,12 +135,17 @@
         const combinedArray = new Uint8Array(totalLength);
         let offset = 0;
 
-        dataArray.forEach((data) => {
+        dataArray.forEach((data, index) => {
           const arrayBuffer = new Uint8Array(data);
           combinedArray.set(arrayBuffer, offset);
           offset += arrayBuffer.byteLength;
+          console.log(
+            `Combined data part ${index + 1} length:`,
+            arrayBuffer.byteLength
+          );
         });
 
+        console.log("Total combined data length:", combinedArray.byteLength);
         return combinedArray.buffer;
       }
 
@@ -171,24 +176,36 @@
         const iv = combinedData.slice(0, 12);
         const encryptedData = combinedData.slice(12);
 
+        console.log("IV length:", iv.byteLength);
+        console.log("Encrypted Data Length:", encryptedData.byteLength);
+
         const key = await crypto.subtle.digest(
           "SHA-256",
           new TextEncoder().encode(password)
         );
 
-        const decryptedData = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv },
-          await crypto.subtle.importKey(
-            "raw",
-            key,
-            { name: "AES-GCM" },
-            false,
-            ["decrypt"]
-          ),
-          encryptedData
-        );
+        console.log("Key generated");
 
-        return decryptedData;
+        try {
+          const decryptedData = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            await crypto.subtle.importKey(
+              "raw",
+              key,
+              { name: "AES-GCM" },
+              false,
+              ["decrypt"]
+            ),
+            encryptedData
+          );
+
+          console.log("Decryption successful");
+          return decryptedData;
+        } catch (error) {
+          console.error("Decryption failed:", error);
+          alert("Decryption error. The book file might be corrupted.");
+          return null;
+        }
       }
 
       window.onload = loadBook;
