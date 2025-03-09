@@ -229,13 +229,6 @@
                 }
               }
 
-              if (!uploadSuccess) {
-                console.log("Upload failed after maximum attempts.");
-                document.getElementById(
-                  "status"
-                ).textContent = `Failed to upload encrypted folder part ${zipIndex} after ${maxAttempts} attempts ❌`;
-              }
-            // }
 
             async function uploadBook() {
               if (!token) {
