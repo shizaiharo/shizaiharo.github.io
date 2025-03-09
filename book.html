@@ -26,6 +26,13 @@
         const imagesContainer = document.getElementById("imagesContainer");
         imagesContainer.innerHTML = ""; // Clear previous images
 
+        // Sort files by fileName in ascending order
+        files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+
+        // Log file names
+        console.log("File names in ascending order:");
+        files.forEach((file) => console.log(file.fileName));
+
         for (const file of files) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
             const blob = new Blob([file.fileData]);
