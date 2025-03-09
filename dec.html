@@ -150,18 +150,8 @@
         const decryptedZips = await Promise.all(decryptPromises);
 
         // Step 4: Extract files from all decrypted ZIPs concurrently
-        const fileExtractionPromises = decryptedZips.flatMap((zip) =>
-          Object.keys(zip.files)
-            .filter((fileName) => !zip.files[fileName].dir) // Exclude directories
-            .map((fileName) =>
-              zip.files[fileName].async("arraybuffer").then((fileData) => ({
-                fileName,
-                fileData,
-              }))
-            )
-        );
-
-        const decryptedDataArray = await Promise.all(fileExtractionPromises);
+        const fileExtractionPromises = decryptedZips.map((zip) => extractFilesFast(zip));
+        const decryptedDataArray = (await Promise.all(fileExtractionPromises)).flat();
 
         console.log("Decrypted Data Array:", decryptedDataArray);
         
@@ -174,6 +164,43 @@
         console.error("Error processing book:", error);
         alert("Failed to process the book. Please try again.");
       }
+    }
+
+    async function extractFilesFast(zip) {
+      const fileEntries = Object.entries(zip.files).filter(([name, file]) => !file.dir);
+
+      const extractedFiles = await Promise.all(
+        fileEntries.map(async ([fileName, file]) => {
+          const stream = file.stream(); // Get a stream instead of an array buffer
+          return { fileName, fileData: await streamToArrayBuffer(stream) };
+        })
+      );
+
+      return extractedFiles;
+    }
+
+    // Convert ReadableStream to ArrayBuffer
+    async function streamToArrayBuffer(stream) {
+      const reader = stream.getReader();
+      const chunks = [];
+      let totalLength = 0;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        totalLength += value.length;
+      }
+
+      // Combine chunks into a single ArrayBuffer
+      const combined = new Uint8Array(totalLength);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(chunk, offset);
+        offset += chunk.length;
+      }
+
+      return combined.buffer;
     }
 
     // Fetch book part metadata and content
