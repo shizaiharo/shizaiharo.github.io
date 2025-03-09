@@ -60,7 +60,7 @@
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books?ref=${branch}`;
         const response = await fetch(url, {
           headers: {
-            Authorization: `token ${token}`,
+            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -144,34 +144,17 @@
           }
 
           const fileData = await response.json();
-          console.log("File Metadata Response:", fileData);
+          if (fileData.download_url) {
+            const fileResponse = await fetch(fileData.download_url);
+            let base64Data = await fileResponse.text();
 
-          if (fileData.git_url) {
-            const gitResponse = await fetch(fileData.git_url, {
-              headers: { Authorization: `token ${token}` },
-            });
-
-            if (!gitResponse.ok) {
-              console.error("Failed to fetch file content:", await gitResponse.text());
-              alert("Failed to retrieve file content.");
-              return;
-            }
-
-            const gitFileData = await gitResponse.json();
-            console.log("Git Blob Response:", gitFileData);
-
-            if (gitFileData.content) {
-              const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
-              base64DataArray.push(base64Data);
-            } else {
-              alert("No content found in the file.");
-            }
-          } else {
-            alert("Git URL not found. The file may be too large.");
+            // 🚀 **Fix: Remove any unwanted characters (GitHub might add newlines)**
+            base64Data = base64Data.replace(/\s+/g, ""); // Remove spaces, newlines
+            base64DataArray.push(base64Data);
           }
         }
 
-        const combinedBase64Data = base64DataArray.join("");
+        const combinedBase64Data = base64DataArray.join(""); // Merge parts properly
         const folderName = bookName.replace(".zip", "");
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
