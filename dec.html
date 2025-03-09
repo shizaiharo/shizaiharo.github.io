@@ -130,71 +130,6 @@
         });
       }
 
-    //   async function selectBook(bookName, parts) {
-    //     const decryptedDataArray = [];
-    //     const folderName = bookName.replace(".zip", "");
-    //     const numberInFolderName = folderName.match(/\d+/)[0];
-    //     const password = combine("Kyaru", numberInFolderName);
-
-    //     for (const part of parts) {
-    //       const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
-    //       console.log("Fetching file metadata:", url);
-    //       const response = await fetch(url, {
-    //         headers: { Authorization: `Bearer ${token}` },
-    //       });
-
-    //       if (!response.ok) {
-    //         console.error("Failed to fetch file metadata:", await response.text());
-    //         alert("Failed to fetch the book. Please try again.");
-    //         return;
-    //       }
-
-    //       const fileData = await response.json();
-    //       console.log("File Metadata Response:", fileData);
-
-    //       if (fileData.git_url) {
-    //         const gitResponse = await fetch(fileData.git_url, {
-    //           headers: { Authorization: `Bearer ${token}` },
-    //         });
-
-    //         if (!gitResponse.ok) {
-    //           console.error("Failed to fetch file content:", await gitResponse.text());
-    //           alert("Failed to retrieve file content.");
-    //           return;
-    //         }
-
-    //         const gitFileData = await gitResponse.json();
-    //         console.log("Git Blob Response:", gitFileData);
-
-    //         if (gitFileData.content) {
-    //           const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
-    //           const combinedData = base64ToArrayBuffer(base64Data);
-              
-    //           console.log("Decryption Password:", password);
-
-    //           const decryptedZip = await decryptFolder(combinedData, password);
-    //           console.log("Decrypted Data:", decryptedZip);
-
-    //           // Extract ArrayBuffers from the JSZip object
-    //           for (const fileName in decryptedZip.files) {
-    //             if (!decryptedZip.files[fileName].dir) {
-    //               const fileData = await decryptedZip.files[fileName].async("arraybuffer");
-    //               decryptedDataArray.push({ fileName, fileData });
-    //             }
-    //           }
-    //         } else {
-    //           alert("No content found in the file.");
-    //         }
-    //       } else {
-    //         alert("Git URL not found. The file may be too large.");
-    //       }
-    //     }
-
-    //     console.log("Decrypted Data Array:", decryptedDataArray);
-        
-    //     await storeBookData(bookName, decryptedDataArray, password);
-    //     window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
-    //   }
     async function selectBook(bookName, parts) {
       const folderName = bookName.replace(".zip", "");
       const numberInFolderName = folderName.match(/\d+/)[0];
@@ -206,38 +141,29 @@
           headers: { Authorization: `token ${token}` },
         });
 
-        if (!response.ok) {
-          console.error("Failed to fetch file metadata:", await response.text());
-          throw new Error("Failed to fetch the book.");
-        }
+        if (!response.ok) throw new Error(`Failed to fetch ${part}`);
 
         const fileData = await response.json();
-        if (!fileData.git_url) {
-          throw new Error("Git URL not found. The file may be too large.");
-        }
+        if (!fileData.git_url) throw new Error("Git URL not found");
 
         const gitResponse = await fetch(fileData.git_url, {
           headers: { Authorization: `token ${token}` },
         });
 
-        if (!gitResponse.ok) {
-          console.error("Failed to fetch file content:", await gitResponse.text());
-          throw new Error("Failed to retrieve file content.");
-        }
+        if (!gitResponse.ok) throw new Error(`Failed to retrieve ${part}`);
 
         const gitFileData = await gitResponse.json();
-        if (!gitFileData.content) {
-          throw new Error("No content found in the file.");
-        }
-
-        return base64ToArrayBuffer(gitFileData.content.replace(/\n/g, ""));
+        return { part, data: base64ToArrayBuffer(gitFileData.content.replace(/\n/g, "")) };
       });
 
+      // Fetch all files and ensure correct order
+      const encryptedDataArray = await Promise.all(fetchPromises);
+      encryptedDataArray.sort((a, b) => a.part.localeCompare(b.part)); // Ensure correct order
+      const combinedData = combineArrayBuffers(encryptedDataArray.map((item) => item.data));
+
       try {
-        const encryptedDataArray = await Promise.all(fetchPromises);
         console.log("Fetched all parts successfully.");
 
-        const combinedData = combineArrayBuffers(encryptedDataArray);
         console.log("Decryption Password:", password);
 
         const decryptedZip = await decryptFolder(combinedData, password);
@@ -279,41 +205,26 @@
       }
 
       async function decryptFolder(combinedData, password) {
-        // Extract IV from the first 12 bytes
+        if (combinedData.byteLength < 12) {
+          throw new Error("Invalid encrypted data: too short to contain IV");
+        }
+      
         const iv = combinedData.slice(0, 12);
-        console.log("IV length:", iv.byteLength);
-        if (iv.byteLength !== 12) {
-          console.error("IV is incorrect:", iv);
-        }
-
-        // Extract actual encrypted data
         const encryptedData = combinedData.slice(12);
-        console.log("Encrypted Data Length:", encryptedData.byteLength);
-        if (encryptedData.byteLength === 0) {
-          console.error("No encrypted data found!");
+      
+        console.log("IV extracted:", new Uint8Array(iv));
+        console.log("Encrypted data length:", encryptedData.byteLength);
+      
+        const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+        const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["decrypt"]);
+      
+        try {
+          const decryptedData = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, encryptedData);
+          return JSZip.loadAsync(decryptedData);
+        } catch (error) {
+          console.error("Decryption failed. Possible reasons: incorrect password, IV mismatch, or corrupted data.");
+          throw error;
         }
-
-        // Generate decryption key
-        const key = await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(password)
-        );
-
-        // Decrypt data
-        const decryptedData = await crypto.subtle.decrypt(
-          { name: "AES-GCM", iv },
-          await crypto.subtle.importKey(
-            "raw",
-            key,
-            { name: "AES-GCM" },
-            false,
-            ["decrypt"]
-          ),
-          encryptedData
-        );
-
-        // Load decrypted ZIP archive
-        return JSZip.loadAsync(decryptedData);
       }
 
       function combine(str1, str2) {
