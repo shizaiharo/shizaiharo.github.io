@@ -69,29 +69,16 @@
           const booksList = document.getElementById("booksList");
           booksList.innerHTML = ""; // Clear previous list
 
-          const bookParts = {};
+          const folders = files.filter(file => file.type === "dir");
 
-          files.forEach((file) => {
-            const match = file.name.match(/(.+)_part(\d+)\.zip/);
-            if (match) {
-              const bookName = match[1];
-              if (!bookParts[bookName]) {
-                bookParts[bookName] = [];
-              }
-              bookParts[bookName].push(file.name);
-            }
-          });
-
-          Object.keys(bookParts).forEach((bookName) => {
+          folders.forEach((folder) => {
             const listItem = document.createElement("li");
-            listItem.textContent = bookName;
-            listItem.onclick = () => selectBook(bookName, bookParts[bookName]);
+            listItem.textContent = folder.name;
+            listItem.onclick = () => selectBook(folder.name);
             booksList.appendChild(listItem);
           });
         } else {
-          alert(
-            "Failed to fetch books. Please check your token and try again."
-          );
+          alert("Failed to fetch books. Please check your token and try again.");
         }
       }
 
@@ -130,16 +117,29 @@
         });
       }
 
-    async function selectBook(bookName, parts) {
-      const folderName = bookName.replace(".zip", "");
+    async function selectBook(folderName) {
       const numberInFolderName = folderName.match(/\d+/)[0];
       const password = combine("Kyaru", numberInFolderName);
 
       console.log("Decryption Password:", password);
 
       try {
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${folderName}?ref=${branch}`;
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch folder contents: ${await response.text()}`);
+        }
+
+        const files = await response.json();
+        const parts = files.map(file => file.name);
+
         // Step 1: Fetch all parts in parallel
-        const fetchPromises = parts.map((part) => fetchBookPart(part));
+        const fetchPromises = parts.map((part) => fetchBookPart(`${folderName}/${part}`));
         const base64Parts = await Promise.all(fetchPromises);
 
         // Step 2: Convert to ArrayBuffer
@@ -166,10 +166,10 @@
         console.log("Decrypted Data Array:", decryptedDataArray);
         
         // Step 5: Store in IndexedDB
-        await storeBookData(bookName, decryptedDataArray, password);
+        await storeBookData(folderName, decryptedDataArray, password);
 
         // Step 6: Open book page
-        window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
+        window.open(`book.html?bookName=${encodeURIComponent(folderName)}`, "_blank");
       } catch (error) {
         console.error("Error processing book:", error);
         alert("Failed to process the book. Please try again.");
