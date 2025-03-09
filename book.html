@@ -53,14 +53,18 @@
         const bookNumberWithBrackets = "[" + bookNumber + "]";
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
-        document.getElementById("bookNameBeforeNumber").textContent = bookNameBeforeNumber;
+        document.getElementById("bookNameBeforeNumber").textContent =
+          bookNameBeforeNumber;
 
         try {
-          const bookData = await getBookData(bookName);
+          const bookDataArray = await getBookDataArray(bookName);
 
-          if (bookData) {
-            const combinedData = base64ToArrayBuffer(bookData.data);
-            const zip = await decryptFolder(combinedData, bookData.password);
+          if (bookDataArray && bookDataArray.length > 0) {
+            const combinedData = combineArrayBuffers(bookDataArray);
+            const zip = await decryptFolder(
+              combinedData,
+              bookDataArray[0].password
+            );
             displayImages(zip);
           } else {
             alert("Book data not found.");
@@ -70,7 +74,7 @@
         }
       }
 
-      async function getBookData(bookName) {
+      async function getBookDataArray(bookName) {
         return new Promise((resolve, reject) => {
           const request = indexedDB.open("bookDatabase", 1);
 
@@ -79,10 +83,13 @@
             const transaction = db.transaction("books", "readonly");
             const store = transaction.objectStore("books");
 
-            const query = store.get(bookName);
+            const query = store.getAll();
 
             query.onsuccess = function () {
-              resolve(query.result);
+              const results = query.result.filter((item) =>
+                item.name.startsWith(bookName)
+              );
+              resolve(results);
             };
 
             query.onerror = function () {
@@ -94,6 +101,22 @@
             reject(request.error);
           };
         });
+      }
+
+      function combineArrayBuffers(dataArray) {
+        const totalLength = dataArray.reduce(
+          (acc, data) => acc + data.data.byteLength,
+          0
+        );
+        const combinedArray = new Uint8Array(totalLength);
+        let offset = 0;
+
+        dataArray.forEach((data) => {
+          combinedArray.set(new Uint8Array(data.data), offset);
+          offset += data.data.byteLength;
+        });
+
+        return combinedArray.buffer;
       }
 
       function base64ToArrayBuffer(base64) {
