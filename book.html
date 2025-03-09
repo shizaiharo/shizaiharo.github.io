@@ -22,15 +22,13 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
-      async function displayImages(zip) {
+      async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
         imagesContainer.innerHTML = ""; // Clear previous images
 
-        for (const fileName of Object.keys(zip.files)) {
-          const file = zip.files[fileName];
-
-          if (!file.dir && /\.(jpe?g|png|gif)$/i.test(fileName)) {
-            const blob = await file.async("blob");
+        for (const file of files) {
+          if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
+            const blob = new Blob([file.fileData]);
             const img = document.createElement("img");
             img.src = URL.createObjectURL(blob);
             imagesContainer.appendChild(img);
@@ -62,9 +60,7 @@
           const bookData = await getBookData(bookName);
 
           if (bookData) {
-            const combinedData = base64ToArrayBuffer(bookData.data);
-            const zip = await JSZip.loadAsync(combinedData);
-            displayImages(zip);
+            displayImages(bookData.files);
           } else {
             alert("Book data not found.");
           }
@@ -88,9 +84,7 @@
             query.onsuccess = function () {
               const item = query.result;
               if (item) {
-                console.log("Retrieved data type:", typeof item.data);
-                console.log("First 50 chars:", item.data.slice(0, 50));
-                console.log("Last 50 chars:", item.data.slice(-50));
+                console.log("Retrieved data type:", typeof item.files);
                 resolve(item);
               } else {
                 console.log("No data found for book:", bookName);
@@ -109,29 +103,6 @@
             reject(request.error);
           };
         });
-      }
-
-      function base64ToArrayBuffer(base64) {
-        try {
-          let cleanedBase64 = base64.replace(/[^A-Za-z0-9+/=]/g, "");
-          cleanedBase64 = cleanedBase64.replace(/-/g, "+").replace(/_/g, "/"); // Fix URL-safe encoding issues
-
-          console.log("Cleaned base64 length:", cleanedBase64.length);
-          console.log("Last 10 chars:", cleanedBase64.slice(-10));
-
-          const binaryString = atob(cleanedBase64);
-          console.log("atob OK");
-
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          return bytes.buffer;
-        } catch (error) {
-          console.error("Base64 conversion failed:", error.message, base64);
-          alert("Base64 decoding error. The book file might be corrupted.");
-          return null;
-        }
       }
 
       window.onload = loadBook;
