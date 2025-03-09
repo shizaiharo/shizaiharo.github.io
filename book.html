@@ -60,11 +60,14 @@
           const bookDataArray = await getBookDataArray(bookName);
 
           if (bookDataArray && bookDataArray.length > 0) {
-            const combinedData = combineArrayBuffers(bookDataArray);
-            const zip = await decryptFolder(
-              combinedData,
-              bookDataArray[0].password
+            const decryptedDataArray = await Promise.all(
+              bookDataArray.map(async (data) => {
+                return await decryptFolder(data.data, data.password);
+              })
             );
+
+            const combinedData = combineArrayBuffers(decryptedDataArray);
+            const zip = await JSZip.loadAsync(combinedData);
             displayImages(zip);
           } else {
             alert("Book data not found.");
@@ -88,12 +91,12 @@
             query.onsuccess = function () {
               const item = query.result;
               if (item) {
-                resolve([
-                  {
-                    data: base64ToArrayBuffer(item.data),
+                resolve(
+                  item.parts.map((part) => ({
+                    data: base64ToArrayBuffer(part.data),
                     password: item.password,
-                  },
-                ]);
+                  }))
+                );
               } else {
                 resolve([]);
               }
@@ -112,14 +115,14 @@
 
       function combineArrayBuffers(dataArray) {
         const totalLength = dataArray.reduce(
-          (acc, data) => acc + data.data.byteLength,
+          (acc, data) => acc + data.byteLength,
           0
         );
         const combinedArray = new Uint8Array(totalLength);
         let offset = 0;
 
         dataArray.forEach((data) => {
-          const arrayBuffer = new Uint8Array(data.data);
+          const arrayBuffer = new Uint8Array(data);
           combinedArray.set(arrayBuffer, offset);
           offset += arrayBuffer.byteLength;
         });
@@ -167,7 +170,7 @@
           encryptedData
         );
 
-        return JSZip.loadAsync(decryptedData);
+        return decryptedData;
       }
 
       window.onload = loadBook;
