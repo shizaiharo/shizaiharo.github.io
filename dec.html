@@ -154,8 +154,8 @@
           }
 
           const fileData = await response.json();
-          if (fileData.download_url) {
-            const fileResponse = await fetch(fileData.download_url);
+          if (fileData.git_url) {
+            const fileResponse = await fetch(fileData.git_url);
             let base64Data = await fileResponse.text();
 
             // 🚀 **Fix: Remove any unwanted characters (GitHub might add newlines)**
