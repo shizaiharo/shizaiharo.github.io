@@ -96,7 +96,7 @@
       }
 
       async function storeBookData(bookName, base64Data, password) {
-console.log("Raw Base64 Data:", base64Data.slice(0, 100)); // Print first 100 chars
+        console.log("Raw Base64 Data:", base64Data.slice(0, 100)); // Print first 100 chars
         
         if (!base64Data || base64Data.length % 4 !== 0) {
           console.error("Corrupt base64 detected, not storing!");
@@ -119,7 +119,7 @@ console.log("Raw Base64 Data:", base64Data.slice(0, 100)); // Print first 100 ch
             const transaction = db.transaction("books", "readwrite");
             const store = transaction.objectStore("books");
 
-            store.put({ name: bookName, parts: base64DataArray, password: password });
+            store.put({ name: bookName, data: base64Data, password: password });
 
             transaction.oncomplete = function () {
               console.log(`Book ${bookName} stored successfully`);
@@ -127,8 +127,8 @@ console.log("Raw Base64 Data:", base64Data.slice(0, 100)); // Print first 100 ch
             };
 
             transaction.onerror = function () {
-              console.error("IndexedDB Transaction Failed:", transaction.error);
-              reject(transaction.error);
+                console.error("IndexedDB Transaction Failed:", transaction.error);
+                reject(transaction.error);
             };
           };
 
@@ -182,12 +182,14 @@ console.log("Raw Base64 Data:", base64Data.slice(0, 100)); // Print first 100 ch
           }
         }
 
+        const combinedBase64Data = base64DataArray.join("");
+        console.log("Final Combined Base64:", combinedBase64Data.slice(0, 100));
         const folderName = bookName.replace(".zip", "");
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
         console.log("Decryption Password:", password);
 
-        await storeBookData(bookName, base64DataArray, password);
+        await storeBookData(bookName, combinedBase64Data, password);
         window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
       }
 

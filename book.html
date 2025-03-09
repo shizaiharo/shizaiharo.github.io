@@ -53,21 +53,17 @@
         const bookNumberWithBrackets = "[" + bookNumber + "]";
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
-        document.getElementById("bookNameBeforeNumber").textContent =
-          bookNameBeforeNumber;
+        document.getElementById("bookNameBeforeNumber").textContent = bookNameBeforeNumber;
 
         try {
           const bookDataArray = await getBookDataArray(bookName);
 
           if (bookDataArray && bookDataArray.length > 0) {
-            const decryptedDataArray = await Promise.all(
-              bookDataArray.map(async (data) => {
-                return await decryptFolder(data.data, data.password);
-              })
+            const combinedData = combineArrayBuffers(bookDataArray);
+            const zip = await decryptFolder(
+              combinedData,
+              bookDataArray[0].password
             );
-
-            const combinedData = combineArrayBuffers(decryptedDataArray);
-            const zip = await JSZip.loadAsync(combinedData);
             displayImages(zip);
           } else {
             alert("Book data not found.");
@@ -90,13 +86,13 @@
 
             query.onsuccess = function () {
               const item = query.result;
-              if (item && item.parts) {
-                resolve(
-                  item.parts.map((part) => ({
-                    data: base64ToArrayBuffer(part),
+              if (item) {
+                resolve([
+                  {
+                    data: base64ToArrayBuffer(item.data),
                     password: item.password,
-                  }))
-                );
+                  },
+                ]);
               } else {
                 resolve([]);
               }
@@ -115,14 +111,14 @@
 
       function combineArrayBuffers(dataArray) {
         const totalLength = dataArray.reduce(
-          (acc, data) => acc + data.byteLength,
+          (acc, data) => acc + data.data.byteLength,
           0
         );
         const combinedArray = new Uint8Array(totalLength);
         let offset = 0;
 
         dataArray.forEach((data) => {
-          const arrayBuffer = new Uint8Array(data);
+          const arrayBuffer = new Uint8Array(data.data);
           combinedArray.set(arrayBuffer, offset);
           offset += arrayBuffer.byteLength;
         });
@@ -170,7 +166,7 @@
           encryptedData
         );
 
-        return decryptedData;
+        return JSZip.loadAsync(decryptedData);
       }
 
       window.onload = loadBook;
