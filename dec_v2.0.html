@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>URLBookName</title>
+    <style>
+      /* Add some basic styles for the list items */
+      #booksList li {
+        cursor: pointer;
+        padding: 5px;
+        border: 1px solid #ccc;
+        margin: 5px 0;
+      }
+      #booksList li:hover {
+        background-color: #f0f0f0;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Dec</h2>
+    <h4>Click on a book to decrypt and view its contents</h4>
+    <button id="backToIndexButton">Main</button>
+    </br>
+    <!-- <p>Welcome to the Dec page!</p> -->
+    <button id="browseBookButton" onclick="browseBooks()" style="display: none">
+      Browse Books
+    </button>
+    <ul id="booksList"></ul>
+    <div id="imagesContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the URL parameter
+
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+            document.getElementById("browseBookButton").style.display = "block";
+        } else {
+          alert("Please upload the token file first.");
+        }
+        document.getElementById("backToIndexButton").onclick = function () {
+          window.location.href = `index.html${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`;
+        };
+      }
+
+      async function browseBooks() {
+        if (!token) {
+          alert("Please upload the token file first on the Enc page.");
+          return;
+        }
+
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books?ref=${branch}`;
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const files = await response.json();
+          const booksList = document.getElementById("booksList");
+          booksList.innerHTML = ""; // Clear previous list
+
+          const bookParts = {};
+
+          files.forEach((file) => {
+            const match = file.name.match(/(.+)_part(\d+)\.zip/);
+            if (match) {
+              const bookName = match[1];
+              if (!bookParts[bookName]) {
+                bookParts[bookName] = [];
+              }
+              bookParts[bookName].push(file.name);
+            }
+          });
+
+          Object.keys(bookParts).forEach((bookName) => {
+            const listItem = document.createElement("li");
+            listItem.textContent = bookName;
+            listItem.onclick = () => selectBook(bookName, bookParts[bookName]);
+            booksList.appendChild(listItem);
+          });
+        } else {
+          alert(
+            "Failed to fetch books. Please check your token and try again."
+          );
+        }
+      }
+
+      async function storeBookData(bookName, files, password) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("bookDatabase", 1);
+      
+          request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains("books")) {
+              db.createObjectStore("books", { keyPath: "name" });
+            }
+          };
+      
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+            const transaction = db.transaction("books", "readwrite");
+            const store = transaction.objectStore("books");
+      
+            store.put({ name: bookName, files, password });
+      
+            transaction.oncomplete = function () {
+              console.log(`Book ${bookName} stored successfully`);
+              resolve();
+            };
+      
+            transaction.onerror = function () {
+              console.error("IndexedDB Transaction Failed:", transaction.error);
+              reject(transaction.error);
+            };
+          };
+      
+          request.onerror = function () {
+            reject(request.error);
+          };
+        });
+      }
+
+      async function selectBook(bookName, parts) {
+        const decryptedDataArray = [];
+        const folderName = bookName.replace(".zip", "");
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        const password = combine("Kyaru", numberInFolderName);
+
+        for (const part of parts) {
+          const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
+          console.log("Fetching file metadata:", url);
+          const response = await fetch(url, {
+            headers: { Authorization: `token ${token}` },
+          });
+
+          if (!response.ok) {
+            console.error("Failed to fetch file metadata:", await response.text());
+            alert("Failed to fetch the book. Please try again.");
+            return;
+          }
+
+          const fileData = await response.json();
+          console.log("File Metadata Response:", fileData);
+
+          if (fileData.git_url) {
+            const gitResponse = await fetch(fileData.git_url, {
+              headers: { Authorization: `token ${token}` },
+            });
+
+            if (!gitResponse.ok) {
+              console.error("Failed to fetch file content:", await gitResponse.text());
+              alert("Failed to retrieve file content.");
+              return;
+            }
+
+            const gitFileData = await gitResponse.json();
+            console.log("Git Blob Response:", gitFileData);
+
+            if (gitFileData.content) {
+              const base64Data = gitFileData.content.replace(/\n/g, ""); // Remove newlines
+              const combinedData = base64ToArrayBuffer(base64Data);
+              
+              console.log("Decryption Password:", password);
+
+              const decryptedZip = await decryptFolder(combinedData, password);
+              console.log("Decrypted Data:", decryptedZip);
+
+              // Extract ArrayBuffers from the JSZip object
+              for (const fileName in decryptedZip.files) {
+                if (!decryptedZip.files[fileName].dir) {
+                  const fileData = await decryptedZip.files[fileName].async("arraybuffer");
+                  decryptedDataArray.push({ fileName, fileData });
+                }
+              }
+            } else {
+              alert("No content found in the file.");
+            }
+          } else {
+            alert("Git URL not found. The file may be too large.");
+          }
+        }
+
+        console.log("Decrypted Data Array:", decryptedDataArray);
+        
+        await storeBookData(bookName, decryptedDataArray, password);
+        window.open(`book.html?bookName=${encodeURIComponent(bookName)}`, "_blank");
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      function arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      async function decryptFolder(combinedData, password) {
+        // Extract IV from the first 12 bytes
+        const iv = combinedData.slice(0, 12);
+        console.log("IV length:", iv.byteLength);
+        if (iv.byteLength !== 12) {
+          console.error("IV is incorrect:", iv);
+        }
+
+        // Extract actual encrypted data
+        const encryptedData = combinedData.slice(12);
+        console.log("Encrypted Data Length:", encryptedData.byteLength);
+        if (encryptedData.byteLength === 0) {
+          console.error("No encrypted data found!");
+        }
+
+        // Generate decryption key
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+
+        // Decrypt data
+        const decryptedData = await crypto.subtle.decrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["decrypt"]
+          ),
+          encryptedData
+        );
+
+        // Load decrypted ZIP archive
+        return JSZip.loadAsync(decryptedData);
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+
+        return combined.join("");
+      }
+
+      function combineArrayBuffers(dataArray) {
+        const totalLength = dataArray.reduce((acc, data) => acc + data.byteLength, 0);
+        const combinedArray = new Uint8Array(totalLength);
+        let offset = 0;
+
+        dataArray.forEach((data) => {
+          const arrayBuffer = new Uint8Array(data);
+          combinedArray.set(arrayBuffer, offset);
+          offset += arrayBuffer.byteLength;
+        });
+
+        return combinedArray.buffer;
+      }
+
+      // Get the token when the page loads
+      window.onload = getTokenFromUrl;
+    </script>
+  </body>
+</html>
