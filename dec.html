@@ -262,6 +262,20 @@
         return combined.join("");
       }
 
+      function combineArrayBuffers(dataArray) {
+        const totalLength = dataArray.reduce((acc, data) => acc + data.byteLength, 0);
+        const combinedArray = new Uint8Array(totalLength);
+        let offset = 0;
+
+        dataArray.forEach((data) => {
+          const arrayBuffer = new Uint8Array(data);
+          combinedArray.set(arrayBuffer, offset);
+          offset += arrayBuffer.byteLength;
+        });
+
+        return combinedArray.buffer;
+      }
+
       // Get the token when the page loads
       window.onload = getTokenFromUrl;
     </script>
