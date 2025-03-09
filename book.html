@@ -94,6 +94,11 @@
             query.onsuccess = function () {
               const item = query.result;
               if (item) {
+                const bookData = query.result;
+                console.log("Retrieved data type:", typeof bookData.data);
+                console.log("First 50 chars:", bookData.data.slice(0, 50));
+                console.log("Last 50 chars:", bookData.data.slice(-50));
+
                 resolve([
                   {
                     data: base64ToArrayBuffer(item.data),
