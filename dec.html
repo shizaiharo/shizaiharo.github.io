@@ -142,30 +142,22 @@
         const base64DataArray = [];
 
         for (const part of parts) {
-          const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
-          console.log("Fetching:", url);
-          const response = await fetch(url, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-
-          if (!response.ok) {
-            console.error("Failed to fetch file metadata:", await response.text());
-            alert("Failed to fetch the book. Please try again.");
+          const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Books/${part}`;
+          console.log("Fetching raw file:", rawUrl);
+          
+          const fileResponse = await fetch(rawUrl);
+          if (!fileResponse.ok) {
+            console.error("Failed to fetch file:", fileResponse.status, fileResponse.statusText);
+            alert(`Failed to fetch ${part}: ${fileResponse.statusText}`);
             return;
           }
 
-          const fileData = await response.json();
-          if (fileData.download_url) {
-            const fileResponse = await fetch(fileData.download_url);
-            let base64Data = await fileResponse.text();
-
-            // 🚀 **Fix: Remove any unwanted characters (GitHub might add newlines)**
-            base64Data = base64Data.replace(/\s+/g, ""); // Remove spaces, newlines
-            base64DataArray.push(base64Data);
-          }
+          let base64Data = await fileResponse.text();
+          base64Data = base64Data.replace(/\s+/g, ""); // Clean up unwanted spaces/newlines
+          base64DataArray.push(base64Data);
         }
 
-        const combinedBase64Data = base64DataArray.join(""); // Merge parts properly
+        const combinedBase64Data = base64DataArray.join(""); // Merge all parts
         console.log("Final Combined Base64:", combinedBase64Data.slice(0, 100));
 
         const folderName = bookName.replace(".zip", "");
