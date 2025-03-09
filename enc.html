@@ -181,8 +181,8 @@
 
                 const base64CombinedData = bufferToBase64(combinedData);
 
-              const numberInFolderName = folderName.match(/\d+/)[0];
-              const path = `Books/${numberInFolderName}/${folderName}_part${zipIndex}.zip`;
+            //   const numberInFolderName = folderName.match(/\d+/)[0];
+              const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
 
               console.log(`Uploading to GitHub at path: ${path}`);
               document.getElementById(
