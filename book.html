@@ -48,6 +48,8 @@
           return;
         }
 
+        console.log("Loading book:", bookName);
+
         // Extract the number from the bookName and set it as the title
         const bookNumber = bookName.match(/\d+/)[0];
         const bookNumberWithBrackets = "[" + bookNumber + "]";
@@ -76,6 +78,7 @@
             alert("Book data not found.");
           }
         } catch (error) {
+          console.error("Error retrieving book data:", error);
           alert("Failed to retrieve book data.");
         }
       }
@@ -106,16 +109,19 @@
                   },
                 ]);
               } else {
+                console.log("No data found for book:", bookName);
                 resolve([]);
               }
             };
 
             query.onerror = function () {
+              console.error("Query error:", query.error);
               reject(query.error);
             };
           };
 
           request.onerror = function () {
+            console.error("IndexedDB open error:", request.error);
             reject(request.error);
           };
         });
