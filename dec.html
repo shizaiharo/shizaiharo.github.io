@@ -96,6 +96,12 @@
       }
 
       async function storeBookData(bookName, base64Data, password) {
+        if (!base64Data || base64Data.length % 4 !== 0) {
+          console.error("Corrupt base64 detected, not storing!");
+          alert("Failed to store book. Base64 data is corrupted.");
+          return;
+        }
+
         return new Promise((resolve, reject) => {
           const request = indexedDB.open("bookDatabase", 1);
 
@@ -114,10 +120,12 @@
             store.put({ name: bookName, data: base64Data, password: password });
 
             transaction.oncomplete = function () {
+              console.log(`Book ${bookName} stored successfully`);
               resolve();
             };
 
             transaction.onerror = function () {
+              console.error("IndexedDB Transaction Failed:", transaction.error);
               reject(transaction.error);
             };
           };
@@ -144,8 +152,8 @@
           }
 
           const fileData = await response.json();
-          if (fileData.download_url) {
-            const fileResponse = await fetch(fileData.download_url);
+          if (fileData.git_url) {
+            const fileResponse = await fetch(fileData.git_url);
             let base64Data = await fileResponse.text();
 
             // 🚀 **Fix: Remove any unwanted characters (GitHub might add newlines)**
