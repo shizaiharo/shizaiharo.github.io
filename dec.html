@@ -15,6 +15,10 @@
       #booksList li:hover {
         background-color: #f0f0f0;
       }
+      /* Hide the search bar initially */
+      #searchBar {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -78,6 +82,9 @@
             listItem.onclick = () => selectBook(folder.name);
             booksList.appendChild(listItem);
           });
+
+          // Show the search bar after books are loaded
+          document.getElementById("searchBar").style.display = "inline";
         } else {
           alert("Failed to fetch books. Please check your token and try again.");
         }
