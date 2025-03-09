@@ -158,8 +158,10 @@
 
       // Fetch all files and ensure correct order
       const encryptedDataArray = await Promise.all(fetchPromises);
-      encryptedDataArray.sort((a, b) => a.part.localeCompare(b.part)); // Ensure correct order
+      encryptedDataArray.sort((a, b) => a.part.localeCompare(b.part)); // Ensure order
+
       const combinedData = combineArrayBuffers(encryptedDataArray.map((item) => item.data));
+      console.log("Final Combined Data Length:", combinedData.byteLength);
 
       try {
         console.log("Fetched all parts successfully.");
@@ -206,24 +208,25 @@
 
       async function decryptFolder(combinedData, password) {
         if (combinedData.byteLength < 12) {
-          throw new Error("Invalid encrypted data: too short to contain IV");
+          console.error("Data too short, missing IV.");
+          return;
         }
       
         const iv = combinedData.slice(0, 12);
         const encryptedData = combinedData.slice(12);
       
-        console.log("IV extracted:", new Uint8Array(iv));
-        console.log("Encrypted data length:", encryptedData.byteLength);
+        console.log("Extracted IV:", new Uint8Array(iv));
+        console.log("Encrypted Data Size:", encryptedData.byteLength);
       
         const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
         const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["decrypt"]);
       
         try {
           const decryptedData = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, encryptedData);
+          console.log("Decryption successful!");
           return JSZip.loadAsync(decryptedData);
         } catch (error) {
-          console.error("Decryption failed. Possible reasons: incorrect password, IV mismatch, or corrupted data.");
-          throw error;
+          console.error("Decryption failed! Possible IV mismatch or corrupted data.", error);
         }
       }
 
@@ -244,8 +247,9 @@
             combined.push(str2[i]);
           }
         }
-
-        return combined.join("");
+        const password = combined.join("");
+        console.log("Generated Password:", password);
+        return password;
       }
 
       function combineArrayBuffers(dataArray) {
