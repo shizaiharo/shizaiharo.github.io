@@ -20,242 +20,313 @@
     <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
       Upload Book
     </button>
+    <br />
+    <h4>Upload a large file</h4>
+    <input type="file" id="largeFileInput" style="display: none" />
+    <button
+      id="uploadLargeFileButton"
+      onclick="uploadLargeFile()"
+      style="display: none"
+    >
+      Upload Large File
+    </button>
     <p id="status"></p>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
-            let token = null;
-            const repo = "Amrita"; // Change to your repository name
-            const owner = "shizaiharo"; // Change to your GitHub username
-            const branch = "main"; // Change to your default branch
-            const MAX_ZIP_SIZE = 40 * 1024 * 1024; // After add encryption will near limit 100MB
+      let token = null;
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      const MAX_ZIP_SIZE = 40 * 1024 * 1024; // After add encryption will near limit 100MB
 
-            function getTokenFromUrl() {
-              const urlParams = new URLSearchParams(window.location.search);
-              token = urlParams.get("token");
-              if (token) {
-                document.getElementById("bookInput").style.display = "inline";
-                document.getElementById("uploadBookButton").style.display = "inline";
-              } else {
-                alert("Please upload the token file first.");
-              }
-              document.getElementById("backToIndexButton").onclick = function () {
-                window.location.href = `index.html${
-                  token ? `?token=${encodeURIComponent(token)}` : ""
-                }`;
-              };
-            }
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+          document.getElementById("bookInput").style.display = "inline";
+          document.getElementById("uploadBookButton").style.display = "inline";
+          document.getElementById("largeFileInput").style.display = "inline";
+          document.getElementById("uploadLargeFileButton").style.display =
+            "inline";
+        } else {
+          alert("Please upload the token file first.");
+        }
+        document.getElementById("backToIndexButton").onclick = function () {
+          window.location.href = `index.html${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`;
+        };
+      }
 
-            function combine(str1, str2) {
-              const combined = [];
-              const len1 = str1.length;
-              const len2 = str2.length;
-              const maxLen = Math.max(len1, len2);
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
 
-              for (let i = 0; i < maxLen; i++) {
-                if (i < len1) {
-                  combined.push(str1[i]);
-                } else {
-                  combined.push("!");
-                }
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
 
-                if (i < len2) {
-                  combined.push(str2[i]);
-                }
-              }
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
 
-              return combined.join("");
-            }
+        return combined.join("");
+      }
 
-            // Don't change this function because of error "RangeError: too many arguments provided for a function call"
-            function bufferToBase64(buffer) {
-              return btoa(
-                new Uint8Array(buffer).reduce(
-                  (data, byte) => data + String.fromCharCode(byte),
-                  ""
-                )
-              );
-            }
+      // Don't change this function because of error "RangeError: too many arguments provided for a function call"
+      function bufferToBase64(buffer) {
+        return btoa(
+          new Uint8Array(buffer).reduce(
+            (data, byte) => data + String.fromCharCode(byte),
+            ""
+          )
+        );
+      }
 
-            function base64ToArrayBuffer(base64) {
-              const binaryString = atob(base64);
-              const bytes = new Uint8Array(binaryString.length);
-              for (let i = 0; i < binaryString.length; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-              }
-              return bytes.buffer;
-            }
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
 
-            async function encryptFolder(files, password, folderName) {
-              let currentZipSize = 0;
-              let zipIndex = 1;
-              let zip = new JSZip();
+      async function encryptFolder(files, password, folderName) {
+        let currentZipSize = 0;
+        let zipIndex = 1;
+        let zip = new JSZip();
 
-              for (const file of files) {
-                const fileSize = file.size;
-                if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
-                  // Generate the current zip blob and reset for the next zip
-                  await generateAndUploadZip(zip, password, zipIndex, folderName);
-                  zip = new JSZip();
-                  currentZipSize = 0;
-                  zipIndex++;
-                }
-                console.log(
-                  `Adding file to zip: ${file.webkitRelativePath || file.name}`
-                );
-                zip.file(file.webkitRelativePath || file.name, file);
-                currentZipSize += fileSize;
-              }
+        for (const file of files) {
+          const fileSize = file.size;
+          if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
+            // Generate the current zip blob and reset for the next zip
+            await generateAndUploadZip(zip, password, zipIndex, folderName);
+            zip = new JSZip();
+            currentZipSize = 0;
+            zipIndex++;
+          }
+          console.log(
+            `Adding file to zip: ${file.webkitRelativePath || file.name}`
+          );
+          zip.file(file.webkitRelativePath || file.name, file);
+          currentZipSize += fileSize;
+        }
 
-              // Generate and upload the last zip
-              if (currentZipSize > 0) {
-                await generateAndUploadZip(zip, password, zipIndex, folderName);
-              }
-            }
+        // Generate and upload the last zip
+        if (currentZipSize > 0) {
+          await generateAndUploadZip(zip, password, zipIndex, folderName);
+        }
+      }
 
-            async function generateAndUploadZip(zip, password, zipIndex, folderName) {
-              console.log("Generating zip blob...");
-              document.getElementById(
-                "status"
-              ).textContent = `Generating zip blob ${zipIndex}...`;
-              const zipStartTime = performance.now();
-              const zipBlob = await zip.generateAsync({ type: "blob" });
-              const zipEndTime = performance.now();
-              console.log(
-                `Zip generation time: ${(zipEndTime - zipStartTime).toFixed(2)} ms`
-              );
-              document.getElementById(
-                "status"
-              ).textContent = `Zip generation time: ${(
-                zipEndTime - zipStartTime
-              ).toFixed(2)} ms`;
+      async function generateAndUploadZip(zip, password, zipIndex, folderName) {
+        co, nsole.log("Generating zip blob...");
+        document.getElementById(
+          "status"
+        ).textContent = `Generating zip blob ${zipIndex}...`;
+        const zipStartTime = performance.now();
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipEndTime = performance.now();
+        console.log(
+          `Zip generation time: ${(zipEndTime - zipStartTime).toFixed(2)} ms`
+        );
+        document.getElementById(
+          "status"
+        ).textContent = `Zip generation time: ${(
+          zipEndTime - zipStartTime
+        ).toFixed(2)} ms`;
 
-              console.log("Generating IV...");
-              document.getElementById("status").textContent = "Generating IV...";
-              const iv = crypto.getRandomValues(new Uint8Array(12));
+        console.log("Generating IV...");
+        document.getElementById("status").textContent = "Generating IV...";
+        const iv = crypto.getRandomValues(new Uint8Array(12));
 
-              console.log("Generating key...");
-              document.getElementById("status").textContent = "Generating key...";
-              const key = await crypto.subtle.digest(
-                "SHA-256",
-                new TextEncoder().encode(password)
-              );
+        console.log("Generating key...");
+        document.getElementById("status").textContent = "Generating key...";
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
 
-              console.log("Encrypting data...");
-              document.getElementById("status").textContent = "Encrypting data...";
-              const encryptStartTime = performance.now();
-              const encryptedData = await crypto.subtle.encrypt(
-                { name: "AES-GCM", iv },
-                await crypto.subtle.importKey(
-                  "raw",
-                  key,
-                  { name: "AES-GCM" },
-                  false,
-                  ["encrypt"]
-                ),
-                await zipBlob.arrayBuffer()
-              );
-              const encryptEndTime = performance.now();
-              console.log(
-                `Encryption time: ${(encryptEndTime - encryptStartTime).toFixed(
-                  2
-                )} ms`
-              );
-              document.getElementById("status").textContent = `Encryption time: ${(
-                encryptEndTime - encryptStartTime
-              ).toFixed(2)} ms`;
+        console.log("Encrypting data...");
+        document.getElementById("status").textContent = "Encrypting data...";
+        const encryptStartTime = performance.now();
+        const encryptedData = await crypto.subtle.encrypt(
+          { name: "AES-GCM", iv },
+          await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-GCM" },
+            false,
+            ["encrypt"]
+          ),
+          await zipBlob.arrayBuffer()
+        );
+        const encryptEndTime = performance.now();
+        console.log(
+          `Encryption time: ${(encryptEndTime - encryptStartTime).toFixed(
+            2
+          )} ms`
+        );
+        document.getElementById("status").textContent = `Encryption time: ${(
+          encryptEndTime - encryptStartTime
+        ).toFixed(2)} ms`;
 
-              const combinedData = new Uint8Array(
-                iv.length + encryptedData.byteLength
-              );
-              combinedData.set(iv, 0);
-              combinedData.set(new Uint8Array(encryptedData), iv.length);
+        const combinedData = new Uint8Array(
+          iv.length + encryptedData.byteLength
+        );
+        combinedData.set(iv, 0);
+        combinedData.set(new Uint8Array(encryptedData), iv.length);
 
-              console.log("Encryption complete.");
-              console.log(`Final encrypted data size: ${combinedData.length} bytes`);
-              document.getElementById("status").textContent = "Encryption complete.";
+        console.log("Encryption complete.");
+        console.log(`Final encrypted data size: ${combinedData.length} bytes`);
+        document.getElementById("status").textContent = "Encryption complete.";
 
-              console.log("Converting encrypted data to base64...");
-              document.getElementById("status").textContent =
-                "Converting encrypted data to base64...";
+        console.log("Converting encrypted data to base64...");
+        document.getElementById("status").textContent =
+          "Converting encrypted data to base64...";
 
-                const base64CombinedData = bufferToBase64(combinedData);
+        const base64CombinedData = bufferToBase64(combinedData);
 
-            //   const numberInFolderName = folderName.match(/\d+/)[0];
-              const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
+        //   const numberInFolderName = folderName.match(/\d+/)[0];
+        let path;
+        if (folderName.match(/\[\d+\]/)) {
+          path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
+        } else {
+          path = `Videos/${folderName}/${folderName}_part${zipIndex}.zip`;
+        }
 
-              console.log(`Uploading to GitHub at path: ${path}`);
-              document.getElementById(
-                "status"
-              ).textContent = `Uploading to GitHub at path: ${path}`;
-              const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+        console.log(`Uploading to GitHub at path: ${path}`);
+        document.getElementById(
+          "status"
+        ).textContent = `Uploading to GitHub at path: ${path}`;
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-              let uploadSuccess = false;
-              let attempts = 0;
-              const maxAttempts = 3;
+        let uploadSuccess = false;
+        let attempts = 0;
+        const maxAttempts = 3;
 
-      //         while (!uploadSuccess && attempts < maxAttempts) {
-      //             attempts++;
-                const response = await fetch(url, {
-                  method: "PUT",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                    "Accept": "application/vnd.github+json",
-                    "Content-Type": "application/octet-stream",
-                  },
-                  body: JSON.stringify({
-                    message: `Upload encrypted folder part ${zipIndex}`,
-                    content: base64CombinedData,
-                    branch: branch,
-                  }),
-                });
+        //         while (!uploadSuccess && attempts < maxAttempts) {
+        //             attempts++;
+        const response = await fetch(url, {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github+json",
+            "Content-Type": "application/octet-stream",
+          },
+          body: JSON.stringify({
+            message: `Upload encrypted folder part ${zipIndex}`,
+            content: base64CombinedData,
+            branch: branch,
+          }),
+        });
 
-                if (response.ok) {
-                  console.log("Upload successful.");
-                  document.getElementById(
-                    "status"
-                  ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
-                  uploadSuccess = true;
-                } else {
-                  const errorResponse = await response.json();
-                  console.log(`Upload failed (attempt ${attempts}).`, errorResponse);
-                  document.getElementById(
-                    "status"
-                  ).textContent = `Failed to upload encrypted folder part ${zipIndex} (attempt ${attempts}) ❌`;
-                  if (attempts < maxAttempts) {
-                    console.log("Retrying upload...");
-                    document.getElementById("status").textContent += " Retrying...";
-                  }
-                }
-              }
+        if (response.ok) {
+          console.log("Upload successful.");
+          document.getElementById(
+            "status"
+          ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
+          uploadSuccess = true;
+        } else {
+          const errorResponse = await response.json();
+          console.log(`Upload failed (attempt ${attempts}).`, errorResponse);
+          document.getElementById(
+            "status"
+          ).textContent = `Failed to upload encrypted folder part ${zipIndex} (attempt ${attempts}) ❌`;
+          if (attempts < maxAttempts) {
+            console.log("Retrying upload...");
+            document.getElementById("status").textContent += " Retrying...";
+          }
+        }
+      }
 
+      async function uploadBook() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
 
-            async function uploadBook() {
-              if (!token) {
-                alert("Please upload the token file first.");
-                return;
-              }
+        const files = Array.from(document.getElementById("bookInput").files);
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
 
-              const files = Array.from(document.getElementById("bookInput").files);
-              if (files.length === 0) {
-                alert("No files selected.");
-                return;
-              }
+        const folderName = files[0].webkitRelativePath.split("/")[0];
+        const numberInFolderName = folderName.match(/\d+/)[0];
+        const password = combine("Kyaru", numberInFolderName);
+        console.log(`Password generated: ${password}`);
 
-              const folderName = files[0].webkitRelativePath.split("/")[0];
-              const numberInFolderName = folderName.match(/\d+/)[0];
-              const password = combine("Kyaru", numberInFolderName);
-              console.log(`Password generated: ${password}`);
+        document.getElementById("status").textContent =
+          "Encrypting and uploading...";
 
-              document.getElementById("status").textContent =
-                "Encrypting and uploading...";
+        console.log("Starting encryption...");
+        await encryptFolder(files, password, folderName);
+      }
 
-              console.log("Starting encryption...");
-              await encryptFolder(files, password, folderName);
-            }
+      async function uploadLargeFile() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
 
-            // Call getTokenFromUrl on page load
-            window.onload = getTokenFromUrl;
+        const file = document.getElementById("largeFileInput").files[0];
+        if (!file) {
+          alert("No file selected.");
+          return;
+        }
+
+        const fileName = file.name;
+        const numberInFileName = fileName.match(/\d+/)[0];
+        const password = combine("Kyaru", numberInFileName);
+        console.log(`Password generated: ${password}`);
+
+        document.getElementById("status").textContent =
+          "Encrypting and uploading...";
+
+        console.log("Starting encryption...");
+        await encryptAndUploadLargeFile(file, password, fileName);
+      }
+
+      async function encryptAndUploadLargeFile(file, password, fileName) {
+        let currentZipSize = 0;
+        let zipIndex = 1;
+        let zip = new JSZip();
+        const chunkSize = MAX_ZIP_SIZE;
+        let start = 0;
+
+        while (start < file.size) {
+          const end = Math.min(start + chunkSize, file.size);
+          const chunk = file.slice(start, end);
+          const chunkName = `${fileName}.part${zipIndex}`;
+
+          zip.file(chunkName, chunk);
+          currentZipSize += chunk.size;
+
+          if (currentZipSize >= MAX_ZIP_SIZE) {
+            await generateAndUploadZip(zip, password, zipIndex, fileName);
+            zip = new JSZip();
+            currentZipSize = 0;
+            zipIndex++;
+          }
+
+          start = end;
+        }
+
+        if (currentZipSize > 0) {
+          await generateAndUploadZip(zip, password, zipIndex, fileName);
+        }
+      }
+
+      // Call getTokenFromUrl on page load
+      window.onload = getTokenFromUrl;
     </script>
   </body>
 </html>
