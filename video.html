@@ -33,6 +33,7 @@
           getRequest.onsuccess = function () {
             const videoData = getRequest.result;
             if (videoData) {
+              console.log("Video data found:", videoData);
               const videoFile = videoData.files.find((file) =>
                 file.fileName.endsWith(".mp4")
               );
