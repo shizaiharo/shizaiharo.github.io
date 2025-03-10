@@ -305,19 +305,20 @@
         while (start < file.size) {
           const end = Math.min(start + chunkSize, file.size);
           const chunk = file.slice(start, end);
+
+          let zip = new JSZip();
           const chunkName = `${fileName}.part${zipIndex}`;
+          zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
 
-          zip.file(chunkName, chunk);
-          currentZipSize += chunk.size;
+          console.log(`Creating ZIP for chunk: ${chunkName}`);
+          document.getElementById(
+            "status"
+          ).textContent = `Zipping part ${zipIndex}...`;
 
-          if (currentZipSize >= MAX_ZIP_SIZE) {
-            await generateAndUploadZip(zip, password, zipIndex, fileName);
-            zip = new JSZip();
-            currentZipSize = 0;
-            zipIndex++;
-          }
+          await generateAndUploadZip(zip, password, zipIndex, fileName);
 
           start = end;
+          zipIndex++;
         }
 
         if (currentZipSize > 0) {
