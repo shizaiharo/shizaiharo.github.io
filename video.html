@@ -11,11 +11,24 @@
         margin: 20px auto;
         display: block;
       }
+      #downloadButton {
+        display: block;
+        margin: 20px auto;
+        padding: 10px 20px;
+        background-color: #4caf50;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        border-radius: 5px;
+      }
     </style>
   </head>
   <body>
     <h2>Video Viewer</h2>
     <video id="videoPlayer" controls></video>
+    <a id="downloadButton" href="#" download="video.mp4" style="display: none"
+      >Download Video</a
+    >
 
     <script>
       const urlParams = new URLSearchParams(window.location.search);
@@ -44,6 +57,12 @@
                 });
                 const videoUrl = URL.createObjectURL(combinedBuffer);
                 document.getElementById("videoPlayer").src = videoUrl;
+
+                // Set download link
+                const downloadButton =
+                  document.getElementById("downloadButton");
+                downloadButton.href = videoUrl;
+                downloadButton.style.display = "block";
               } else {
                 alert("No video file found in the video data.");
               }
