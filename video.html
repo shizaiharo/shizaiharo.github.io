@@ -34,14 +34,15 @@
             const videoData = getRequest.result;
             if (videoData) {
               console.log("Video data found:", videoData);
-              const videoFile = videoData.files.find((file) =>
-                file.fileName.endsWith(".mp4")
+              const videoParts = videoData.files.filter((file) =>
+                file.fileName.startsWith(videoName)
               );
-              if (videoFile) {
-                const videoBlob = new Blob([videoFile.fileData], {
+              if (videoParts.length > 0) {
+                const videoBuffers = videoParts.map((part) => part.fileData);
+                const combinedBuffer = new Blob(videoBuffers, {
                   type: "video/mp4",
                 });
-                const videoUrl = URL.createObjectURL(videoBlob);
+                const videoUrl = URL.createObjectURL(combinedBuffer);
                 document.getElementById("videoPlayer").src = videoUrl;
               } else {
                 alert("No video file found in the video data.");
