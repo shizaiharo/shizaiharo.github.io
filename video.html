@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Video Viewer</title>
+    <style>
+      video {
+        width: 100%;
+        max-width: 600px;
+        margin: 20px auto;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Video Viewer</h2>
+    <video id="videoPlayer" controls></video>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const bookName = urlParams.get("bookName");
+
+      async function loadVideo() {
+        const request = indexedDB.open("bookDatabase", 1);
+
+        request.onsuccess = function (event) {
+          const db = event.target.result;
+          const transaction = db.transaction("books", "readonly");
+          const store = transaction.objectStore("books");
+          const getRequest = store.get(bookName);
+
+          getRequest.onsuccess = function () {
+            const bookData = getRequest.result;
+            if (bookData) {
+              const videoFile = bookData.files.find((file) =>
+                file.fileName.endsWith(".mp4")
+              );
+              if (videoFile) {
+                const videoBlob = new Blob([videoFile.fileData], {
+                  type: "video/mp4",
+                });
+                const videoUrl = URL.createObjectURL(videoBlob);
+                document.getElementById("videoPlayer").src = videoUrl;
+              } else {
+                alert("No video file found in the book data.");
+              }
+            } else {
+              alert("No book data found.");
+            }
+          };
+
+          getRequest.onerror = function () {
+            console.error("Failed to retrieve book data:", getRequest.error);
+          };
+        };
+
+        request.onerror = function () {
+          console.error("IndexedDB request failed:", request.error);
+        };
+      }
+
+      window.onload = loadVideo;
+    </script>
+  </body>
+</html>
