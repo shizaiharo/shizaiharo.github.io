@@ -24,34 +24,25 @@
     <h4>Click on a video to decrypt and view its contents</h4>
     <button id="backToIndexButton">Main</button>
     <br />
-    <button
-      id="browseVideoButton"
-      onclick="browseVideos()"
-      style="display: none"
-    >
+    <button id="browseVideoButton" onclick="browseVideos()" style="display: none">
       Browse Videos
     </button>
-    <input
-      type="text"
-      id="searchBar"
-      placeholder="Search for a video..."
-      oninput="filterVideos()"
-    />
+    <input type="text" id="searchBar" placeholder="Search for a video..." oninput="filterVideos()" />
     <ul id="videosList"></ul>
     <div id="videoContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
-      const repo = "Amrita";
-      const owner = "shizaiharo";
-      const branch = "main";
-      let token = "";
+      const repo = "Amrita"; 
+      const owner = "shizaiharo"; 
+      const branch = "main"; 
+      let token = ""; 
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
         if (token) {
-          document.getElementById("browseVideoButton").style.display = "inline";
+            document.getElementById("browseVideoButton").style.display = "inline";
         } else {
           alert("Please upload the token file first.");
         }
@@ -78,9 +69,9 @@
         if (response.ok) {
           const files = await response.json();
           const videosList = document.getElementById("videosList");
-          videosList.innerHTML = "";
+          videosList.innerHTML = ""; 
 
-          const folders = files.filter((file) => file.type === "dir");
+          const folders = files.filter(file => file.type === "dir");
 
           folders.forEach((folder) => {
             const listItem = document.createElement("li");
@@ -91,9 +82,7 @@
 
           document.getElementById("searchBar").style.display = "inline";
         } else {
-          alert(
-            "Failed to fetch videos. Please check your token and try again."
-          );
+          alert("Failed to fetch videos. Please check your token and try again.");
         }
       }
 
@@ -116,32 +105,32 @@
       async function storeVideoData(videoName, files, password) {
         return new Promise((resolve, reject) => {
           const request = indexedDB.open("videoDatabase", 1);
-
+      
           request.onupgradeneeded = function (event) {
             const db = event.target.result;
             if (!db.objectStoreNames.contains("videos")) {
               db.createObjectStore("videos", { keyPath: "name" });
             }
           };
-
+      
           request.onsuccess = function (event) {
             const db = event.target.result;
             const transaction = db.transaction("videos", "readwrite");
             const store = transaction.objectStore("videos");
-
+      
             store.put({ name: videoName, files, password });
-
+      
             transaction.oncomplete = function () {
               console.log(`Video ${videoName} stored successfully`);
               resolve();
             };
-
+      
             transaction.onerror = function () {
               console.error("IndexedDB Transaction Failed:", transaction.error);
               reject(transaction.error);
             };
           };
-
+      
           request.onerror = function () {
             reject(request.error);
           };
@@ -163,24 +152,18 @@
           });
 
           if (!response.ok) {
-            throw new Error(
-              `Failed to fetch folder contents: ${await response.text()}`
-            );
+            throw new Error(`Failed to fetch folder contents: ${await response.text()}`);
           }
 
           const files = await response.json();
-          const parts = files.map((file) => file.name);
+          const parts = files.map(file => file.name);
 
-          const fetchPromises = parts.map((part) =>
-            fetchVideoPart(`${folderName}/${part}`)
-          );
+          const fetchPromises = parts.map((part) => fetchVideoPart(`${folderName}/${part}`));
           const base64Parts = await Promise.all(fetchPromises);
 
           const bufferParts = base64Parts.map(base64ToArrayBuffer);
 
-          const decryptPromises = bufferParts.map((buffer) =>
-            decryptFolder(buffer, password)
-          );
+          const decryptPromises = bufferParts.map((buffer) => decryptFolder(buffer, password));
           const decryptedVideos = await Promise.all(decryptPromises);
 
           const videoExtractionPromises = decryptedVideos.flatMap((video) =>
@@ -197,13 +180,10 @@
           const decryptedDataArray = await Promise.all(videoExtractionPromises);
 
           console.log("Decrypted Data Array:", decryptedDataArray);
-
+          
           await storeVideoData(folderName, decryptedDataArray, password);
 
-          window.open(
-            `video.html?videoName=${encodeURIComponent(folderName)}`,
-            "_blank"
-          );
+          window.open(`video.html?videoName=${encodeURIComponent(folderName)}`, "_blank");
         } catch (error) {
           console.error("Error processing video:", error);
           alert("Failed to process the video. Please try again.");
@@ -213,32 +193,28 @@
       async function fetchVideoPart(part) {
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/Videos/${part}?ref=${branch}`;
         console.log("Fetching file metadata:", url);
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        const response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
 
         if (!response.ok) {
-          throw new Error(
-            `Failed to fetch file metadata: ${await response.text()}`
-          );
+          throw new Error(`Failed to fetch file metadata: ${await response.text()}`);
         }
 
         const fileData = await response.json();
-        if (!fileData.download_url) {
-          throw new Error("Download URL not found. The file may be too large.");
+        if (!fileData.git_url) {
+          throw new Error("Git URL not found. The file may be too large.");
         }
 
-        const downloadResponse = await fetch(fileData.download_url, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!downloadResponse.ok) {
-          throw new Error(
-            `Failed to fetch file content: ${await downloadResponse.text()}`
-          );
+        const gitResponse = await fetch(fileData.git_url, { headers: { Authorization: `Bearer ${token}` } });
+        if (!gitResponse.ok) {
+          throw new Error(`Failed to fetch file content: ${await gitResponse.text()}`);
         }
 
-        const fileContent = await downloadResponse.text();
-        return fileContent.replace(/\n/g, "");
+        const gitFileData = await gitResponse.json();
+        if (!gitFileData.content) {
+          throw new Error("No content found in the file.");
+        }
+
+        return gitFileData.content.replace(/\n/g, "");
       }
 
       function base64ToArrayBuffer(base64) {
@@ -255,38 +231,22 @@
           console.error("Data too short, missing IV.");
           return;
         }
-
+      
         const iv = combinedData.slice(0, 12);
         const encryptedData = combinedData.slice(12);
-
+      
         console.log("Extracted IV:", new Uint8Array(iv));
         console.log("Encrypted Data Size:", encryptedData.byteLength);
-
-        const key = await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(password)
-        );
-        const cryptoKey = await crypto.subtle.importKey(
-          "raw",
-          key,
-          { name: "AES-GCM" },
-          false,
-          ["decrypt"]
-        );
-
+      
+        const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
+        const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-GCM" }, false, ["decrypt"]);
+      
         try {
-          const decryptedData = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv },
-            cryptoKey,
-            encryptedData
-          );
+          const decryptedData = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, cryptoKey, encryptedData);
           console.log("Decryption successful!");
           return JSZip.loadAsync(decryptedData);
         } catch (error) {
-          console.error(
-            "Decryption failed! Possible IV mismatch or corrupted data.",
-            error
-          );
+          console.error("Decryption failed! Possible IV mismatch or corrupted data.", error);
         }
       }
 
