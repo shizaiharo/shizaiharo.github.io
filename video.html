@@ -19,21 +19,21 @@
 
     <script>
       const urlParams = new URLSearchParams(window.location.search);
-      const bookName = urlParams.get("bookName");
+      const videoName = urlParams.get("videoName");
 
       async function loadVideo() {
-        const request = indexedDB.open("bookDatabase", 1);
+        const request = indexedDB.open("videoDatabase", 1);
 
         request.onsuccess = function (event) {
           const db = event.target.result;
-          const transaction = db.transaction("books", "readonly");
-          const store = transaction.objectStore("books");
-          const getRequest = store.get(bookName);
+          const transaction = db.transaction("videos", "readonly");
+          const store = transaction.objectStore("videos");
+          const getRequest = store.get(videoName);
 
           getRequest.onsuccess = function () {
-            const bookData = getRequest.result;
-            if (bookData) {
-              const videoFile = bookData.files.find((file) =>
+            const videoData = getRequest.result;
+            if (videoData) {
+              const videoFile = videoData.files.find((file) =>
                 file.fileName.endsWith(".mp4")
               );
               if (videoFile) {
@@ -43,15 +43,15 @@
                 const videoUrl = URL.createObjectURL(videoBlob);
                 document.getElementById("videoPlayer").src = videoUrl;
               } else {
-                alert("No video file found in the book data.");
+                alert("No video file found in the video data.");
               }
             } else {
-              alert("No book data found.");
+              alert("No video data found.");
             }
           };
 
           getRequest.onerror = function () {
-            console.error("Failed to retrieve book data:", getRequest.error);
+            console.error("Failed to retrieve video data:", getRequest.error);
           };
         };
 
