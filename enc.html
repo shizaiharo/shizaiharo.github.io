@@ -364,15 +364,22 @@
           console.log(`Processing file: ${file.webkitRelativePath}`);
           const folderName = file.webkitRelativePath.split("/")[1]; // Adjusted to get the second part of the path
           console.log(`Extracted folder name: ${folderName}`);
-          if (!folders[folderName]) {
-            folders[folderName] = [];
+          if (/\[\d+\]/.test(folderName)) {
+            // Check if folder name contains a number within brackets
+            if (!folders[folderName]) {
+              folders[folderName] = [];
+            }
+            folders[folderName].push(file);
+          } else {
+            console.log(
+              `Skipping folder: ${folderName} (no number in brackets)`
+            );
           }
-          folders[folderName].push(file);
         });
 
         for (const folderName in folders) {
           const folderFiles = folders[folderName];
-          const numberInFolderName = folderName.match(/\d+/)[0];
+          const numberInFolderName = folderName.match(/\[\d+\]/)[0];
           const password = combine("Kyaru", numberInFolderName);
           console.log(`Password generated for ${folderName}: ${password}`);
 
