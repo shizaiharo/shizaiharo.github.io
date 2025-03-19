@@ -202,39 +202,20 @@
 
     // Fetch book part metadata and content
     async function fetchBookPart(part) {
-      const contentUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
-      console.log("Fetching file metadata:", contentUrl);
+      const url = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${part}`;
       
-      const response = await fetch(contentUrl, { headers: { Authorization: `Bearer ${token}` } });
+      console.log("Fetching file blob:", url);
+      
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    
       if (!response.ok) {
-        throw new Error(`Failed to fetch file metadata: ${await response.text()}`);
+        throw new Error(`Failed to fetch blob: ${await response.text()}`);
       }
     
       const fileData = await response.json();
-      if (!fileData.sha) {
-        throw new Error("File SHA not found. The file may be too large.");
-      }
-    
-      // Fetch the raw file content using Git Blob API
-      const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${fileData.sha}`;
-      console.log("Fetching file via Git Blob API:", blobUrl);
-    
-      const blobResponse = await fetch(blobUrl, { headers: { Authorization: `Bearer ${token}` } });
-      if (!blobResponse.ok) {
-        throw new Error(`Failed to fetch file content: ${await blobResponse.text()}`);
-      }
-    
-      // ✅ Read response as raw text instead of parsing JSON
-      const rawText = await blobResponse.text(); 
-      try {
-        const blobData = JSON.parse(rawText);
-        if (!blobData.content) {
-          throw new Error("No content found in the file.");
-        }
-        return blobData.content.replace(/\n/g, ""); 
-      } catch (error) {
-        throw new Error("Failed to parse JSON, possible truncation issue: " + error.message);
-      }
+      return atob(fileData.content.replace(/\n/g, "")); // Decode base64 content
     }
 
       function base64ToArrayBuffer(base64) {
