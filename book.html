@@ -32,8 +32,8 @@
 
         // Sort files by fileName in ascending order
         files.sort((a, b) => {
-          const numA = parseInt(a.fileName.match(/part_(\d+)\.zip/)[1], 10);
-          const numB = parseInt(b.fileName.match(/part_(\d+)\.zip/)[1], 10);
+          const numA = parseInt(a.fileName.match(/part(\d+)\.zip/)[1], 10);
+          const numB = parseInt(b.fileName.match(/part(\d+)\.zip/)[1], 10);
           return numA - numB;
         });
 
