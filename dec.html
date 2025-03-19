@@ -175,6 +175,7 @@
 
         const files = await getFileListFromRepoTree(folderName);
         // const parts = files.map(file => file.name);
+        console.log("Files in the folder:", files);
         const parts = files.map(file => file.path.replace("Books/", ""));
 
         try {
