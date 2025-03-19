@@ -215,7 +215,7 @@
         throw new Error("File SHA not found. The file may be too large.");
       }
     
-      // Now fetch the raw file content using Git Blob API
+      // Fetch the raw file content using Git Blob API
       const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${fileData.sha}`;
       console.log("Fetching file via Git Blob API:", blobUrl);
     
@@ -224,12 +224,17 @@
         throw new Error(`Failed to fetch file content: ${await blobResponse.text()}`);
       }
     
-      const blobData = await blobResponse.json();
-      if (!blobData.content) {
-        throw new Error("No content found in the file.");
+      // ✅ Read response as raw text instead of parsing JSON
+      const rawText = await blobResponse.text(); 
+      try {
+        const blobData = JSON.parse(rawText);
+        if (!blobData.content) {
+          throw new Error("No content found in the file.");
+        }
+        return blobData.content.replace(/\n/g, ""); 
+      } catch (error) {
+        throw new Error("Failed to parse JSON, possible truncation issue: " + error.message);
       }
-    
-      return blobData.content.replace(/\n/g, ""); // Remove newlines
     }
 
       function base64ToArrayBuffer(base64) {
