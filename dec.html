@@ -202,7 +202,8 @@
 
     // Fetch book part metadata and content
     async function fetchBookPart(part) {
-      const url = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${part}`;
+      const sha = await getFileSHA(owner, repo, `Books/${part}`, token);
+      const url = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`;
       
       console.log("Fetching file blob:", url);
       
@@ -216,6 +217,22 @@
     
       const fileData = await response.json();
       return atob(fileData.content.replace(/\n/g, "")); // Decode base64 content
+    }
+
+    // New function to get file SHA
+    async function getFileSHA(owner, repo, filePath, token) {
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+    
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    
+      if (!response.ok) {
+        throw new Error(`Failed to get file SHA: ${await response.text()}`);
+      }
+    
+      const fileData = await response.json();
+      return fileData.sha; // Get the SHA of the file
     }
 
       function base64ToArrayBuffer(base64) {
