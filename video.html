@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Video Viewer</title>
+    <title id="pageTitle">Video Viewer</title>
     <style>
       video {
         width: 100%;
@@ -24,11 +24,10 @@
     </style>
   </head>
   <body>
-    <h2>Video Viewer</h2>
+    <!-- <h2>Video Viewer</h2> -->
+    <h2 id="videoName">Video's Name</h2>
     <video id="videoPlayer" controls></video>
-    <a id="downloadButton" href="#" download="video.mp4" style="display: none"
-      >Download Video</a
-    >
+    <a id="downloadButton" href="#" download="" style="display: none">Download Video</a>
 
     <script>
       const urlParams = new URLSearchParams(window.location.search);
@@ -52,8 +51,11 @@
               );
               if (videoParts.length > 0) {
                 const videoBuffers = videoParts.map((part) => part.fileData);
+                const fileType = videoParts[0].fileName.split(".").pop();
+                const mimeType =
+                  fileType === "mkv" ? "video/x-matroska" : "video/mp4";
                 const combinedBuffer = new Blob(videoBuffers, {
-                  type: "video/mp4",
+                  type: mimeType,
                 });
                 const videoUrl = URL.createObjectURL(combinedBuffer);
                 document.getElementById("videoPlayer").src = videoUrl;
@@ -62,7 +64,12 @@
                 const downloadButton =
                   document.getElementById("downloadButton");
                 downloadButton.href = videoUrl;
+                downloadButton.download = `video.${fileType}`;
                 downloadButton.style.display = "block";
+
+                // Display video name
+                document.getElementById("pageTitle").textContent = videoName;
+                document.getElementById("videoName").textContent = videoName;
               } else {
                 alert("No video file found in the video data.");
               }
