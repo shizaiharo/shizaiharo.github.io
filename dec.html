@@ -183,7 +183,7 @@
           const fetchPromises = [];
           for (let i = 0; i < parts.length; i += maxConcurrentFetches) {
             const chunk = parts.slice(i, i + maxConcurrentFetches);
-            const chunkPromises = chunk.map((part) => fetchBookPart(`Books/${folderName}/${part}`));
+            const chunkPromises = chunk.map((part) => fetchBookPart(`Books/${part}`));
             fetchPromises.push(...chunkPromises);
             await Promise.all(chunkPromises); // Wait for this chunk to complete
           }
