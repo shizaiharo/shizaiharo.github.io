@@ -214,7 +214,7 @@
 
         console.log("Fetching blob data:", blobUrl);
 
-        const response = await fetch(blobUrl, {
+        const blobResponse = await fetch(blobUrl, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
