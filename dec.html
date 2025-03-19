@@ -211,21 +211,17 @@
       }
 
       const fileData = await response.json();
-      if (!fileData.git_url) {
-        throw new Error("Git URL not found. The file may be too large.");
+      if (!fileData.download_url) {
+        throw new Error("Download URL not found. The file may be too large.");
       }
 
-      const gitResponse = await fetch(fileData.git_url, { headers: { Authorization: `token ${token}` } });
-      if (!gitResponse.ok) {
-        throw new Error(`Failed to fetch file content: ${await gitResponse.text()}`);
+      const downloadResponse = await fetch(fileData.download_url, { headers: { Authorization: `token ${token}` } });
+      if (!downloadResponse.ok) {
+        throw new Error(`Failed to fetch file content: ${await downloadResponse.text()}`);
       }
 
-      const gitFileData = await gitResponse.json();
-      if (!gitFileData.content) {
-        throw new Error("No content found in the file.");
-      }
-
-      return gitFileData.content.replace(/\n/g, ""); // Remove newlines
+      const content = await downloadResponse.text();
+      return content.replace(/\n/g, ""); // Remove newlines
     }
 
       function base64ToArrayBuffer(base64) {
