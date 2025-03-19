@@ -30,6 +30,22 @@
     >
       Upload Large File
     </button>
+    <br />
+    <h4>Upload a mother folder containing multiple folders with images</h4>
+    <input
+      type="file"
+      id="motherFolderInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button
+      id="uploadMotherFolderButton"
+      onclick="uploadMotherFolder()"
+      style="display: none"
+    >
+      Upload Mother Folder
+    </button>
     <p id="status"></p>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
@@ -48,6 +64,9 @@
           document.getElementById("uploadBookButton").style.display = "inline";
           document.getElementById("largeFileInput").style.display = "inline";
           document.getElementById("uploadLargeFileButton").style.display =
+            "inline";
+          document.getElementById("motherFolderInput").style.display = "inline";
+          document.getElementById("uploadMotherFolderButton").style.display =
             "inline";
         } else {
           alert("Please upload the token file first.");
@@ -323,6 +342,44 @@
 
         if (currentZipSize > 0) {
           await generateAndUploadZip(zip, password, zipIndex, fileName);
+        }
+      }
+
+      async function uploadMotherFolder() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = Array.from(
+          document.getElementById("motherFolderInput").files
+        );
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        const folders = {};
+        files.forEach((file) => {
+          const folderName = file.webkitRelativePath.split("/")[0];
+          if (!folders[folderName]) {
+            folders[folderName] = [];
+          }
+          folders[folderName].push(file);
+        });
+
+        for (const folderName in folders) {
+          const folderFiles = folders[folderName];
+          const numberInFolderName = folderName.match(/\d+/)[0];
+          const password = combine("Kyaru", numberInFolderName);
+          console.log(`Password generated for ${folderName}: ${password}`);
+
+          document.getElementById(
+            "status"
+          ).textContent = `Encrypting and uploading folder: ${folderName}...`;
+
+          console.log(`Starting encryption for folder: ${folderName}...`);
+          await encryptFolder(folderFiles, password, folderName);
         }
       }
 
