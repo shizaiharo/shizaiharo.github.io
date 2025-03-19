@@ -204,24 +204,28 @@
     async function fetchBookPart(part) {
       const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
       console.log("Fetching file metadata:", url);
-      const response = await fetch(url, { headers: { Authorization: `token ${token}` } });
+      const response = await fetch(url, { headers: { Authorization: `bearer ${token}` } });
 
       if (!response.ok) {
         throw new Error(`Failed to fetch file metadata: ${await response.text()}`);
       }
 
       const fileData = await response.json();
-      if (!fileData.download_url) {
-        throw new Error("Download URL not found. The file may be too large.");
+      if (!fileData.git_url) {
+        throw new Error("Git URL not found. The file may be too large.");
       }
 
-      const downloadResponse = await fetch(fileData.download_url, { headers: { Authorization: `token ${token}` } });
-      if (!downloadResponse.ok) {
-        throw new Error(`Failed to fetch file content: ${await downloadResponse.text()}`);
+      const gitResponse = await fetch(fileData.git_url, { headers: { Authorization: `bearer ${token}` } });
+      if (!gitResponse.ok) {
+        throw new Error(`Failed to fetch file content: ${await gitResponse.text()}`);
       }
 
-      const content = await downloadResponse.text();
-      return content.replace(/\n/g, ""); // Remove newlines
+      const gitFileData = await gitResponse.json();
+      if (!gitFileData.content) {
+        throw new Error("No content found in the file.");
+      }
+
+      return gitFileData.content.replace(/\n/g, ""); // Remove newlines
     }
 
       function base64ToArrayBuffer(base64) {
