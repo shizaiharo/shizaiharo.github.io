@@ -85,10 +85,10 @@
               chunk.map(fetchAndDecryptPart)
             );
             results.push(...chunkResults);
-          }
 
-          // Display images
-          displayImages(results.flat());
+            // Display images after processing each chunk
+            displayImages(results.flat());
+          }
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
