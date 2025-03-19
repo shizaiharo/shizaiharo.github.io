@@ -136,6 +136,16 @@
           .map(file => file.path.replace("Books/", "")); // Remove the Books/ prefix
       }
 
+      async function fetchInBatches(parts, batchSize = 5) {
+        const results = [];
+        for (let i = 0; i < parts.length; i += batchSize) {
+          const batch = parts.slice(i, i + batchSize);
+          const batchResults = await Promise.all(batch.map(part => fetchBookPart(part)));
+          results.push(...batchResults);
+        }
+        return results;
+      }
+
       async function selectBook(folderName) {
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
@@ -177,7 +187,7 @@
             await Promise.all(chunkPromises); // Wait for this chunk to complete
           }
 
-          const base64Parts = await Promise.all(fetchPromises);
+          const base64Parts = await fetchInBatches(files.map(file => `${folderName}/${file}`));
 
           // Step 2: Convert to ArrayBuffer
           const bufferParts = base64Parts.map(base64ToArrayBuffer);
