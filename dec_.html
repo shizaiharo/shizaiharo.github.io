@@ -15,6 +15,10 @@
       #booksList li:hover {
         background-color: #f0f0f0;
       }
+      /* Hide the search bar initially */
+      #searchBar {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -26,6 +30,7 @@
     <button id="browseBookButton" onclick="browseBooks()" style="display: none">
       Browse Books
     </button>
+    <input type="text" id="searchBar" placeholder="Search for a book..." oninput="filterBooks()" />
     <ul id="booksList"></ul>
     <div id="imagesContainer"></div>
 
@@ -40,7 +45,7 @@
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
         if (token) {
-            document.getElementById("browseBookButton").style.display = "block";
+            document.getElementById("browseBookButton").style.display = "inline";
         } else {
           alert("Please upload the token file first.");
         }
@@ -77,8 +82,27 @@
             listItem.onclick = () => selectBook(folder.name);
             booksList.appendChild(listItem);
           });
+
+          // Show the search bar after books are loaded
+          document.getElementById("searchBar").style.display = "inline";
         } else {
           alert("Failed to fetch books. Please check your token and try again.");
+        }
+      }
+
+      function filterBooks() {
+        const query = document.getElementById("searchBar").value.toLowerCase();
+        const booksList = document.getElementById("booksList");
+        const books = booksList.getElementsByTagName("li");
+
+        for (let i = 0; i < books.length; i++) {
+          const book = books[i];
+          const bookName = book.textContent.toLowerCase();
+          if (bookName.includes(query)) {
+            book.style.display = "";
+          } else {
+            book.style.display = "none";
+          }
         }
       }
 
@@ -178,30 +202,37 @@
 
     // Fetch book part metadata and content
     async function fetchBookPart(part) {
-      const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
-      console.log("Fetching file metadata:", url);
-      const response = await fetch(url, { headers: { Authorization: `token ${token}` } });
-
+      const sha = await getFileSHA(owner, repo, `Books/${part}`, token);
+      const url = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`;
+      
+      console.log("Fetching file blob:", url);
+      
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    
       if (!response.ok) {
-        throw new Error(`Failed to fetch file metadata: ${await response.text()}`);
+        throw new Error(`Failed to fetch blob: ${await response.text()}`);
       }
-
+    
       const fileData = await response.json();
-      if (!fileData.git_url) {
-        throw new Error("Git URL not found. The file may be too large.");
-      }
+      return atob(fileData.content.replace(/\n/g, "")); // Decode base64 content
+    }
 
-      const gitResponse = await fetch(fileData.git_url, { headers: { Authorization: `token ${token}` } });
-      if (!gitResponse.ok) {
-        throw new Error(`Failed to fetch file content: ${await gitResponse.text()}`);
+    // New function to get file SHA
+    async function getFileSHA(owner, repo, filePath, token) {
+      const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}`;
+    
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    
+      if (!response.ok) {
+        throw new Error(`Failed to get file SHA: ${await response.text()}`);
       }
-
-      const gitFileData = await gitResponse.json();
-      if (!gitFileData.content) {
-        throw new Error("No content found in the file.");
-      }
-
-      return gitFileData.content.replace(/\n/g, ""); // Remove newlines
+    
+      const fileData = await response.json();
+      return fileData.sha; // Get the SHA of the file
     }
 
       function base64ToArrayBuffer(base64) {
