@@ -175,9 +175,7 @@
 
         const files = await getFileListFromRepoTree(folderName);
         // const parts = files.map(file => file.name);
-        console.log("Files in the folder:", files);
-        const parts = files.map(file => file.replace(`${folderName}/`, ""));
-        console.log("Parts in the folder:", parts);
+        const parts = files.map(file => file.replace("Books/", ""));
 
         try {
           // Step 1: Fetch all parts with limited concurrency
@@ -241,7 +239,15 @@
 
         const treeData = await response.json();
 
-        const fileNode = treeData.tree.find(node => node.path === `Books/${filePath}`);
+        console.log("Repo Tree Paths:", treeData.tree.map(node => node.path));
+
+        const decodedFilePath = decodeURIComponent(filePath);
+        const fileNode = treeData.tree.find(node => node.path === `Books/${decodedFilePath}`);
+
+        if (!fileNode) {
+            console.error(`SHA not found for ${filePath} (Decoded: ${decodedFilePath})`);
+            throw new Error(`SHA not found for ${filePath}`);
+        }
 
         if (!fileNode) {
           throw new Error(`SHA not found for ${filePath}`);
