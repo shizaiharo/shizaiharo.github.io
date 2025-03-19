@@ -31,7 +31,11 @@
         const imagesContainer = document.getElementById("imagesContainer");
 
         // Sort files by fileName in ascending order
-        files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+        files.sort((a, b) => {
+          const numA = parseInt(a.fileName.match(/\d+/)[0], 10);
+          const numB = parseInt(b.fileName.match(/\d+/)[0], 10);
+          return numA - numB;
+        });
 
         // Log file names
         console.log("File names in ascending order:");
