@@ -133,37 +133,35 @@
         }
 
         try {
-          // Fetch all parts in batches
-          const base64Parts = await fetchInBatches(parts);
+          // Fetch and process each part sequentially
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const base64Part = await fetchBookPart(part);
+            const bufferPart = base64ToArrayBuffer(base64Part);
+            const decryptedZip = await decryptFolder(bufferPart, password);
 
-          // Convert to ArrayBuffer
-          const bufferParts = base64Parts.map(base64ToArrayBuffer);
-
-          // Decrypt all parts in parallel
-          const decryptPromises = bufferParts.map((buffer) => decryptFolder(buffer, password));
-          const decryptedZips = await Promise.all(decryptPromises);
-
-          // Extract files from all decrypted ZIPs concurrently
-          const fileExtractionPromises = decryptedZips.flatMap((zip) =>
-            Object.keys(zip.files)
-              .filter((fileName) => !zip.files[fileName].dir) // Exclude directories
+            // Extract files from the decrypted ZIP
+            const fileExtractionPromises = Object.keys(decryptedZip.files)
+              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
               .map((fileName) =>
-                zip.files[fileName].async("arraybuffer").then((fileData) => ({
+                decryptedZip.files[fileName].async("arraybuffer").then((fileData) => ({
                   fileName,
                   fileData,
                 }))
-              )
-          );
+              );
 
-          const decryptedDataArray = await Promise.all(fileExtractionPromises);
+            const decryptedDataArray = await Promise.all(fileExtractionPromises);
 
-          console.log("Decrypted Data Array:", decryptedDataArray);
+            console.log("Decrypted Data Array:", decryptedDataArray);
 
-          // Store in IndexedDB
-          await storeBookData(folderName, decryptedDataArray, password);
+            // Store in IndexedDB
+            await storeBookData(folderName, decryptedDataArray, password);
 
-          // Open book page
-          window.open(`book.html?bookName=${encodeURIComponent(folderName)}`, "_blank");
+            // Open book page after the first ZIP is processed
+            if (i === 0) {
+              window.open(`book.html?bookName=${encodeURIComponent(folderName)}`, "_blank");
+            }
+          }
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
