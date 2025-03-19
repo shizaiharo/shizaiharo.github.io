@@ -361,7 +361,9 @@
 
         const folders = {};
         files.forEach((file) => {
-          const folderName = file.webkitRelativePath.split("/")[0];
+          console.log(`Processing file: ${file.webkitRelativePath}`);
+          const folderName = file.webkitRelativePath.split("/")[1]; // Adjusted to get the second part of the path
+          console.log(`Extracted folder name: ${folderName}`);
           if (!folders[folderName]) {
             folders[folderName] = [];
           }
