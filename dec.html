@@ -138,9 +138,16 @@
       
 
       try {
-        console.log("Here is OK");
-        // Step 1: Fetch all parts in parallel
-        const fetchPromises = parts.map((part) => fetchBookPart(`${folderName}/${part}`));
+        // Step 1: Fetch all parts with limited concurrency
+        const maxConcurrentFetches = 5; // Adjust this number as needed
+        const fetchPromises = [];
+        for (let i = 0; i < parts.length; i += maxConcurrentFetches) {
+          const chunk = parts.slice(i, i + maxConcurrentFetches);
+          const chunkPromises = chunk.map((part) => fetchBookPart(`${folderName}/${part}`));
+          fetchPromises.push(...chunkPromises);
+          await Promise.all(chunkPromises); // Wait for this chunk to complete
+        }
+
         const base64Parts = await Promise.all(fetchPromises);
 
         // Step 2: Convert to ArrayBuffer
@@ -177,6 +184,29 @@
       }
     }
 
+    // async function getFileSHA(filePath) {
+    //   const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${filePath}?ref=${branch}`;
+
+    //   console.log("Fetching file metadata:", url);
+
+    //   const response = await fetch(url, {
+    //     headers: { Authorization: `Bearer ${token}` }
+    //   });
+
+    //   if (!response.ok) {
+    //     throw new Error(`Failed to fetch file metadata: ${await response.text()}`);
+    //   }
+
+    //   const fileData = await response.json();
+
+    //   if (!fileData.sha) {
+    //     throw new Error("SHA not found in metadata response.");
+    //   }
+
+    //   console.log(`SHA for ${filePath}:`, fileData.sha);
+    //   return fileData.sha;
+    // }
+
     // Fetch book part metadata and content
     async function fetchBookPart(part) {
       const metadataUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}?ref=${branch}`;
@@ -191,13 +221,14 @@
       }
 
       const fileData = await response.json();
+      const sha = fileData.sha;
       
-      if (!fileData.sha) {
+      if (!sha) {
         throw new Error("SHA not found. The file may be too large.");
       }
 
       // Fetch raw file content using GitHub's blob API
-      const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${fileData.sha}`;
+      const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`;
       console.log("Fetching blob data:", blobUrl);
       
       const blobResponse = await fetch(blobUrl, {
