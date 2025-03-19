@@ -184,28 +184,30 @@
       }
     }
 
-    // async function getFileSHA(filePath) {
-    //   const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${filePath}?ref=${branch}`;
+    async function getFileSHA(filePath) {
+      const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
 
-    //   console.log("Fetching file metadata:", url);
+      console.log("Fetching full repo tree:", treeUrl);
 
-    //   const response = await fetch(url, {
-    //     headers: { Authorization: `Bearer ${token}` }
-    //   });
+      const response = await fetch(treeUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
 
-    //   if (!response.ok) {
-    //     throw new Error(`Failed to fetch file metadata: ${await response.text()}`);
-    //   }
+      if (!response.ok) {
+        throw new Error(`Failed to fetch repo tree: ${await response.text()}`);
+      }
 
-    //   const fileData = await response.json();
+      const treeData = await response.json();
 
-    //   if (!fileData.sha) {
-    //     throw new Error("SHA not found in metadata response.");
-    //   }
+      const fileNode = treeData.tree.find(node => node.path === `Books/${filePath}`);
 
-    //   console.log(`SHA for ${filePath}:`, fileData.sha);
-    //   return fileData.sha;
-    // }
+      if (!fileNode) {
+        throw new Error(`SHA not found for ${filePath}`);
+      }
+
+      console.log(`SHA for ${filePath}:`, fileNode.sha);
+      return fileNode.sha;
+    }
 
     // Fetch book part metadata and content
     async function fetchBookPart(part) {
