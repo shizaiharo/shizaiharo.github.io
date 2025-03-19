@@ -63,7 +63,8 @@
         const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
-        document.getElementById("bookNameBeforeNumber").textContent = bookNameBeforeNumber;
+        document.getElementById("bookNameBeforeNumber").textContent =
+          bookNameBeforeNumber;
 
         try {
           const parts = await getFileListFromRepoTree(bookName);
@@ -75,47 +76,46 @@
             return numA - numB;
           });
 
-          for (let i = 0; i < parts.length; i++) {
-            const part = parts[i];
-            const base64Part = await fetchBookPart(part);
-            const bufferPart = base64ToArrayBuffer(base64Part);
-            const decryptedZip = await decryptFolder(
-              bufferPart,
-              combine("Kyaru", bookName.match(/\d+/)[0])
+          // Fetch parts in parallel with a maximum of 3 concurrent requests
+          const maxConcurrentRequests = 3;
+          const results = [];
+          for (let i = 0; i < parts.length; i += maxConcurrentRequests) {
+            const chunk = parts.slice(i, i + maxConcurrentRequests);
+            const chunkResults = await Promise.all(
+              chunk.map(fetchAndDecryptPart)
             );
-
-            // Extract files from the decrypted ZIP
-            const fileExtractionPromises = Object.keys(decryptedZip.files)
-              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
-              .map((fileName) =>
-                decryptedZip.files[fileName]
-                  .async("arraybuffer")
-                  .then((fileData) => ({
-                    fileName,
-                    fileData,
-                  }))
-              );
-
-            const decryptedDataArray = await Promise.all(
-              fileExtractionPromises
-            );
-
-            console.log("Decrypted Data Array:", decryptedDataArray);
-
-            // Store in IndexedDB
-            await storeBookData(
-              bookName,
-              decryptedDataArray,
-              combine("Kyaru", bookName.match(/\d+/)[0])
-            );
-
-            // Display images
-            displayImages(decryptedDataArray);
+            results.push(...chunkResults);
           }
+
+          // Display images
+          displayImages(results.flat());
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
         }
+      }
+
+      async function fetchAndDecryptPart(part) {
+        const base64Part = await fetchBookPart(part);
+        const bufferPart = base64ToArrayBuffer(base64Part);
+        const decryptedZip = await decryptFolder(
+          bufferPart,
+          combine("Kyaru", part.match(/\d+/)[0])
+        );
+
+        // Extract files from the decrypted ZIP
+        const fileExtractionPromises = Object.keys(decryptedZip.files)
+          .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+          .map((fileName) =>
+            decryptedZip.files[fileName]
+              .async("arraybuffer")
+              .then((fileData) => ({
+                fileName,
+                fileData,
+              }))
+          );
+
+        return Promise.all(fileExtractionPromises);
       }
 
       async function getFileListFromRepoTree(folderName) {
