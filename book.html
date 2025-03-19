@@ -31,7 +31,9 @@
         const imagesContainer = document.getElementById("imagesContainer");
 
         // Sort files by fileName in ascending order
-        files.sort((a, b) => a.fileName.localeCompare(b.fileName));
+        files.sort((a, b) =>
+          a.fileName.localeCompare(b.fileName, undefined, { numeric: true })
+        );
 
         // Log file names
         console.log("File names in ascending order:");
@@ -63,7 +65,8 @@
         const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
-        document.getElementById("bookNameBeforeNumber").textContent = bookNameBeforeNumber;
+        document.getElementById("bookNameBeforeNumber").textContent =
+          bookNameBeforeNumber;
 
         try {
           const parts = await getFileListFromRepoTree(bookName);
