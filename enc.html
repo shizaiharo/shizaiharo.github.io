@@ -121,10 +121,11 @@
       }
 
       async function generateAndUploadZip(zip, password, zipIndex, folderName) {
+        const formattedZipIndex = String(zipIndex).padStart(3, "0");
         console.log("Generating zip blob...");
         document.getElementById(
           "status"
-        ).textContent = `Generating zip blob ${zipIndex}...`;
+        ).textContent = `Generating zip blob ${formattedZipIndex}...`;
         const zipStartTime = performance.now();
         const zipBlob = await zip.generateAsync({ type: "blob" });
         const zipEndTime = performance.now();
@@ -188,8 +189,7 @@
 
         const base64CombinedData = bufferToBase64(combinedData);
 
-        //   const numberInFolderName = folderName.match(/\d+/)[0];
-        const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
+        const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
 
         console.log(`Uploading to GitHub at path: ${path}`);
         document.getElementById(
@@ -201,8 +201,6 @@
         let attempts = 0;
         const maxAttempts = 3;
 
-        //         while (!uploadSuccess && attempts < maxAttempts) {
-        //             attempts++;
         const response = await fetch(url, {
           method: "PUT",
           headers: {
@@ -211,7 +209,7 @@
             "Content-Type": "application/octet-stream",
           },
           body: JSON.stringify({
-            message: `Upload encrypted folder part ${zipIndex}`,
+            message: `Upload encrypted folder part ${formattedZipIndex}`,
             content: base64CombinedData,
             branch: branch,
           }),
@@ -221,14 +219,14 @@
           console.log("Upload successful.");
           document.getElementById(
             "status"
-          ).textContent = `Uploaded encrypted folder part ${zipIndex} ✅`;
+          ).textContent = `Uploaded encrypted folder part ${formattedZipIndex} ✅`;
           uploadSuccess = true;
         } else {
           const errorResponse = await response.json();
           console.log(`Upload failed (attempt ${attempts}).`, errorResponse);
           document.getElementById(
             "status"
-          ).textContent = `Failed to upload encrypted folder part ${zipIndex} (attempt ${attempts}) ❌`;
+          ).textContent = `Failed to upload encrypted folder part ${formattedZipIndex} (attempt ${attempts}) ❌`;
           if (attempts < maxAttempts) {
             console.log("Retrying upload...");
             document.getElementById("status").textContent += " Retrying...";
