@@ -214,7 +214,7 @@
 
         console.log("Fetching blob data:", blobUrl);
 
-        const blobResponse = await fetch(blobUrl, {
+        const response = await fetch(blobUrl, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
@@ -222,7 +222,7 @@
           throw new Error(`Failed to fetch blob: ${await response.text()}`);
         }
 
-        const blobData = await blobResponse.json();
+        const blobData = await response.json();
 
         if (!blobData.content) {
           throw new Error("No content found in the blob.");
