@@ -17,7 +17,7 @@
     </style>
   </head>
   <body>
-    <h2>Book Viewer</h2>
+    <h2 id="bookNameBeforeNumber">Book's name</h2>
     <div id="imagesContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
@@ -59,8 +59,21 @@
 
         console.log("Loading book:", bookName);
 
+        const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
+        const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
+        document.getElementById("pageTitle").textContent = bookNumber;
+        document.getElementById("bookNameBeforeNumber").textContent = bookNameBeforeNumber;
+
         try {
           const parts = await getFileListFromRepoTree(bookName);
+
+          // Sort parts numerically
+          parts.sort((a, b) => {
+            const numA = parseInt(a.match(/\d+/)[0], 10);
+            const numB = parseInt(b.match(/\d+/)[0], 10);
+            return numA - numB;
+          });
+
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
             const base64Part = await fetchBookPart(part);
