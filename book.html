@@ -22,6 +22,11 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the URL parameter
+
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
 
@@ -43,9 +48,9 @@
       }
 
       async function loadBook() {
-        const bookName = new URLSearchParams(window.location.search).get(
-          "bookName"
-        );
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookName = urlParams.get("bookName");
+        token = urlParams.get("token");
 
         if (!bookName) {
           alert("Missing book name.");
@@ -55,66 +60,234 @@
         console.log("Loading book:", bookName);
 
         try {
-          const bookData = await getBookData(bookName);
+          const parts = await getFileListFromRepoTree(bookName);
+          for (let i = 0; i < parts.length; i++) {
+            const part = parts[i];
+            const base64Part = await fetchBookPart(part);
+            const bufferPart = base64ToArrayBuffer(base64Part);
+            const decryptedZip = await decryptFolder(
+              bufferPart,
+              combine("Kyaru", bookName.match(/\d+/)[0])
+            );
 
-          if (bookData) {
-            displayImages(bookData.files);
-          } else {
-            alert("Book data not found.");
+            // Extract files from the decrypted ZIP
+            const fileExtractionPromises = Object.keys(decryptedZip.files)
+              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+              .map((fileName) =>
+                decryptedZip.files[fileName]
+                  .async("arraybuffer")
+                  .then((fileData) => ({
+                    fileName,
+                    fileData,
+                  }))
+              );
+
+            const decryptedDataArray = await Promise.all(
+              fileExtractionPromises
+            );
+
+            console.log("Decrypted Data Array:", decryptedDataArray);
+
+            // Store in IndexedDB
+            await storeBookData(
+              bookName,
+              decryptedDataArray,
+              combine("Kyaru", bookName.match(/\d+/)[0])
+            );
+
+            // Display images
+            displayImages(decryptedDataArray);
           }
         } catch (error) {
-          console.error("Error retrieving book data:", error);
-          alert("Failed to retrieve book data.");
+          console.error("Error processing book:", error);
+          alert("Failed to process the book. Please try again.");
         }
       }
 
-      async function getBookData(bookName) {
+      async function getFileListFromRepoTree(folderName) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+        console.log("Fetching repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch repo tree: ${await response.text()}`
+          );
+        }
+
+        const treeData = await response.json();
+
+        return treeData.tree
+          .filter(
+            (file) =>
+              file.path.startsWith(`Books/${folderName}/`) &&
+              file.type === "blob"
+          )
+          .map((file) => file.path.replace("Books/", "")); // Remove the Books/ prefix
+      }
+
+      async function fetchBookPart(part) {
+        const sha = await getFileSHA(part);
+        const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`;
+
+        console.log("Fetching blob data:", blobUrl);
+
+        const response = await fetch(blobUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch blob: ${await response.text()}`);
+        }
+
+        const blobData = await response.json();
+
+        if (!blobData.content) {
+          throw new Error("No content found in the blob.");
+        }
+
+        return blobData.content.replace(/\n/g, ""); // Remove newlines
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function decryptFolder(combinedData, password) {
+        if (combinedData.byteLength < 12) {
+          console.error("Data too short, missing IV.");
+          return;
+        }
+
+        const iv = combinedData.slice(0, 12);
+        const encryptedData = combinedData.slice(12);
+
+        console.log("Extracted IV:", new Uint8Array(iv));
+        console.log("Encrypted Data Size:", encryptedData.byteLength);
+
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+        const cryptoKey = await crypto.subtle.importKey(
+          "raw",
+          key,
+          { name: "AES-GCM" },
+          false,
+          ["decrypt"]
+        );
+
+        try {
+          const decryptedData = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            cryptoKey,
+            encryptedData
+          );
+          console.log("Decryption successful!");
+          return JSZip.loadAsync(decryptedData);
+        } catch (error) {
+          console.error(
+            "Decryption failed! Possible IV mismatch or corrupted data.",
+            error
+          );
+        }
+      }
+
+      async function getFileSHA(filePath) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+
+        console.log("Fetching full repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch repo tree: ${await response.text()}`
+          );
+        }
+
+        const treeData = await response.json();
+
+        const fileNode = treeData.tree.find(
+          (node) => node.path === `Books/${filePath}`
+        );
+
+        if (!fileNode) {
+          throw new Error(`SHA not found for ${filePath}`);
+        }
+
+        console.log(`SHA for ${filePath}:`, fileNode.sha);
+        return fileNode.sha;
+      }
+
+      async function storeBookData(bookName, files, password) {
         return new Promise((resolve, reject) => {
           const request = indexedDB.open("bookDatabase", 1);
 
+          request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains("books")) {
+              db.createObjectStore("books", { keyPath: "name" });
+            }
+          };
+
           request.onsuccess = function (event) {
             const db = event.target.result;
-            const transaction = db.transaction("books", "readonly");
+            const transaction = db.transaction("books", "readwrite");
             const store = transaction.objectStore("books");
 
-            const query = store.get(bookName);
+            store.put({ name: bookName, files, password });
 
-            query.onsuccess = function () {
-              const item = query.result;
-              if (item) {
-                console.log("Retrieved data type:", typeof item.files);
-                resolve(item);
-              } else {
-                console.log("No data found for book:", bookName);
-                resolve(null);
-              }
+            transaction.oncomplete = function () {
+              console.log(`Book ${bookName} stored successfully`);
+              resolve();
             };
 
-            query.onerror = function () {
-              console.error("Query error:", query.error);
-              reject(query.error);
+            transaction.onerror = function () {
+              console.error("IndexedDB Transaction Failed:", transaction.error);
+              reject(transaction.error);
             };
           };
 
           request.onerror = function () {
-            console.error("IndexedDB open error:", request.error);
             reject(request.error);
           };
         });
       }
 
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+        const password = combined.join("");
+        console.log("Generated Password:", password);
+        return password;
+      }
+
       window.onload = loadBook;
-
-      window.addEventListener("message", (event) => {
-        const { folderName, decryptedDataArray } = event.data;
-        console.log(
-          `Received data for folder: ${folderName}`,
-          decryptedDataArray
-        );
-
-        // Process and display the decrypted data
-        displayImages(decryptedDataArray);
-      });
     </script>
   </body>
 </html>
