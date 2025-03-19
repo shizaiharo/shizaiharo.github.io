@@ -123,7 +123,6 @@
 
       console.log("Decryption Password:", password);
 
-      try {
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${folderName}?ref=${branch}`;
         const response = await fetch(url, {
           headers: {
@@ -134,13 +133,10 @@
         if (!response.ok) {
           throw new Error(`Failed to fetch folder contents: ${await response.text()}`);
         }
-
         const files = await response.json();
         const parts = files.map(file => file.name);
-      } catch (error) {
-        console.error("Error processing book:", error);
-      }
       
+
       try {
         console.log("Here is OK");
         // Step 1: Fetch all parts in parallel
