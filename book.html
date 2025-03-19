@@ -32,19 +32,28 @@
 
         // Sort files by fileName in ascending order
         files.sort((a, b) => {
-          return a.fileName
-            .replace(/\d+/g, (n) => n.padStart(10, '0')) // Pad numbers for correct sorting
-            .localeCompare(
-              b.fileName.replace(/\d+/g, (n) => n.padStart(10, '0')),
-              undefined,
-              { numeric: true }
-            );
+          const extractNumber = (str) => {
+            return str.match(/\d+/g)?.map(Number) || []; // Extract all numbers as an array
+          };
+
+          const numA = extractNumber(a.fileName);
+          const numB = extractNumber(b.fileName);
+
+          // Compare extracted numbers
+          for (let i = 0; i < Math.max(numA.length, numB.length); i++) {
+            if ((numA[i] ?? 0) !== (numB[i] ?? 0)) {
+              return (numA[i] ?? 0) - (numB[i] ?? 0);
+            }
+          }
+
+          return a.fileName.localeCompare(b.fileName); // Fallback to string comparison
         });
 
         // Log file names
         console.log("File names in ascending order:");
         files.forEach((file) => console.log(file.fileName));
 
+        // Image processing
         for (const file of files) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
             const blob = new Blob([file.fileData]);
