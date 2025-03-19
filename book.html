@@ -59,6 +59,7 @@
 
         console.log("Loading book:", bookName);
 
+        const bookNumber = bookName.match(/\d+/)[0];
         const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
