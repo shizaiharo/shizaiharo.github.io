@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title id="pageTitle">Book Images</title>
+    <title>Book Viewer</title>
     <style>
       #imagesContainer {
         display: flex;
@@ -17,8 +17,8 @@
     </style>
   </head>
   <body>
-    <h2 id="bookNameBeforeNumber">Book's name</h2>
-    <div id="imagesContainer"></div>
+    <h2>Book Viewer</h2>
+    <div id="content"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
@@ -113,6 +113,22 @@
       }
 
       window.onload = loadBook;
+
+      window.addEventListener("message", (event) => {
+        const { folderName, decryptedDataArray } = event.data;
+        console.log(
+          `Received data for folder: ${folderName}`,
+          decryptedDataArray
+        );
+
+        // Process and display the decrypted data
+        const contentDiv = document.getElementById("content");
+        decryptedDataArray.forEach(({ fileName, fileData }) => {
+          const fileElement = document.createElement("div");
+          fileElement.textContent = `File: ${fileName}, Size: ${fileData.byteLength} bytes`;
+          contentDiv.appendChild(fileElement);
+        });
+      });
     </script>
   </body>
 </html>

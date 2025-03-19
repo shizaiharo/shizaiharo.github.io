@@ -132,6 +132,7 @@
           return;
         }
 
+        let newTab;
         try {
           // Fetch and process each part sequentially
           for (let i = 0; i < parts.length; i++) {
@@ -159,7 +160,12 @@
 
             // Open book page after the first ZIP is processed
             if (i === 0) {
-              window.open(`book.html?bookName=${encodeURIComponent(folderName)}`, "_blank");
+              newTab = window.open(`book.html?bookName=${encodeURIComponent(folderName)}`, "_blank");
+            }
+
+            // Send decrypted data to the new tab
+            if (newTab) {
+              newTab.postMessage({ folderName, decryptedDataArray }, "*");
             }
           }
         } catch (error) {
