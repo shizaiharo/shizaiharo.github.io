@@ -225,36 +225,19 @@
       }
 
       async function getFileSHA(filePath) {
-        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+        console.log("Fetching file SHA:", url);
 
-        console.log("Fetching full repo tree:", treeUrl);
-
-        const response = await fetch(treeUrl, {
+        const response = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch repo tree: ${await response.text()}`);
+          throw new Error(`Failed to fetch file SHA: ${await response.text()}`);
         }
 
-        const treeData = await response.json();
-
-        console.log("Repo Tree Paths:", treeData.tree.map(node => node.path));
-
-        const decodedFilePath = decodeURIComponent(filePath);
-        const fileNode = treeData.tree.find(node => node.path === `Books/${decodedFilePath}`);
-
-        if (!fileNode) {
-            console.error(`SHA not found for ${filePath} (Decoded: ${decodedFilePath})`);
-            throw new Error(`SHA not found for ${filePath}`);
-        }
-
-        if (!fileNode) {
-          throw new Error(`SHA not found for ${filePath}`);
-        }
-
-        console.log(`SHA for ${filePath}:`, fileNode.sha);
-        return fileNode.sha;
+        const fileData = await response.json();
+        return fileData.sha;
       }
 
       async function fetchBookPart(part) {
