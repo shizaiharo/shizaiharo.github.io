@@ -117,32 +117,53 @@
         });
       }
 
+      async function getFileListFromRepoTree(folderName) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+        console.log("Fetching repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch repo tree: ${await response.text()}`);
+        }
+
+        const treeData = await response.json();
+
+        return treeData.tree
+          .filter(file => file.path.startsWith(`Books/${folderName}/`) && file.type === "blob")
+          .map(file => file.path.replace("Books/", "")); // Remove the Books/ prefix
+      }
+
       async function selectBook(folderName) {
         const numberInFolderName = folderName.match(/\d+/)[0];
         const password = combine("Kyaru", numberInFolderName);
 
         console.log("Decryption Password:", password);
 
-        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${folderName}?ref=${branch}&per_page=50`;
-        const response = await fetch(url, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        const responseText = await response.text();
-        console.log("Raw Response:", responseText); // Log response before parsing
+        // const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${folderName}?ref=${branch}`;
+        // const response = await fetch(url, {
+        //   headers: {
+        //     Authorization: `Bearer ${token}`,
+        //   },
+        // });
+        // const responseText = await response.text();
+        // console.log("Raw Response:", responseText); // Log response before parsing
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch folder contents: ${await response.text()}`);
-        }
-        let files;
-        try {
-          files = JSON.parse(responseText);
-        } catch (error) {
-          console.error("JSON Parse Error:", error, "Raw Response:", responseText);
-          alert("Error fetching book data. Response might be too large or invalid.");
-          return;
-        }
+        // if (!response.ok) {
+        //   throw new Error(`Failed to fetch folder contents: ${await response.text()}`);
+        // }
+        // let files;
+        // try {
+        //   files = JSON.parse(responseText);
+        // } catch (error) {
+        //   console.error("JSON Parse Error:", error, "Raw Response:", responseText);
+        //   alert("Error fetching book data. Response might be too large or invalid.");
+        //   return;
+        // }
+
+        const files = await getFileListFromRepoTree(folderName);
         const parts = files.map(file => file.name);
 
         try {
