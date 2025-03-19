@@ -174,7 +174,8 @@
         // }
 
         const files = await getFileListFromRepoTree(folderName);
-        const parts = files.map(file => file.name);
+        // const parts = files.map(file => file.name);
+        const parts = files.map(file => file.path.replace("Books/", ""));
 
         try {
           // Step 1: Fetch all parts with limited concurrency
