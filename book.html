@@ -80,11 +80,11 @@
             return numA - numB;
           });
 
-          // Fetch all parts in parallel
-          const allParts = await Promise.all(parts.map(fetchAndDecryptPart));
+          const allFiles = [];
+          for await (const files of fetchAndProcessParts(parts)) {
+            allFiles.push(...files);
+          }
 
-          // Flatten the results and display images
-          const allFiles = allParts.flat();
           displayImages(allFiles);
         } catch (error) {
           console.error("Error processing book:", error);
@@ -92,26 +92,30 @@
         }
       }
 
-      async function fetchAndDecryptPart(part) {
-        const bufferPart = await fetchBookPart(part);
-        const decryptedZip = await decryptFolder(
-          bufferPart,
-          combine("Kyaru", part.match(/\d+/)[0])
-        );
-
-        // Extract files from the decrypted ZIP
-        const fileExtractionPromises = Object.keys(decryptedZip.files)
-          .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
-          .map((fileName) =>
-            decryptedZip.files[fileName]
-              .async("arraybuffer")
-              .then((fileData) => ({
-                fileName,
-                fileData,
-              }))
+      async function* fetchAndProcessParts(parts) {
+        for (const part of parts) {
+          const bufferPart = await fetchBookPart(part);
+          const decryptedZip = await decryptFolder(
+            bufferPart,
+            combine("Kyaru", part.match(/\d+/)[0])
           );
 
-        return Promise.all(fileExtractionPromises);
+          // Extract files from the decrypted ZIP
+          const files = await Promise.all(
+            Object.keys(decryptedZip.files)
+              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+              .map((fileName) =>
+                decryptedZip.files[fileName]
+                  .async("arraybuffer")
+                  .then((fileData) => ({
+                    fileName,
+                    fileData,
+                  }))
+              )
+          );
+
+          yield files;
+        }
       }
 
       async function getFileListFromRepoTree(folderName) {
@@ -169,7 +173,7 @@
       }
 
       function base64ToArrayBuffer(base64) {
-        const binaryString = atob(base64);
+        const binaryString = atob(base64.replace(/[^A-Za-z0-9+/=]/g, "")); // Remove invalid characters
         const bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
