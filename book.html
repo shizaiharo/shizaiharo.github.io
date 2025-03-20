@@ -167,29 +167,34 @@
         for (let attempt = 1; attempt <= retries; attempt++) {
           try {
             const response = await fetch(blobUrl, {
-              headers: { Authorization: `Bearer ${token}` },
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github.v3.raw", // Fetch raw binary data
+              },
             });
 
             if (!response.ok) {
               throw new Error(`Failed to fetch blob: ${await response.text()}`);
             }
 
-            const blobData = await response.json();
-
-            if (!blobData.content) {
-              throw new Error("No content found in the blob.");
-            }
-
-            return blobData.content.replace(/\n/g, ""); // Remove newlines
+            const arrayBuffer = await response.arrayBuffer(); // Read response as binary
+            return arrayBufferToBase64(arrayBuffer); // Convert binary to Base64
           } catch (error) {
             console.error(`Attempt ${attempt} failed:`, error);
-            if (attempt === retries) {
-              throw new Error(
-                `Failed to fetch blob after ${retries} attempts.`
-              );
-            }
+            if (attempt === retries) throw error;
+            await new Promise((r) => setTimeout(r, 2000)); // Wait before retrying
           }
         }
+      }
+
+      function arrayBufferToBase64(buffer) {
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
       }
 
       function base64ToArrayBuffer(base64) {
