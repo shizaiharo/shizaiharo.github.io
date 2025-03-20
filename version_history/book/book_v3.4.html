@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="pageTitle">Book Images</title>
+    <style>
+      #imagesContainer {
+        display: flex;
+        overflow-x: auto;
+        height: 100vh;
+      }
+      #imagesContainer img {
+        height: 100%;
+        object-fit: contain;
+      }
+    </style>
+  </head>
+  <body>
+    <h2 id="bookNameBeforeNumber">Book's name</h2>
+    <div id="imagesContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the URL parameter
+
+      async function displayImages(files) {
+        const imagesContainer = document.getElementById("imagesContainer");
+
+        // Sort files by fileName in ascending order
+        files.sort((a, b) => {
+          const numA = parseInt(a.fileName.match(/\d+/)[0], 10);
+          const numB = parseInt(b.fileName.match(/\d+/)[0], 10);
+          return numA - numB;
+        });
+
+        // Log file names
+        console.log("File names in ascending order:");
+        files.forEach((file) => console.log(file.fileName));
+
+        // const observer = new IntersectionObserver((entries, observer) => {
+        //   entries.forEach((entry) => {
+        //     if (entry.isIntersecting) {
+        //       const img = entry.target;
+        //       img.src = img.dataset.src; // Load the actual image
+        //       observer.unobserve(img);
+        //     }
+        //   });
+        // });
+
+        for (const file of files) {
+          if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
+            const blob = new Blob([file.fileData]);
+            const img = document.createElement("img");
+            const objectURL = URL.createObjectURL(blob);
+            img.src = objectURL;
+            imagesContainer.appendChild(img);
+
+            // Clean up the object URL after the image is loaded
+            img.onload = () => {
+              URL.revokeObjectURL(objectURL);
+            };
+          }
+        }
+      }
+
+      async function loadBook() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const bookName = urlParams.get("bookName");
+        token = urlParams.get("token");
+
+        if (!bookName) {
+          alert("Missing book name.");
+          return;
+        }
+
+        console.log("Loading book:", bookName);
+
+        const bookNumber = bookName.match(/\d+/)[0];
+        const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
+        const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
+        document.getElementById("pageTitle").textContent = bookNumber;
+        document.getElementById("bookNameBeforeNumber").textContent =
+          bookNameBeforeNumber;
+
+        try {
+          const parts = await getFileListFromRepoTree(bookName);
+
+          // Sort parts numerically
+          parts.sort((a, b) => {
+            const numA = parseInt(a.match(/\d+/)[0], 10);
+            const numB = parseInt(b.match(/\d+/)[0], 10);
+            return numA - numB;
+          });
+
+          const buffers = await batchFetch(parts); // Fetch sequentially
+        } catch (error) {
+          console.error("Error processing book:", error);
+          alert("Failed to process the book. Please try again.");
+        }
+      }
+
+      async function getFileListFromRepoTree(folderName) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+        console.log("Fetching repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch repo tree: ${await response.text()}`
+          );
+        }
+
+        const treeData = await response.json();
+
+        return treeData.tree
+          .filter(
+            (file) =>
+              file.path.startsWith(`Books/${folderName}/`) &&
+              file.type === "blob"
+          )
+          .map((file) => file.path.replace("Books/", "")); // Remove the Books/ prefix
+      }
+
+      async function fetchBookPart(part) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}`;
+
+        console.log("Fetching file:", url);
+
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3.raw", // ✅ Get raw file data directly
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${await response.text()}`);
+        }
+
+        return await response.arrayBuffer(); // ✅ Fetch as binary data
+      }
+
+      async function batchFetch(parts) {
+        let results = [];
+        for (const part of parts) {
+          const result = await fetchBookPart(part);
+          results.push(result);
+
+          // Process the file immediately after fetching
+          const buffer = result;
+          const index = parts.indexOf(part);
+          const decryptedZip = await decryptFolder(
+            buffer,
+            combine("Kyaru", parts[index].match(/\d+/)[0])
+          );
+
+          // Extract files from the decrypted ZIP
+          const files = await Promise.all(
+            Object.keys(decryptedZip.files)
+              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+              .map((fileName) =>
+                decryptedZip.files[fileName]
+                  .async("arraybuffer")
+                  .then((fileData) => ({
+                    fileName,
+                    fileData,
+                  }))
+              )
+          );
+
+          // Display images immediately after processing each part
+          displayImages(files);
+        }
+        return results;
+      }
+
+      function arrayBufferToBase64(buffer) {
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64.replace(/[^A-Za-z0-9+/=]/g, "")); // Remove invalid characters
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function decryptFolder(combinedData, password) {
+        if (combinedData.byteLength < 12) {
+          console.error("Data too short, missing IV.");
+          return;
+        }
+
+        const iv = combinedData.slice(0, 12);
+        const encryptedData = combinedData.slice(12);
+
+        console.log("Extracted IV:", new Uint8Array(iv));
+        console.log("Encrypted Data Size:", encryptedData.byteLength);
+
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+        const cryptoKey = await crypto.subtle.importKey(
+          "raw",
+          key,
+          { name: "AES-GCM" },
+          false,
+          ["decrypt"]
+        );
+
+        try {
+          const decryptedData = await crypto.subtle.decrypt(
+            { name: "AES-GCM", iv },
+            cryptoKey,
+            encryptedData
+          );
+          console.log("Decryption successful!");
+          return JSZip.loadAsync(decryptedData);
+        } catch (error) {
+          console.error(
+            "Decryption failed! Possible IV mismatch or corrupted data.",
+            error
+          );
+        }
+      }
+
+      async function getFileSHA(filePath) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+
+        console.log("Fetching full repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch repo tree: ${await response.text()}`
+          );
+        }
+
+        const treeData = await response.json();
+
+        const fileNode = treeData.tree.find(
+          (node) => node.path === `Books/${filePath}`
+        );
+
+        if (!fileNode) {
+          throw new Error(`SHA not found for ${filePath}`);
+        }
+
+        console.log(`SHA for ${filePath}:`, fileNode.sha);
+        return fileNode.sha;
+      }
+
+      async function storeBookData(bookName, files, password) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("bookDatabase", 1);
+
+          request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains("books")) {
+              db.createObjectStore("books", { keyPath: "name" });
+            }
+          };
+
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+            const transaction = db.transaction("books", "readwrite");
+            const store = transaction.objectStore("books");
+
+            store.put({ name: bookName, files, password });
+
+            transaction.oncomplete = function () {
+              console.log(`Book ${bookName} stored successfully`);
+              resolve();
+            };
+
+            transaction.onerror = function () {
+              console.error("IndexedDB Transaction Failed:", transaction.error);
+              reject(transaction.error);
+            };
+          };
+
+          request.onerror = function () {
+            reject(request.error);
+          };
+        });
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+        const password = combined.join("");
+        console.log("Generated Password:", password);
+        return password;
+      }
+
+      window.onload = loadBook;
+    </script>
+  </body>
+</html>
