@@ -26,7 +26,7 @@
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
       let token = ""; // Token will be read from the URL parameter
-      const maxConcurrentRequests = 5; // Maximum concurrent requests
+      let maxConcurrentRequests = 1; // Initial value for max concurrent requests
 
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
@@ -81,8 +81,7 @@
             return numA - numB;
           });
 
-          // Fetch parts in parallel with a maximum of 3 concurrent requests
-          
+          // Fetch parts in parallel with a maximum of maxConcurrentRequests
           const results = [];
           for (let i = 0; i < parts.length; i += maxConcurrentRequests) {
             const chunk = parts.slice(i, i + maxConcurrentRequests);
@@ -93,6 +92,9 @@
 
             // Display images after processing each chunk
             displayImages(results.flat());
+
+            // Increase maxConcurrentRequests using arithmetic sequence
+            maxConcurrentRequests += 2;
           }
         } catch (error) {
           console.error("Error processing book:", error);
