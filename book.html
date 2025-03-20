@@ -27,6 +27,7 @@
       const branch = "main"; // Change to your default branch
       let token = ""; // Token will be read from the URL parameter
       let maxConcurrentRequests = 1; // Initial value for max concurrent requests
+      const MaxmaxConcurrentRequests = 5; // Maximum value for max concurrent requests
 
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
@@ -83,7 +84,7 @@
 
           // Fetch parts in parallel with a maximum of maxConcurrentRequests
           const results = [];
-          for (let i = 0; i < parts.length; i += maxConcurrentRequests) {
+          for (let i = 0; i < parts.length; ) {
             const chunk = parts.slice(i, i + maxConcurrentRequests);
             const chunkResults = await Promise.all(
               chunk.map(fetchAndDecryptPart)
@@ -94,7 +95,14 @@
             displayImages(results.flat());
 
             // Increase maxConcurrentRequests using arithmetic sequence
-            maxConcurrentRequests += 2;
+            if (maxConcurrentRequests < MaxmaxConcurrentRequests) {
+              maxConcurrentRequests += 1;
+            } else {
+              maxConcurrentRequests = MaxmaxConcurrentRequests;
+            }
+
+            // Increment index by the current value of maxConcurrentRequests
+            i += maxConcurrentRequests;
           }
         } catch (error) {
           console.error("Error processing book:", error);
