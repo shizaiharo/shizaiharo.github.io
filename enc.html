@@ -121,12 +121,15 @@
         let currentZipSize = 0;
         let zipIndex = 1;
         let zip = new JSZip();
+        const zipPromises = [];
 
         for (const file of files) {
           const fileSize = file.size;
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
             // Generate the current zip blob and reset for the next zip
-            await generateAndUploadZip(zip, password, zipIndex, folderName);
+            zipPromises.push(
+              generateAndUploadZip(zip, password, zipIndex, folderName)
+            );
             zip = new JSZip();
             currentZipSize = 0;
             zipIndex++;
@@ -140,8 +143,12 @@
 
         // Generate and upload the last zip
         if (currentZipSize > 0) {
-          await generateAndUploadZip(zip, password, zipIndex, folderName);
+          zipPromises.push(
+            generateAndUploadZip(zip, password, zipIndex, folderName)
+          );
         }
+
+        await Promise.all(zipPromises);
       }
 
       async function generateAndUploadZip(zip, password, zipIndex, folderName) {
@@ -151,7 +158,6 @@
           "status"
         ).textContent = `Generating zip blob ${formattedZipIndex}...`;
         const zipStartTime = performance.now();
-        // const zipBlob = await zip.generateAsync({ type: "blob" });
         const zipBlob = await zip.generateAsync({
           type: "blob",
           compression: "STORE",
@@ -230,35 +236,43 @@
         let attempts = 0;
         const maxAttempts = 3;
 
-        const response = await fetch(url, {
-          method: "PUT",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            Accept: "application/vnd.github+json",
-            "Content-Type": "application/octet-stream",
-          },
-          body: JSON.stringify({
-            message: `Upload encrypted folder part ${formattedZipIndex}`,
-            content: base64CombinedData,
-            branch: branch,
-          }),
-        });
+        while (!uploadSuccess && attempts < maxAttempts) {
+          const response = await fetch(url, {
+            method: "PUT",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/vnd.github+json",
+              "Content-Type": "application/octet-stream",
+            },
+            body: JSON.stringify({
+              message: `Upload encrypted folder part ${formattedZipIndex}`,
+              content: base64CombinedData,
+              branch: branch,
+            }),
+          });
 
-        if (response.ok) {
-          console.log("Upload successful.");
-          document.getElementById(
-            "status"
-          ).textContent = `Uploaded encrypted folder part ${formattedZipIndex} ✅`;
-          uploadSuccess = true;
-        } else {
-          const errorResponse = await response.json();
-          console.log(`Upload failed (attempt ${attempts}).`, errorResponse);
-          document.getElementById(
-            "status"
-          ).textContent = `Failed to upload encrypted folder part ${formattedZipIndex} (attempt ${attempts}) ❌`;
-          if (attempts < maxAttempts) {
-            console.log("Retrying upload...");
-            document.getElementById("status").textContent += " Retrying...";
+          if (response.ok) {
+            console.log("Upload successful.");
+            document.getElementById(
+              "status"
+            ).textContent = `Uploaded encrypted folder part ${formattedZipIndex} ✅`;
+            uploadSuccess = true;
+          } else {
+            const errorResponse = await response.json();
+            console.log(
+              `Upload failed (attempt ${attempts + 1}).`,
+              errorResponse
+            );
+            document.getElementById(
+              "status"
+            ).textContent = `Failed to upload encrypted folder part ${formattedZipIndex} (attempt ${
+              attempts + 1
+            }) ❌`;
+            if (attempts < maxAttempts - 1) {
+              console.log("Retrying upload...");
+              document.getElementById("status").textContent += " Retrying...";
+            }
+            attempts++;
           }
         }
       }
