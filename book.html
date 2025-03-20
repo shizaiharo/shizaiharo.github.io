@@ -111,8 +111,9 @@
       }
 
       async function fetchAndDecryptPart(part) {
-        const base64Part = await fetchBookPart(part);
-        const bufferPart = base64ToArrayBuffer(base64Part);
+        // const base64Part = await fetchBookPart(part);
+        // const bufferPart = base64ToArrayBuffer(base64Part);
+        const bufferPart = await fetchBookPart(part);
         const decryptedZip = await decryptFolder(
           bufferPart,
           combine("Kyaru", part.match(/\d+/)[0])
