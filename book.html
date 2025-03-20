@@ -126,7 +126,7 @@
       }
 
       async function getFileListFromRepoTree(folderName) {
-        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}`;
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${folderName}`;
         console.log("Fetching repo tree:", treeUrl);
 
         const response = await fetch(treeUrl, { headers: { Authorization: `Bearer ${token}` } });
