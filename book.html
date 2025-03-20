@@ -45,8 +45,14 @@
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
             const blob = new Blob([file.fileData]);
             const img = document.createElement("img");
-            img.src = URL.createObjectURL(blob);
+            const objectURL = URL.createObjectURL(blob);
+            img.src = objectURL;
             imagesContainer.appendChild(img);
+
+            // Clean up the object URL after the image is loaded
+            img.onload = () => {
+              URL.revokeObjectURL(objectURL);
+            };
           }
         }
       }
