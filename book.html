@@ -92,7 +92,7 @@
             results.push(...chunkResults);
 
             // Display images after processing each chunk
-            displayImages(results.flat());
+            displayImages(chunkResults.flat());
 
             // Increase maxConcurrentRequests using arithmetic sequence
             if (maxConcurrentRequests < MaxmaxConcurrentRequests) {
