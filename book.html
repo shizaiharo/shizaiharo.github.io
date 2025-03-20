@@ -219,14 +219,14 @@
         const cryptoKey = await crypto.subtle.importKey(
           "raw",
           key,
-          { name: "AES-GCM" },
+          { name: "AES-CTR" },
           false,
           ["decrypt"]
         );
 
         try {
           const decryptedData = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv },
+            { name: "AES-CTR", counter: iv, length: 128 },
             cryptoKey,
             encryptedData
           );

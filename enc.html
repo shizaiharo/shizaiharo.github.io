@@ -151,7 +151,12 @@
           "status"
         ).textContent = `Generating zip blob ${formattedZipIndex}...`;
         const zipStartTime = performance.now();
-        const zipBlob = await zip.generateAsync({ type: "blob" });
+        // const zipBlob = await zip.generateAsync({ type: "blob" });
+        const zipBlob = await zip.generateAsync({
+          type: "blob",
+          compression: "STORE",
+          compressionOptions: { level: 0 },
+        });
         const zipEndTime = performance.now();
         console.log(
           `Zip generation time: ${(zipEndTime - zipStartTime).toFixed(2)} ms`
@@ -177,11 +182,11 @@
         document.getElementById("status").textContent = "Encrypting data...";
         const encryptStartTime = performance.now();
         const encryptedData = await crypto.subtle.encrypt(
-          { name: "AES-GCM", iv },
+          { name: "AES-CTR", counter: iv, length: 128 },
           await crypto.subtle.importKey(
             "raw",
             key,
-            { name: "AES-GCM" },
+            { name: "AES-CTR" },
             false,
             ["encrypt"]
           ),
