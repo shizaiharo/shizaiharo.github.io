@@ -91,7 +91,7 @@
             return numA - numB;
           });
 
-          const buffers = await batchFetch(parts, 5); // Fetch in batches of 5
+          const buffers = await batchFetch(parts); // Fetch sequentially
           const decryptPromises = buffers.map((buffer, index) =>
             decryptFolder(
               buffer,
@@ -168,11 +168,11 @@
         return await response.arrayBuffer(); // ✅ Fetch as binary data
       }
 
-      async function batchFetch(parts, batchSize = 5) {
+      async function batchFetch(parts) {
         let results = [];
-        for (let i = 0; i < parts.length; i += batchSize) {
-          const batch = parts.slice(i, i + batchSize).map(fetchBookPart);
-          results.push(...(await Promise.all(batch)));
+        for (const part of parts) {
+          const result = await fetchBookPart(part);
+          results.push(result);
         }
         return results;
       }
