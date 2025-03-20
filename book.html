@@ -41,23 +41,28 @@
         console.log("File names in ascending order:");
         files.forEach((file) => console.log(file.fileName));
 
-        const observer = new IntersectionObserver((entries, observer) => {
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              const img = entry.target;
-              img.src = img.dataset.src; // Load the actual image
-              observer.unobserve(img);
-            }
-          });
-        });
+        // const observer = new IntersectionObserver((entries, observer) => {
+        //   entries.forEach((entry) => {
+        //     if (entry.isIntersecting) {
+        //       const img = entry.target;
+        //       img.src = img.dataset.src; // Load the actual image
+        //       observer.unobserve(img);
+        //     }
+        //   });
+        // });
 
         for (const file of files) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
             const blob = new Blob([file.fileData]);
             const img = document.createElement("img");
-            img.dataset.src = URL.createObjectURL(blob); // Store the image URL for lazy loading
+            const objectURL = URL.createObjectURL(blob);
+            img.src = objectURL;
             imagesContainer.appendChild(img);
-            observer.observe(img);
+
+            // Clean up the object URL after the image is loaded
+            img.onload = () => {
+              URL.revokeObjectURL(objectURL);
+            };
           }
         }
       }
