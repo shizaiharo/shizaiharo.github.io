@@ -26,8 +26,6 @@
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
       let token = ""; // Token will be read from the URL parameter
-      let maxConcurrentRequests = 1; // Initial value for max concurrent requests
-      const MaxmaxConcurrentRequests = 4; // Maximum value for max concurrent requests
 
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
@@ -82,28 +80,12 @@
             return numA - numB;
           });
 
-          // Fetch parts in parallel with a maximum of maxConcurrentRequests
-          const results = [];
-          for (let i = 0; i < parts.length; ) {
-            const chunk = parts.slice(i, i + maxConcurrentRequests);
-            const chunkResults = await Promise.all(
-              chunk.map(fetchAndDecryptPart)
-            );
-            results.push(...chunkResults);
+          // Fetch all parts in parallel
+          const allParts = await Promise.all(parts.map(fetchAndDecryptPart));
 
-            // Display images after processing each chunk
-            displayImages(chunkResults.flat());
-
-            // Increase maxConcurrentRequests using arithmetic sequence
-            if (maxConcurrentRequests < MaxmaxConcurrentRequests) {
-              maxConcurrentRequests += 1;
-            } else {
-              maxConcurrentRequests = MaxmaxConcurrentRequests;
-            }
-
-            // Increment index by the length of the current chunk
-            i += chunk.length;
-          }
+          // Flatten the results and display images
+          const allFiles = allParts.flat();
+          displayImages(allFiles);
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
@@ -111,8 +93,6 @@
       }
 
       async function fetchAndDecryptPart(part) {
-        // const base64Part = await fetchBookPart(part);
-        // const bufferPart = base64ToArrayBuffer(base64Part);
         const bufferPart = await fetchBookPart(part);
         const decryptedZip = await decryptFolder(
           bufferPart,
