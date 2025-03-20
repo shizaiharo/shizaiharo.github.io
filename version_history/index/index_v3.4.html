@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>I love world peace.</title>
+  </head>
+  <body>
+    <h2>Main</h2>
+    <br />
+    <div id="tokenSection">
+      <input type="text" id="tokenInput" placeholder="Enter your token" />
+      <button onclick="checkToken()">Check</button>
+    </div>
+    <br />
+    <button id="jumpEncButton" style="display: none">Enc</button>
+    <button id="jumpDecButton" style="display: none">Dec</button>
+    <!-- <button id="jumpDecVideoButton" style="display: none">Dec Video</button> -->
+    <!-- <input
+      type="file"
+      id="bookInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    /> -->
+    <!-- <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
+      Upload Book
+    </button>
+    <p id="status"></p> -->
+
+    <!-- <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script> -->
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the input field
+
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+          document.getElementById("tokenSection").style.display = "none";
+          document.getElementById("jumpEncButton").style.display = "block";
+          document.getElementById("jumpDecButton").style.display = "block";
+          // document.getElementById("jumpDecVideoButton").style.display = "block";
+          document.getElementById("jumpEncButton").onclick = function () {
+            window.location.href = `enc.html?token=${encodeURIComponent(
+              token
+            )}`;
+          };
+          document.getElementById("jumpDecButton").onclick = function () {
+            window.location.href = `dec.html?token=${encodeURIComponent(
+              token
+            )}`;
+          };
+          // document.getElementById("jumpDecVideoButton").onclick = function () {
+          //   window.location.href = `decVideo.html?token=${encodeURIComponent(
+          //     token
+          //   )}`;
+          // };
+        }
+      }
+
+      async function checkToken() {
+        token = document.getElementById("tokenInput").value.trim();
+        if (!token) {
+          alert("Please enter the token.");
+          return;
+        }
+
+        // Validate token
+        const response = await fetch(
+          `https://api.github.com/repos/${owner}/${repo}`,
+          {
+            headers: {
+              Authorization: `token ${token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          alert("Token validated successfully.");
+          document.getElementById("tokenSection").style.display = "none";
+          document.getElementById("jumpEncButton").style.display = "block";
+          document.getElementById("jumpDecButton").style.display = "block";
+          // document.getElementById("jumpDecVideoButton").style.display = "block";
+
+          // Store token in localStorage
+          localStorage.setItem("githubToken", token);
+
+          // Update the jumpEncButton and jumpDecButton href with the token
+          document.getElementById("jumpEncButton").onclick = function () {
+            window.location.href = `enc.html?token=${encodeURIComponent(
+              token
+            )}`;
+          };
+          document.getElementById("jumpDecButton").onclick = function () {
+            window.location.href = `dec.html?token=${encodeURIComponent(
+              token
+            )}`;
+          };
+          // document.getElementById("jumpDecVideoButton").onclick = function () {
+          //   window.location.href = `decVideo.html?token=${encodeURIComponent(
+          //     token
+          //   )}`;
+          // };
+        } else {
+          alert("Invalid token. Please enter a valid token.");
+        }
+      }
+
+      // Call getTokenFromUrl on page load
+      window.onload = getTokenFromUrl;
+    </script>
+  </body>
+</html>
