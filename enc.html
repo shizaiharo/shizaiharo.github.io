@@ -145,7 +145,7 @@
       }
 
       async function generateAndUploadZip(zip, password, zipIndex, folderName) {
-        const formattedZipIndex = String(zipIndex).padStart(3, "0");
+        const formattedZipIndex = String(zipIndex).padStart(5, "0");
         console.log("Generating zip blob...");
         document.getElementById(
           "status"
