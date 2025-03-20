@@ -80,7 +80,6 @@
             return numA - numB;
           });
 
-          const allFiles = [];
           const fileQueue = [];
 
           for (const part of parts) {
@@ -108,10 +107,9 @@
                 )
             );
 
-            allFiles.push(...files);
+            // Display images immediately after processing each part
+            displayImages(files);
           }
-
-          displayImages(allFiles);
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
