@@ -7,7 +7,7 @@
   </head>
   <body>
     <h2>Enc</h2>
-    <h4>Upload a folder containing the book images</h4>
+    <h4>Upload a folder/folders containing the book images</h4>
     <button id="backToIndexButton">Main</button>
     <br />
     <input
@@ -19,6 +19,21 @@
     />
     <button id="uploadBookButton" onclick="uploadBook()" style="display: none">
       Upload Book
+    </button>
+    <br />
+    <input
+      type="file"
+      id="motherFolderInput"
+      multiple
+      webkitdirectory
+      style="display: none"
+    />
+    <button
+      id="uploadMotherFolderButton"
+      onclick="uploadMotherFolder()"
+      style="display: none"
+    >
+      Upload Mother Folder
     </button>
     <p id="status"></p>
 
@@ -36,6 +51,9 @@
         if (token) {
           document.getElementById("bookInput").style.display = "inline";
           document.getElementById("uploadBookButton").style.display = "inline";
+          document.getElementById("motherFolderInput").style.display = "inline";
+          document.getElementById("uploadMotherFolderButton").style.display =
+            "inline";
         } else {
           alert("Please upload the token file first.");
         }
@@ -256,6 +274,60 @@
 
         console.log("Starting encryption...");
         await encryptFolder(files, password, folderName);
+      }
+
+      async function uploadMotherFolder() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = Array.from(
+          document.getElementById("motherFolderInput").files
+        );
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        const folders = {};
+        files.forEach((file) => {
+          console.log(`Processing file: ${file.webkitRelativePath}`);
+          const folderName = file.webkitRelativePath.split("/")[1]; // Adjusted to get the second part of the path
+          console.log(`Extracted folder name: ${folderName}`);
+          if (/\[\d+\]/.test(folderName)) {
+            // Check if folder name contains a number within brackets
+            if (!folders[folderName]) {
+              folders[folderName] = [];
+            }
+            folders[folderName].push(file);
+          } else {
+            console.log(
+              `Skipping folder: ${folderName} (no number in brackets)`
+            );
+          }
+        });
+
+        // Sort folder names by the number in the brackets
+        const sortedFolderNames = Object.keys(folders).sort((a, b) => {
+          const numA = parseInt(a.match(/\[(\d+)\]/)[1]);
+          const numB = parseInt(b.match(/\[(\d+)\]/)[1]);
+          return numA - numB;
+        });
+
+        for (const folderName of sortedFolderNames) {
+          const folderFiles = folders[folderName];
+          const numberInFolderName = folderName.match(/\d+/)[0];
+          const password = combine("Kyaru", numberInFolderName);
+          console.log(`Password generated for ${folderName}: ${password}`);
+
+          document.getElementById(
+            "status"
+          ).textContent = `Encrypting and uploading folder: ${folderName}...`;
+
+          console.log(`Starting encryption for folder: ${folderName}...`);
+          await encryptFolder(folderFiles, password, folderName);
+        }
       }
 
       // Call getTokenFromUrl on page load
