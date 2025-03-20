@@ -86,9 +86,8 @@
             return numA - numB;
           });
 
-          const buffers = await Promise.all(
-            parts.map((part) => fetchBookPart(part))
-          );
+          const fetchPromises = parts.map((part) => fetchBookPart(part));
+          const buffers = await Promise.all(fetchPromises);
           const decryptPromises = buffers.map((buffer, index) =>
             decryptFolder(
               buffer,
