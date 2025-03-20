@@ -80,14 +80,8 @@
             return numA - numB;
           });
 
-          const fileQueue = [];
-
           for (const part of parts) {
-            fileQueue.push(fetchBookPart(part));
-          }
-
-          for (const part of parts) {
-            const bufferPart = await fileQueue.shift();
+            const bufferPart = await fetchBookPart(part);
             const decryptedZip = await decryptFolder(
               bufferPart,
               combine("Kyaru", part.match(/\d+/)[0])
