@@ -81,7 +81,33 @@
           });
 
           const allFiles = [];
-          for await (const files of fetchAndProcessParts(parts)) {
+          const fileQueue = [];
+
+          for (const part of parts) {
+            fileQueue.push(fetchBookPart(part));
+          }
+
+          for (const part of parts) {
+            const bufferPart = await fileQueue.shift();
+            const decryptedZip = await decryptFolder(
+              bufferPart,
+              combine("Kyaru", part.match(/\d+/)[0])
+            );
+
+            // Extract files from the decrypted ZIP
+            const files = await Promise.all(
+              Object.keys(decryptedZip.files)
+                .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+                .map((fileName) =>
+                  decryptedZip.files[fileName]
+                    .async("arraybuffer")
+                    .then((fileData) => ({
+                      fileName,
+                      fileData,
+                    }))
+                )
+            );
+
             allFiles.push(...files);
           }
 
@@ -89,32 +115,6 @@
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
-        }
-      }
-
-      async function* fetchAndProcessParts(parts) {
-        for (const part of parts) {
-          const bufferPart = await fetchBookPart(part);
-          const decryptedZip = await decryptFolder(
-            bufferPart,
-            combine("Kyaru", part.match(/\d+/)[0])
-          );
-
-          // Extract files from the decrypted ZIP
-          const files = await Promise.all(
-            Object.keys(decryptedZip.files)
-              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
-              .map((fileName) =>
-                decryptedZip.files[fileName]
-                  .async("arraybuffer")
-                  .then((fileData) => ({
-                    fileName,
-                    fileData,
-                  }))
-              )
-          );
-
-          yield files;
         }
       }
 
