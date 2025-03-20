@@ -94,14 +94,15 @@
             // Display images after processing each chunk
             displayImages(results.flat());
 
-            // i += maxConcurrentRequests;
             // Increase maxConcurrentRequests using arithmetic sequence
             if (maxConcurrentRequests < MaxmaxConcurrentRequests) {
               maxConcurrentRequests += 1;
             } else {
               maxConcurrentRequests = MaxmaxConcurrentRequests;
             }
-            i += maxConcurrentRequests;
+
+            // Increment index by the length of the current chunk
+            i += chunk.length;
           }
         } catch (error) {
           console.error("Error processing book:", error);
