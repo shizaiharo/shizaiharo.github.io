@@ -15,7 +15,7 @@
     <br />
     <button id="jumpEncButton" style="display: none">Enc</button>
     <button id="jumpDecButton" style="display: none">Dec</button>
-    <button id="jumpDecVideoButton" style="display: none">Dec Video</button>
+    <!-- <button id="jumpDecVideoButton" style="display: none">Dec Video</button> -->
     <!-- <input
       type="file"
       id="bookInput"
@@ -42,7 +42,7 @@
           document.getElementById("tokenSection").style.display = "none";
           document.getElementById("jumpEncButton").style.display = "block";
           document.getElementById("jumpDecButton").style.display = "block";
-          document.getElementById("jumpDecVideoButton").style.display = "block";
+          // document.getElementById("jumpDecVideoButton").style.display = "block";
           document.getElementById("jumpEncButton").onclick = function () {
             window.location.href = `enc.html?token=${encodeURIComponent(
               token
@@ -53,11 +53,11 @@
               token
             )}`;
           };
-          document.getElementById("jumpDecVideoButton").onclick = function () {
-            window.location.href = `decVideo.html?token=${encodeURIComponent(
-              token
-            )}`;
-          };
+          // document.getElementById("jumpDecVideoButton").onclick = function () {
+          //   window.location.href = `decVideo.html?token=${encodeURIComponent(
+          //     token
+          //   )}`;
+          // };
         }
       }
 
@@ -83,7 +83,7 @@
           document.getElementById("tokenSection").style.display = "none";
           document.getElementById("jumpEncButton").style.display = "block";
           document.getElementById("jumpDecButton").style.display = "block";
-          document.getElementById("jumpDecVideoButton").style.display = "block";
+          // document.getElementById("jumpDecVideoButton").style.display = "block";
 
           // Store token in localStorage
           localStorage.setItem("githubToken", token);
@@ -99,11 +99,11 @@
               token
             )}`;
           };
-          document.getElementById("jumpDecVideoButton").onclick = function () {
-            window.location.href = `decVideo.html?token=${encodeURIComponent(
-              token
-            )}`;
-          };
+          // document.getElementById("jumpDecVideoButton").onclick = function () {
+          //   window.location.href = `decVideo.html?token=${encodeURIComponent(
+          //     token
+          //   )}`;
+          // };
         } else {
           alert("Invalid token. Please enter a valid token.");
         }
