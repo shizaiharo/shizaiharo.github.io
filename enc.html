@@ -107,9 +107,15 @@
       async function encryptFolder(files, password, folderName) {
         // Sort files by the number in their filenames
         files.sort((a, b) => {
-          const numA = parseInt(a.name.match(/\d+/));
-          const numB = parseInt(b.name.match(/\d+/));
-          return numA - numB;
+          const numsA = a.name.match(/\d+/g).map(Number);
+          const numsB = b.name.match(/\d+/g).map(Number);
+
+          for (let i = 0; i < Math.max(numsA.length, numsB.length); i++) {
+            if (numsA[i] !== numsB[i]) {
+              return (numsA[i] || 0) - (numsB[i] || 0);
+            }
+          }
+          return 0;
         });
 
         let currentZipSize = 0;
