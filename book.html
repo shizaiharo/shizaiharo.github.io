@@ -158,27 +158,38 @@
           .map((file) => file.path.replace("Books/", "")); // Remove the Books/ prefix
       }
 
-      async function fetchBookPart(part) {
+      async function fetchBookPart(part, retries = 3) {
         const sha = await getFileSHA(part);
         const blobUrl = `https://api.github.com/repos/${owner}/${repo}/git/blobs/${sha}`;
 
         console.log("Fetching blob data:", blobUrl);
 
-        const response = await fetch(blobUrl, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        for (let attempt = 1; attempt <= retries; attempt++) {
+          try {
+            const response = await fetch(blobUrl, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch blob: ${await response.text()}`);
+            if (!response.ok) {
+              throw new Error(`Failed to fetch blob: ${await response.text()}`);
+            }
+
+            const blobData = await response.json();
+
+            if (!blobData.content) {
+              throw new Error("No content found in the blob.");
+            }
+
+            return blobData.content.replace(/\n/g, ""); // Remove newlines
+          } catch (error) {
+            console.error(`Attempt ${attempt} failed:`, error);
+            if (attempt === retries) {
+              throw new Error(
+                `Failed to fetch blob after ${retries} attempts.`
+              );
+            }
+          }
         }
-
-        const blobData = await response.json();
-
-        if (!blobData.content) {
-          throw new Error("No content found in the blob.");
-        }
-
-        return blobData.content.replace(/\n/g, ""); // Remove newlines
       }
 
       function base64ToArrayBuffer(base64) {
