@@ -92,32 +92,6 @@
           });
 
           const buffers = await batchFetch(parts); // Fetch sequentially
-          const decryptPromises = buffers.map((buffer, index) =>
-            decryptFolder(
-              buffer,
-              combine("Kyaru", parts[index].match(/\d+/)[0])
-            )
-          );
-          const decryptedZips = await Promise.all(decryptPromises);
-
-          for (const decryptedZip of decryptedZips) {
-            // Extract files from the decrypted ZIP
-            const files = await Promise.all(
-              Object.keys(decryptedZip.files)
-                .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
-                .map((fileName) =>
-                  decryptedZip.files[fileName]
-                    .async("arraybuffer")
-                    .then((fileData) => ({
-                      fileName,
-                      fileData,
-                    }))
-                )
-            );
-
-            // Display images immediately after processing each part
-            displayImages(files);
-          }
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
@@ -173,6 +147,31 @@
         for (const part of parts) {
           const result = await fetchBookPart(part);
           results.push(result);
+
+          // Process the file immediately after fetching
+          const buffer = result;
+          const index = parts.indexOf(part);
+          const decryptedZip = await decryptFolder(
+            buffer,
+            combine("Kyaru", parts[index].match(/\d+/)[0])
+          );
+
+          // Extract files from the decrypted ZIP
+          const files = await Promise.all(
+            Object.keys(decryptedZip.files)
+              .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+              .map((fileName) =>
+                decryptedZip.files[fileName]
+                  .async("arraybuffer")
+                  .then((fileData) => ({
+                    fileName,
+                    fileData,
+                  }))
+              )
+          );
+
+          // Display images immediately after processing each part
+          displayImages(files);
         }
         return results;
       }
