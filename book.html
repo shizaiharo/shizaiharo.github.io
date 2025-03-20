@@ -91,8 +91,7 @@
             return numA - numB;
           });
 
-          const fetchPromises = parts.map((part) => fetchBookPart(part));
-          const buffers = await Promise.all(fetchPromises);
+          const buffers = await batchFetch(parts, 5); // Fetch in batches of 5
           const decryptPromises = buffers.map((buffer, index) =>
             decryptFolder(
               buffer,
@@ -126,10 +125,12 @@
       }
 
       async function getFileListFromRepoTree(folderName) {
-        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${folderName}`;
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
         console.log("Fetching repo tree:", treeUrl);
 
-        const response = await fetch(treeUrl, { headers: { Authorization: `Bearer ${token}` } });
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         if (!response.ok) {
           throw new Error(
@@ -165,6 +166,15 @@
         }
 
         return await response.arrayBuffer(); // ✅ Fetch as binary data
+      }
+
+      async function batchFetch(parts, batchSize = 5) {
+        let results = [];
+        for (let i = 0; i < parts.length; i += batchSize) {
+          const batch = parts.slice(i, i + batchSize).map(fetchBookPart);
+          results.push(...(await Promise.all(batch)));
+        }
+        return results;
       }
 
       function arrayBufferToBase64(buffer) {
