@@ -86,13 +86,18 @@
             return numA - numB;
           });
 
-          for (const part of parts) {
-            const bufferPart = await fetchBookPart(part);
-            const decryptedZip = await decryptFolder(
-              bufferPart,
-              combine("Kyaru", part.match(/\d+/)[0])
-            );
+          const buffers = await Promise.all(
+            parts.map((part) => fetchBookPart(part))
+          );
+          const decryptPromises = buffers.map((buffer, index) =>
+            decryptFolder(
+              buffer,
+              combine("Kyaru", parts[index].match(/\d+/)[0])
+            )
+          );
+          const decryptedZips = await Promise.all(decryptPromises);
 
+          for (const decryptedZip of decryptedZips) {
             // Extract files from the decrypted ZIP
             const files = await Promise.all(
               Object.keys(decryptedZip.files)
