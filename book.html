@@ -5,12 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title id="pageTitle">Book Images</title>
     <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
       #imagesContainer {
         display: flex;
         overflow-x: auto;
         height: calc(
-          100vh - 50px
-        ); /* Adjust 50px to the actual height of the h2 and margin */
+          100vh - 60px
+        ); /* Adjust 60px to the actual height of the headerContainer */
       }
       #imagesContainer img {
         height: 100%;
@@ -21,6 +27,7 @@
         align-items: center;
         justify-content: flex-start; /* Align items to the left */
         margin-bottom: 10px;
+        height: 50px; /* Adjust this value to match the actual height of the header */
       }
       #progressContainer {
         display: flex;
