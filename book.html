@@ -201,44 +201,37 @@
       }
 
       async function decryptFolder(combinedData, password) {
-        if (combinedData.byteLength < 12) {
+        if (combinedData.byteLength < 16) {
           console.error("Data too short, missing IV.");
           return;
         }
 
-        const iv = combinedData.slice(0, 12);
-        const encryptedData = combinedData.slice(12);
+        const iv = combinedData.slice(0, 16);
+        const encryptedData = combinedData.slice(16);
 
         console.log("Extracted IV:", new Uint8Array(iv));
         console.log("Encrypted Data Size:", encryptedData.byteLength);
 
-        const keyMaterial = await crypto.subtle.importKey(
-          "raw",
-          new TextEncoder().encode(password),
-          { name: "PBKDF2" },
-          false,
-          ["deriveKey"]
-        );
-
-        const key = await crypto.subtle.deriveKey(
-          {
-            name: "PBKDF2",
-            salt: iv,
-            iterations: 100000,
-            hash: "SHA-256",
-          },
-          keyMaterial,
-          { name: "AES-GCM", length: 256 },
-          false,
-          ["decrypt"]
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
         );
 
         try {
-          const decryptedData = await crypto.subtle.decrypt(
-            { name: "AES-GCM", iv: iv },
+          const cryptoKey = await crypto.subtle.importKey(
+            "raw",
             key,
+            { name: "AES-CTR" },
+            false,
+            ["decrypt"]
+          );
+
+          const decryptedData = await crypto.subtle.decrypt(
+            { name: "AES-CTR", counter: iv, length: 128 },
+            cryptoKey,
             encryptedData
           );
+
           console.log("Decryption successful!");
           return JSZip.loadAsync(decryptedData);
         } catch (error) {
