@@ -121,15 +121,27 @@
         let currentZipSize = 0;
         let zipIndex = 1;
         let zip = new JSZip();
+        const zipPromises = [];
+        const maxUploads = 5;
+        let uploadCount = 0;
 
         for (const file of files) {
           const fileSize = file.size;
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
             // Generate the current zip blob and reset for the next zip
-            await generateAndUploadZip(zip, password, zipIndex, folderName);
+            zipPromises.push(
+              generateAndUploadZip(zip, password, zipIndex, folderName)
+            );
             zip = new JSZip();
             currentZipSize = 0;
             zipIndex++;
+            uploadCount++;
+
+            if (uploadCount >= maxUploads) {
+              await Promise.all(zipPromises);
+              zipPromises.length = 0; // Clear the array
+              uploadCount = 0;
+            }
           }
           console.log(
             `Adding file to zip: ${file.webkitRelativePath || file.name}`
@@ -140,8 +152,12 @@
 
         // Generate and upload the last zip
         if (currentZipSize > 0) {
-          await generateAndUploadZip(zip, password, zipIndex, folderName);
+          zipPromises.push(
+            generateAndUploadZip(zip, password, zipIndex, folderName)
+          );
         }
+
+        await Promise.all(zipPromises);
       }
 
       async function generateAndUploadZip(zip, password, zipIndex, folderName) {
