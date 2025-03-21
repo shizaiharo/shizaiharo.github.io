@@ -162,7 +162,7 @@
             return numA - numB;
           });
 
-          const buffers = await batchFetchWithLimit(parts); // Fetch sequentially with concurrency limit
+          const buffers = await parallelBatchFetch(parts); // Fetch in parallel
           hideProgressContainer(); // Hide progress container after loading
           showDownloadButton(); // Show the download button after loading
         } catch (error) {
@@ -235,41 +235,58 @@
         etaText.textContent = `ETA: ${eta} seconds`;
       }
 
-      async function batchFetchWithLimit(parts, concurrency = 3) {
-        const results = [];
+      async function parallelBatchFetch(parts) {
+        const startTime = Date.now();
         let loadedSize = 0;
         const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
-        const startTime = Date.now();
 
-        async function fetchPart(part) {
+        const fetchPromises = parts.map(async (part, index) => {
           try {
-            const result = await fetchBookPart(part.path);
+            const result = await fetchBookPart(part.path); // Fetch in parallel
             loadedSize += part.size;
+
+            // Process the ZIP file immediately
+            const decryptedZip = await decryptFolder(
+              result,
+              combine("Kyaru", parts[index].path.match(/\d+/)[0])
+            );
+
+            // Extract files
+            const files = await Promise.all(
+              Object.keys(decryptedZip.files)
+                .filter((fileName) => !decryptedZip.files[fileName].dir)
+                .map((fileName) =>
+                  decryptedZip.files[fileName]
+                    .async("arraybuffer")
+                    .then((fileData) => ({
+                      fileName,
+                      fileData,
+                    }))
+                )
+            );
+
+            // Display images and update progress
+            displayImages(files);
             updateProgress(loadedSize, totalSize, startTime);
-            displayImages([{ fileName: part.path, fileData: result }]); // Display image after fetching part
-            return result;
+
+            return files; // Return extracted files
           } catch (error) {
-            console.error(`Failed to fetch ${part.path}, retrying...`, error);
-            return fetchPart(part); // Retry logic (be careful with infinite loops!)
+            console.error(
+              "Error fetching or processing file:",
+              part.path,
+              error
+            );
+            return null; // Skip failed fetches instead of stopping everything
           }
-        }
+        });
 
-        const fetchQueue = [];
-        for (const part of parts) {
-          const fetchPromise = fetchPart(part).then((result) => {
-            results.push(result);
-          });
-          fetchQueue.push(fetchPromise);
+        // Wait for all fetch & process to complete
+        const allFiles = await Promise.allSettled(fetchPromises);
 
-          // Limit concurrent fetches
-          if (fetchQueue.length >= concurrency) {
-            await Promise.race(fetchQueue);
-            fetchQueue.splice(0, 1); // Remove completed fetch from queue
-          }
-        }
-
-        await Promise.all(fetchQueue); // Wait for remaining fetches
-        return results;
+        // Flatten and filter out failed results
+        return allFiles
+          .filter((result) => result.status === "fulfilled" && result.value)
+          .flatMap((result) => result.value);
       }
 
       function hideProgressContainer() {
