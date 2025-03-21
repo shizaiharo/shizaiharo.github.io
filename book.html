@@ -258,27 +258,9 @@
 
         const fetchQueue = [];
         for (const part of parts) {
-          const fetchPromise = fetchPart(part).then(async (result) => {
-            // Decrypt and extract images from the fetched file
-            const decryptedZip = await decryptFolder(
-              result.fileData,
-              combine("Kyaru", part.path.match(/\d+/)[0])
-            );
-            const files = await Promise.all(
-              Object.keys(decryptedZip.files)
-                .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
-                .map((fileName) =>
-                  decryptedZip.files[fileName]
-                    .async("arraybuffer")
-                    .then((fileData) => ({
-                      fileName,
-                      fileData,
-                    }))
-                )
-            );
-
-            results.push(...files);
-          });
+          const fetchPromise = fetchPart(part).then((result) =>
+            results.push(result)
+          );
           fetchQueue.push(fetchPromise);
 
           // Limit concurrent fetches
@@ -290,10 +272,35 @@
 
         await Promise.all(fetchQueue); // Wait for remaining fetches
 
-        // Display images after all fetches and processing are complete
-        displayImages(results);
+        // Decrypt and extract images from the fetched files in parallel
+        const decryptedFiles = await Promise.all(
+          results.map(async (result) => {
+            const decryptedZip = await decryptFolder(
+              result.fileData,
+              combine("Kyaru", result.fileName.match(/\d+/)[0])
+            );
+            return Promise.all(
+              Object.keys(decryptedZip.files)
+                .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+                .map((fileName) =>
+                  decryptedZip.files[fileName]
+                    .async("arraybuffer")
+                    .then((fileData) => ({
+                      fileName,
+                      fileData,
+                    }))
+                )
+            );
+          })
+        );
 
-        return results;
+        // Flatten the array of arrays
+        const flattenedFiles = decryptedFiles.flat();
+
+        // Display images after all fetches and processing are complete
+        displayImages(flattenedFiles);
+
+        return flattenedFiles;
       }
 
       function hideProgressContainer() {
