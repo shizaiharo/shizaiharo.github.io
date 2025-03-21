@@ -151,10 +151,14 @@
         try {
           const parts = await getFileListFromRepoTree(bookName);
 
+          // Calculate total size
+          const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
+          console.log(`Total book size: ${totalSize} bytes`);
+
           // Sort parts numerically
           parts.sort((a, b) => {
-            const numA = parseInt(a.match(/\d+/)[0], 10);
-            const numB = parseInt(b.match(/\d+/)[0], 10);
+            const numA = parseInt(a.path.match(/\d+/)[0], 10);
+            const numB = parseInt(b.path.match(/\d+/)[0], 10);
             return numA - numB;
           });
 
@@ -189,7 +193,10 @@
               file.path.startsWith(`Books/${folderName}/`) &&
               file.type === "blob"
           )
-          .map((file) => file.path.replace("Books/", "")); // Remove the Books/ prefix
+          .map((file) => ({
+            path: file.path.replace("Books/", ""), // Remove the Books/ prefix
+            size: file.size,
+          }));
       }
 
       async function fetchBookPart(part) {
@@ -214,17 +221,23 @@
       async function batchFetch(parts) {
         let results = [];
         const startTime = Date.now();
+        let loadedSize = 0;
+        const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
+
         for (let i = 0; i < parts.length; i++) {
           const part = parts[i];
-          const result = await fetchBookPart(part);
+          const result = await fetchBookPart(part.path);
           results.push(result);
+
+          // Update loaded size
+          loadedSize += part.size;
 
           // Process the file immediately after fetching
           const buffer = result;
           const index = parts.indexOf(part);
           const decryptedZip = await decryptFolder(
             buffer,
-            combine("Kyaru", parts[index].match(/\d+/)[0])
+            combine("Kyaru", parts[index].path.match(/\d+/)[0])
           );
 
           // Extract files from the decrypted ZIP
@@ -245,9 +258,9 @@
           displayImages(files);
 
           // Update progress
-          const progress = Math.round(((i + 1) / parts.length) * 100);
+          const progress = Math.round((loadedSize / totalSize) * 100);
           const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
-          const estimatedTotalTime = (elapsedTime / (i + 1)) * parts.length;
+          const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
           const estimatedTimeRemaining = Math.round(
             estimatedTotalTime - elapsedTime
           );
