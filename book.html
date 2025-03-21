@@ -24,6 +24,7 @@
         display: flex;
         align-items: center;
         margin-left: 20px; /* Add some space between the h2 and the progress container */
+        position: relative;
       }
       #progressBar {
         width: 150px;
@@ -32,7 +33,7 @@
         border: 1px solid #ccc;
         border-radius: 5px;
         overflow: hidden;
-        margin-right: 10px;
+        position: relative;
       }
       #progressBar div {
         height: 100%;
@@ -40,7 +41,17 @@
         width: 0;
       }
       #progressText {
+        position: absolute;
+        width: 100%;
+        text-align: center;
         white-space: nowrap;
+        left: 0;
+        top: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none; /* Prevents text from interfering with progress bar clicks */
       }
     </style>
   </head>
@@ -49,7 +60,7 @@
       <h2 id="bookNameBeforeNumber">Book's name</h2>
       <div id="progressContainer">
         <div id="progressBar"><div></div></div>
-        <div id="progressText">0% (ETA: calculating...)</div>
+        <div id="progressText">0%</div>
       </div>
     </div>
     <div id="imagesContainer"></div>
@@ -206,7 +217,7 @@
           displayImages(files);
 
           // Update progress
-          const progress = ((i + 1) / parts.length) * 100;
+          const progress = Math.round(((i + 1) / parts.length) * 100);
           const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
           const estimatedTotalTime = (elapsedTime / (i + 1)) * parts.length;
           const estimatedTimeRemaining = Math.round(
@@ -218,9 +229,7 @@
           ).style.width = `${progress}%`;
           document.getElementById(
             "progressText"
-          ).textContent = `${progress.toFixed(
-            2
-          )}% (ETA: ${estimatedTimeRemaining} seconds)`;
+          ).textContent = `${progress}% (ETA: ${estimatedTimeRemaining} seconds)`;
         }
         return results;
       }
