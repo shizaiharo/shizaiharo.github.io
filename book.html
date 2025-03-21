@@ -16,17 +16,17 @@
       }
       #progressContainer {
         display: flex;
-        flex-direction: column;
         align-items: center;
         margin-bottom: 10px;
       }
       #progressBar {
-        width: 80%;
+        width: 70%;
         height: 20px;
         background-color: #f3f3f3;
         border: 1px solid #ccc;
         border-radius: 5px;
         overflow: hidden;
+        margin-right: 10px;
       }
       #progressBar div {
         height: 100%;
@@ -34,7 +34,7 @@
         width: 0;
       }
       #progressText {
-        margin-top: 5px;
+        white-space: nowrap;
       }
     </style>
   </head>
@@ -42,9 +42,7 @@
     <h2 id="bookNameBeforeNumber">Book's name</h2>
     <div id="progressContainer">
       <div id="progressBar"><div></div></div>
-      <div id="progressText">
-        Loading: 0% (Estimated time remaining: calculating...)
-      </div>
+      <div id="progressText">Loading: 0% (Estimated time remaining: calculating...)</div>
     </div>
     <div id="imagesContainer"></div>
 
