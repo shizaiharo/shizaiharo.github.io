@@ -162,7 +162,7 @@
             return numA - numB;
           });
 
-          const buffers = await parallelBatchFetch(parts); // Fetch in parallel
+          const buffers = await batchFetchWithLimit(parts); // Fetch sequentially with concurrency limit
           hideProgressContainer(); // Hide progress container after loading
           showDownloadButton(); // Show the download button after loading
         } catch (error) {
@@ -218,89 +218,40 @@
         return await response.arrayBuffer(); // ✅ Fetch as binary data
       }
 
-      async function parallelBatchFetch(parts) {
-        const startTime = Date.now();
+      async function batchFetchWithLimit(parts, concurrency = 3) {
+        const results = [];
         let loadedSize = 0;
         const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
+        const startTime = Date.now();
 
-        // Sort parts numerically to ensure smaller number order ZIP files have higher fetch priority
-        parts.sort((a, b) => {
-          const numA = parseInt(a.path.match(/\d+/)[0], 10);
-          const numB = parseInt(b.path.match(/\d+/)[0], 10);
-          return numA - numB;
-        });
-
-        const fetchPromises = parts.map(async (part) => {
+        async function fetchPart(part) {
           try {
-            const result = await fetchBookPart(part.path); // Fetch in parallel
+            const result = await fetchBookPart(part.path);
             loadedSize += part.size;
-
-            // Update progress
             updateProgress(loadedSize, totalSize, startTime);
-
-            return result; // Return fetched data
+            return result;
           } catch (error) {
-            console.error("Error fetching file:", part.path, error);
-            return null; // Skip failed fetches instead of stopping everything
+            console.error(`Failed to fetch ${part.path}, retrying...`, error);
+            return fetchPart(part); // Retry logic (be careful with infinite loops!)
           }
-        });
+        }
 
-        // Wait for all fetches to complete
-        const allResults = await Promise.all(fetchPromises);
+        const fetchQueue = [];
+        for (const part of parts) {
+          const fetchPromise = fetchPart(part).then((result) => {
+            results.push(result);
+          });
+          fetchQueue.push(fetchPromise);
 
-        // Filter out failed results
-        const validResults = allResults.filter((result) => result !== null);
+          // Limit concurrent fetches
+          if (fetchQueue.length >= concurrency) {
+            await Promise.race(fetchQueue);
+            fetchQueue.splice(0, 1); // Remove completed fetch from queue
+          }
+        }
 
-        // Concatenate all parts
-        const combinedData = new Uint8Array(
-          validResults.reduce((sum, result) => sum + result.byteLength, 0)
-        );
-        let offset = 0;
-        validResults.forEach((result) => {
-          combinedData.set(new Uint8Array(result), offset);
-          offset += result.byteLength;
-        });
-
-        // Decrypt the combined data
-        const decryptedZip = await decryptFolder(
-          combinedData.buffer,
-          combine("Kyaru", parts[0].path.match(/\d+/)[0])
-        );
-
-        // Extract files
-        const files = await Promise.all(
-          Object.keys(decryptedZip.files)
-            .filter((fileName) => !decryptedZip.files[fileName].dir)
-            .map((fileName) =>
-              decryptedZip.files[fileName]
-                .async("arraybuffer")
-                .then((fileData) => ({
-                  fileName,
-                  fileData,
-                }))
-            )
-        );
-
-        // Display images
-        displayImages(files);
-
-        return files; // Return extracted files
-      }
-
-      // Function to update progress UI
-      function updateProgress(loadedSize, totalSize, startTime) {
-        const progress = Math.round((loadedSize / totalSize) * 100);
-        const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
-        const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
-        const estimatedTimeRemaining = Math.round(
-          estimatedTotalTime - elapsedTime
-        );
-
-        document.querySelector("#progressBar div").style.width = `${progress}%`;
-        document.getElementById("progressText").textContent = `${progress}%`;
-        document.getElementById(
-          "etaText"
-        ).textContent = `ETA: ${estimatedTimeRemaining} seconds`;
+        await Promise.all(fetchQueue); // Wait for remaining fetches
+        return results;
       }
 
       function hideProgressContainer() {
