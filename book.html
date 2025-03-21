@@ -255,8 +255,26 @@
 
         const fetchQueue = [];
         for (const part of parts) {
-          const fetchPromise = fetchPart(part).then((result) => {
-            results.push(result);
+          const fetchPromise = fetchPart(part).then(async (result) => {
+            // Decrypt and extract images from the fetched file
+            const decryptedZip = await decryptFolder(result.fileData, combine("Kyaru", part.path.match(/\d+/)[0]));
+            const files = await Promise.all(
+              Object.keys(decryptedZip.files)
+                .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+                .map((fileName) =>
+                  decryptedZip.files[fileName]
+                    .async("arraybuffer")
+                    .then((fileData) => ({
+                      fileName,
+                      fileData,
+                    }))
+                )
+            );
+
+            // Display images immediately after processing each part
+            displayImages(files);
+
+            results.push(...files);
           });
           fetchQueue.push(fetchPromise);
 
@@ -268,11 +286,6 @@
         }
 
         await Promise.all(fetchQueue); // Wait for remaining fetches
-
-        // Call displayImages with the fetched results
-        if (results.length > 0) {
-          displayImages(results);
-        }
 
         return results;
       }
