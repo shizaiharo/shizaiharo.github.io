@@ -218,27 +218,17 @@
         return await response.arrayBuffer(); // ✅ Fetch as binary data
       }
 
-      function updateProgress(loadedSize, totalSize, startTime) {
-        const progressBar =
-          document.getElementById("progressBar").firstElementChild;
-        const progressText = document.getElementById("progressText");
-        const etaText = document.getElementById("etaText");
-
-        const percentage = Math.round((loadedSize / totalSize) * 100);
-        progressBar.style.width = `${percentage}%`;
-        progressText.textContent = `${percentage}%`;
-
-        const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
-        const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
-        const eta = Math.round(estimatedTotalTime - elapsedTime);
-
-        etaText.textContent = `ETA: ${eta} seconds`;
-      }
-
       async function parallelBatchFetch(parts) {
         const startTime = Date.now();
         let loadedSize = 0;
         const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
+
+        // Sort parts numerically to ensure smaller number order ZIP files have higher fetch priority
+        parts.sort((a, b) => {
+          const numA = parseInt(a.path.match(/\d+/)[0], 10);
+          const numB = parseInt(b.path.match(/\d+/)[0], 10);
+          return numA - numB;
+        });
 
         const fetchPromises = parts.map(async (part, index) => {
           try {
@@ -287,6 +277,22 @@
         return allFiles
           .filter((result) => result.status === "fulfilled" && result.value)
           .flatMap((result) => result.value);
+      }
+
+      // Function to update progress UI
+      function updateProgress(loadedSize, totalSize, startTime) {
+        const progress = Math.round((loadedSize / totalSize) * 100);
+        const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
+        const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
+        const estimatedTimeRemaining = Math.round(
+          estimatedTotalTime - elapsedTime
+        );
+
+        document.querySelector("#progressBar div").style.width = `${progress}%`;
+        document.getElementById("progressText").textContent = `${progress}%`;
+        document.getElementById(
+          "etaText"
+        ).textContent = `ETA: ${estimatedTimeRemaining} seconds`;
       }
 
       function hideProgressContainer() {
