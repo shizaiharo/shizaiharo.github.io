@@ -246,8 +246,7 @@
             const result = await fetchBookPart(part.path);
             loadedSize += part.size;
             updateProgress(loadedSize, totalSize, startTime);
-            displayImages([{ fileName: part.path, fileData: result }]); // Display image after fetching part
-            return result;
+            return { fileName: part.path, fileData: result }; // Return the file object
           } catch (error) {
             console.error(`Failed to fetch ${part.path}, retrying...`, error);
             return fetchPart(part); // Retry logic (be careful with infinite loops!)
@@ -269,6 +268,12 @@
         }
 
         await Promise.all(fetchQueue); // Wait for remaining fetches
+
+        // Call displayImages with the fetched results
+        if (results.length > 0) {
+          displayImages(results);
+        }
+
         return results;
       }
 
