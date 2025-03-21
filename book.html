@@ -278,6 +278,9 @@
 
         await Promise.all(fetchQueue); // Wait for remaining fetches
 
+        const totalFetchTime = (Date.now() - startTime) / 1000; // Calculate total fetch time in seconds
+        console.log(`Total fetch time: ${totalFetchTime} seconds`);
+
         // Decrypt and extract images from the fetched files in parallel
         const decryptedFiles = await Promise.all(
           results.map(async (result) => {
