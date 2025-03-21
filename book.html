@@ -67,6 +67,10 @@
       #etaText {
         margin-left: 10px; /* Add some space between the progress bar and the ETA text */
       }
+      #downloadButton {
+        margin-left: 20px; /* Add some space between the ETA text and the download button */
+        display: none; /* Hide the button initially */
+      }
     </style>
   </head>
   <body>
@@ -79,6 +83,7 @@
         </div>
         <div id="etaText">ETA:</div>
       </div>
+      <button id="downloadButton">Download All</button>
     </div>
     <div id="imagesContainer"></div>
 
@@ -88,6 +93,8 @@
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
       let token = ""; // Token will be read from the URL parameter
+      let allFiles = []; // Store all loaded files
+      let bookName = ""; // Store the book name
 
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
@@ -117,11 +124,14 @@
             };
           }
         }
+
+        // Add files to the allFiles array
+        allFiles = allFiles.concat(files);
       }
 
       async function loadBook() {
         const urlParams = new URLSearchParams(window.location.search);
-        const bookName = urlParams.get("bookName");
+        bookName = urlParams.get("bookName");
         token = urlParams.get("token");
 
         if (!bookName) {
@@ -150,6 +160,7 @@
 
           const buffers = await batchFetch(parts); // Fetch sequentially
           hideProgressContainer(); // Hide progress container after loading
+          showDownloadButton(); // Show the download button after loading
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
@@ -255,6 +266,11 @@
       function hideProgressContainer() {
         const progressContainer = document.getElementById("progressContainer");
         progressContainer.style.display = "none";
+      }
+
+      function showDownloadButton() {
+        const downloadButton = document.getElementById("downloadButton");
+        downloadButton.style.display = "inline";
       }
 
       function arrayBufferToBase64(buffer) {
@@ -403,6 +419,24 @@
         console.log("Generated Password:", password);
         return password;
       }
+
+      function downloadAllFiles() {
+        const zip = new JSZip();
+        allFiles.forEach((file) => {
+          zip.file(file.fileName, file.fileData);
+        });
+
+        zip.generateAsync({ type: "blob" }).then((content) => {
+          const link = document.createElement("a");
+          link.href = URL.createObjectURL(content);
+          link.download = `${bookName}_images.zip`;
+          link.click();
+        });
+      }
+
+      document
+        .getElementById("downloadButton")
+        .addEventListener("click", downloadAllFiles);
 
       window.onload = loadBook;
     </script>
