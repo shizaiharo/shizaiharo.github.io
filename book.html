@@ -218,6 +218,23 @@
         return await response.arrayBuffer(); // ✅ Fetch as binary data
       }
 
+      function updateProgress(loadedSize, totalSize, startTime) {
+        const progressBar =
+          document.getElementById("progressBar").firstElementChild;
+        const progressText = document.getElementById("progressText");
+        const etaText = document.getElementById("etaText");
+
+        const percentage = Math.round((loadedSize / totalSize) * 100);
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `${percentage}%`;
+
+        const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
+        const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
+        const eta = Math.round(estimatedTotalTime - elapsedTime);
+
+        etaText.textContent = `ETA: ${eta} seconds`;
+      }
+
       async function batchFetchWithLimit(parts, concurrency = 3) {
         const results = [];
         let loadedSize = 0;
