@@ -175,7 +175,7 @@
 
         console.log("Generating IV...");
         document.getElementById("status").textContent = "Generating IV...";
-        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const iv = crypto.getRandomValues(new Uint8Array(16)); // Use 16 bytes for AES-CTR
 
         console.log("Generating key...");
         document.getElementById("status").textContent = "Generating key...";
