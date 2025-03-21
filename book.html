@@ -107,9 +107,15 @@
 
         // Sort all files by fileName in ascending order
         allFiles.sort((a, b) => {
-          const numA = parseInt(a.fileName.match(/\d+/)[0], 10);
-          const numB = parseInt(b.fileName.match(/\d+/)[0], 10);
-          return numA - numB;
+          const numsA = (a.name.match(/\d+/g) || []).map(Number);
+          const numsB = (b.name.match(/\d+/g) || []).map(Number);
+
+          for (let i = 0; i < Math.max(numsA.length, numsB.length); i++) {
+            if (numsA[i] !== numsB[i]) {
+              return (numsA[i] || 0) - (numsB[i] || 0);
+            }
+          }
+          return 0;
         });
 
         // Log file names
@@ -238,7 +244,7 @@
         etaText.textContent = `ETA: ${eta} seconds`;
       }
 
-      async function batchFetchWithLimit(parts, concurrency = 3) {
+      async function batchFetchWithLimit(parts, concurrency = 100) {
         const results = [];
         let loadedSize = 0;
         const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
