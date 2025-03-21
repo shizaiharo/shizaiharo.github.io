@@ -24,7 +24,6 @@
         display: flex;
         align-items: center;
         margin-left: 20px; /* Add some space between the h2 and the progress container */
-        position: relative;
       }
       #progressBar {
         width: 150px;
@@ -53,14 +52,20 @@
         justify-content: center;
         pointer-events: none; /* Prevents text from interfering with progress bar clicks */
       }
+      #etaText {
+        margin-left: 10px; /* Add some space between the progress bar and the ETA text */
+      }
     </style>
   </head>
   <body>
     <div id="headerContainer">
       <h2 id="bookNameBeforeNumber">Book's name</h2>
       <div id="progressContainer">
-        <div id="progressBar"><div></div></div>
-        <div id="progressText">0%</div>
+        <div id="progressBar">
+          <div></div>
+          <div id="progressText">0%</div>
+        </div>
+        <div id="etaText">ETA: calculating...</div>
       </div>
     </div>
     <div id="imagesContainer"></div>
@@ -227,9 +232,10 @@
           document.querySelector(
             "#progressBar div"
           ).style.width = `${progress}%`;
+          document.getElementById("progressText").textContent = `${progress}%`;
           document.getElementById(
-            "progressText"
-          ).textContent = `${progress}% (ETA: ${estimatedTimeRemaining} seconds)`;
+            "etaText"
+          ).textContent = `ETA: ${estimatedTimeRemaining} seconds`;
         }
         return results;
       }
