@@ -212,22 +212,31 @@
         console.log("Extracted IV:", new Uint8Array(iv));
         console.log("Encrypted Data Size:", encryptedData.byteLength);
 
-        const key = await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(password)
-        );
-        const cryptoKey = await crypto.subtle.importKey(
+        const keyMaterial = await crypto.subtle.importKey(
           "raw",
-          key,
-          { name: "AES-CTR" },
+          new TextEncoder().encode(password),
+          { name: "PBKDF2" },
+          false,
+          ["deriveKey"]
+        );
+
+        const key = await crypto.subtle.deriveKey(
+          {
+            name: "PBKDF2",
+            salt: iv,
+            iterations: 100000,
+            hash: "SHA-256",
+          },
+          keyMaterial,
+          { name: "AES-GCM", length: 256 },
           false,
           ["decrypt"]
         );
 
         try {
           const decryptedData = await crypto.subtle.decrypt(
-            { name: "AES-CTR", counter: iv, length: 128 },
-            cryptoKey,
+            { name: "AES-GCM", iv: iv },
+            key,
             encryptedData
           );
           console.log("Decryption successful!");
