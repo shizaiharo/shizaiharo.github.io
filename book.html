@@ -238,7 +238,7 @@
         etaText.textContent = `ETA: ${eta} seconds`;
       }
 
-      async function batchFetchWithLimit(parts, concurrency = 100) {
+      async function batchFetchWithLimit(parts, concurrency = 3) {
         const results = [];
         let loadedSize = 0;
         const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
