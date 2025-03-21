@@ -49,9 +49,7 @@
       <h2 id="bookNameBeforeNumber">Book's name</h2>
       <div id="progressContainer">
         <div id="progressBar"><div></div></div>
-        <div id="progressText">
-          Loading: 0% (Estimated time remaining: calculating...)
-        </div>
+        <div id="progressText">0% (ETA: calculating...)</div>
       </div>
     </div>
     <div id="imagesContainer"></div>
@@ -210,18 +208,18 @@
           const progress = ((i + 1) / parts.length) * 100;
           const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
           const estimatedTotalTime = (elapsedTime / (i + 1)) * parts.length;
-          const estimatedTimeRemaining = estimatedTotalTime - elapsedTime;
+          const estimatedTimeRemaining = Math.round(
+            estimatedTotalTime - elapsedTime
+          );
 
           document.querySelector(
             "#progressBar div"
           ).style.width = `${progress}%`;
           document.getElementById(
             "progressText"
-          ).textContent = `Loading: ${progress.toFixed(
+          ).textContent = `${progress.toFixed(
             2
-          )}% (Estimated time remaining: ${estimatedTimeRemaining.toFixed(
-            2
-          )} seconds)`;
+          )}% (ETA: ${estimatedTimeRemaining} seconds)`;
         }
         return results;
       }
