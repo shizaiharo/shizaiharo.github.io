@@ -121,15 +121,12 @@
         let currentZipSize = 0;
         let zipIndex = 1;
         let zip = new JSZip();
-        const zipPromises = [];
 
         for (const file of files) {
           const fileSize = file.size;
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
             // Generate the current zip blob and reset for the next zip
-            zipPromises.push(
-              generateAndUploadZip(zip, password, zipIndex, folderName)
-            );
+            await generateAndUploadZip(zip, password, zipIndex, folderName);
             zip = new JSZip();
             currentZipSize = 0;
             zipIndex++;
@@ -143,12 +140,8 @@
 
         // Generate and upload the last zip
         if (currentZipSize > 0) {
-          zipPromises.push(
-            generateAndUploadZip(zip, password, zipIndex, folderName)
-          );
+          await generateAndUploadZip(zip, password, zipIndex, folderName);
         }
-
-        await Promise.all(zipPromises);
       }
 
       async function generateAndUploadZip(zip, password, zipIndex, folderName) {
