@@ -14,10 +14,38 @@
         height: 100%;
         object-fit: contain;
       }
+      #progressContainer {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 10px;
+      }
+      #progressBar {
+        width: 80%;
+        height: 20px;
+        background-color: #f3f3f3;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        overflow: hidden;
+      }
+      #progressBar div {
+        height: 100%;
+        background-color: #4caf50;
+        width: 0;
+      }
+      #progressText {
+        margin-top: 5px;
+      }
     </style>
   </head>
   <body>
     <h2 id="bookNameBeforeNumber">Book's name</h2>
+    <div id="progressContainer">
+      <div id="progressBar"><div></div></div>
+      <div id="progressText">
+        Loading: 0% (Estimated time remaining: calculating...)
+      </div>
+    </div>
     <div id="imagesContainer"></div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
@@ -40,16 +68,6 @@
         // Log file names
         console.log("File names in ascending order:");
         files.forEach((file) => console.log(file.fileName));
-
-        // const observer = new IntersectionObserver((entries, observer) => {
-        //   entries.forEach((entry) => {
-        //     if (entry.isIntersecting) {
-        //       const img = entry.target;
-        //       img.src = img.dataset.src; // Load the actual image
-        //       observer.unobserve(img);
-        //     }
-        //   });
-        // });
 
         for (const file of files) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
@@ -149,7 +167,9 @@
 
       async function batchFetch(parts) {
         let results = [];
-        for (const part of parts) {
+        const startTime = Date.now();
+        for (let i = 0; i < parts.length; i++) {
+          const part = parts[i];
           const result = await fetchBookPart(part);
           results.push(result);
 
@@ -177,6 +197,23 @@
 
           // Display images immediately after processing each part
           displayImages(files);
+
+          // Update progress
+          const progress = ((i + 1) / parts.length) * 100;
+          const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
+          const estimatedTotalTime = (elapsedTime / (i + 1)) * parts.length;
+          const estimatedTimeRemaining = estimatedTotalTime - elapsedTime;
+
+          document.querySelector(
+            "#progressBar div"
+          ).style.width = `${progress}%`;
+          document.getElementById(
+            "progressText"
+          ).textContent = `Loading: ${progress.toFixed(
+            2
+          )}% (Estimated time remaining: ${estimatedTimeRemaining.toFixed(
+            2
+          )} seconds)`;
         }
         return results;
       }
