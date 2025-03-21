@@ -196,10 +196,15 @@
           console.log("Encrypting data...");
           document.getElementById("status").textContent = "Encrypting data...";
           const encryptStartTime = performance.now();
+          const zipArrayBuffer = await zipBlob.arrayBuffer();
+          console.log(
+            `Zip array buffer size: ${zipArrayBuffer.byteLength} bytes`
+          );
+
           const encryptedData = await crypto.subtle.encrypt(
             { name: "AES-CTR", counter: iv, length: 128 },
             cryptoKey,
-            await zipBlob.arrayBuffer()
+            zipArrayBuffer
           );
           const encryptEndTime = performance.now();
           console.log(
