@@ -172,8 +172,8 @@
           });
 
           const buffers = await batchFetchWithLimit(parts); // Fetch sequentially with concurrency limit
-          hideProgressContainer(); // Hide progress container after loading
-          showDownloadButton(); // Show the download button after loading
+          // hideProgressContainer(); // Hide progress container after loading
+          // showDownloadButton(); // Show the download button after loading
         } catch (error) {
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
@@ -280,6 +280,8 @@
 
         const totalFetchTime = (Date.now() - startTime) / 1000; // Calculate total fetch time in seconds
         console.log(`Total fetch time: ${totalFetchTime} seconds`);
+        hideProgressContainer(); // Hide progress container after fetching is complete
+        showDownloadButton(); // Show the download button after fetching is complete
 
         // Decrypt and extract images from the fetched files in parallel
         const decryptedFiles = await Promise.all(
