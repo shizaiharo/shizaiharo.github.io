@@ -277,9 +277,6 @@
                 )
             );
 
-            // Display images immediately after processing each part
-            displayImages(files);
-
             results.push(...files);
           });
           fetchQueue.push(fetchPromise);
@@ -292,6 +289,9 @@
         }
 
         await Promise.all(fetchQueue); // Wait for remaining fetches
+
+        // Display images after all fetches and processing are complete
+        displayImages(results);
 
         return results;
       }
