@@ -279,14 +279,14 @@
 
         await Promise.all(fetchQueue); // Wait for remaining fetches
 
-        const totalFetchTime = (Date.now() - startTime) / 1000; // Calculate total fetch time in seconds
+        const totalFetchTime = ((Date.now() - startTime) / 1000).toFixed(1); // Calculate total fetch time in seconds and round to 1 decimal place
         console.log(`Total fetch time: ${totalFetchTime} seconds`);
 
         // Update the download button text and the new span element
         const downloadButton = document.getElementById("downloadButton");
         const fetchTimeText = document.getElementById("fetchTimeText");
         downloadButton.textContent = `Download book`;
-        fetchTimeText.textContent = `${totalFetchTime} seconds`;
+        fetchTimeText.textContent = ` ${totalFetchTime} seconds`;
 
         hideProgressContainer(); // Hide progress container after fetching is complete
         showDownloadButton(); // Show the download button after fetching is complete
