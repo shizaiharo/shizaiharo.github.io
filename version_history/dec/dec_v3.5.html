@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>URLBookName</title>
+    <style>
+      /* Add some basic styles for the list items */
+      #booksList li {
+        cursor: pointer;
+        padding: 5px;
+        border: 1px solid #ccc;
+        margin: 5px 0;
+      }
+      #booksList li:hover {
+        background-color: #f0f0f0;
+      }
+      /* Hide the search bar initially */
+      #searchBar {
+        display: none;
+      }
+      /* Container for aligning the button and search bar */
+      .search-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Dec</h2>
+    <h4>Click on a book to decrypt and view its contents</h4>
+    <button id="backToIndexButton">Main</button>
+    </br>
+    <div class="search-container">
+      <button id="browseBookButton" onclick="browseBooks()" style="display: none">
+        Browse Books
+      </button>
+      <input type="text" id="searchBar" placeholder="Search for a book..." oninput="filterBooks()" />
+    </div>
+    <ul id="booksList"></ul>
+    <div id="imagesContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the URL parameter
+
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (token) {
+            document.getElementById("browseBookButton").style.display = "block";
+        } else {
+          alert("Please upload the token file first.");
+        }
+        document.getElementById("backToIndexButton").onclick = function () {
+          window.location.href = `index.html${
+            token ? `?token=${encodeURIComponent(token)}` : ""
+          }`;
+        };
+      }
+
+      async function browseBooks() {
+        if (!token) {
+          alert("Please upload the token file first on the Enc page.");
+          return;
+        }
+
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books?ref=${branch}`;
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const files = await response.json();
+          const booksList = document.getElementById("booksList");
+          booksList.innerHTML = ""; // Clear previous list
+
+          const folders = files.filter(file => file.type === "dir");
+
+          // Sort folders by the number in the bracket
+          folders.sort((a, b) => {
+            const numA = parseInt(a.name.match(/\[(\d+)\]/)?.[1] || 0, 10);
+            const numB = parseInt(b.name.match(/\[(\d+)\]/)?.[1] || 0, 10);
+            return numA - numB;
+          });
+
+          folders.forEach((folder) => {
+            const listItem = document.createElement("li");
+            listItem.textContent = folder.name;
+            listItem.onclick = () => selectBook(folder.name);
+            booksList.appendChild(listItem);
+          });
+
+          // Show the search bar after books are loaded
+          document.getElementById("searchBar").style.display = "inline";
+        } else {
+          alert("Failed to fetch books. Please check your token and try again.");
+        }
+      }
+
+      function filterBooks() {
+        const query = document.getElementById("searchBar").value.toLowerCase();
+        const booksList = document.getElementById("booksList");
+        const books = booksList.getElementsByTagName("li");
+
+        for (let i = 0; i < books.length; i++) {
+          const book = books[i];
+          const bookName = book.textContent.toLowerCase();
+          if (bookName.includes(query)) {
+            book.style.display = "";
+          } else {
+            book.style.display = "none";
+          }
+        }
+      }
+
+      function selectBook(folderName) {
+        window.open(`book.html?bookName=${encodeURIComponent(folderName)}&token=${encodeURIComponent(token)}`, "_blank");
+      }
+
+      // Get the token when the page loads
+      window.onload = getTokenFromUrl;
+    </script>
+  </body>
+</html>
