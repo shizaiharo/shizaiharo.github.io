@@ -99,8 +99,14 @@
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
 
-        // Sort files by fileName in ascending order
-        files.sort((a, b) => {
+        // Add new files to the allFiles array
+        allFiles = allFiles.concat(files);
+
+        // Clear the images container
+        imagesContainer.innerHTML = "";
+
+        // Sort all files by fileName in ascending order
+        allFiles.sort((a, b) => {
           const numA = parseInt(a.fileName.match(/\d+/)[0], 10);
           const numB = parseInt(b.fileName.match(/\d+/)[0], 10);
           return numA - numB;
@@ -108,9 +114,9 @@
 
         // Log file names
         console.log("File names in ascending order:");
-        files.forEach((file) => console.log(file.fileName));
+        allFiles.forEach((file) => console.log(file.fileName));
 
-        for (const file of files) {
+        for (const file of allFiles) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
             const blob = new Blob([file.fileData]);
             const img = document.createElement("img");
@@ -124,9 +130,6 @@
             };
           }
         }
-
-        // Add files to the allFiles array
-        allFiles = allFiles.concat(files);
       }
 
       async function loadBook() {
@@ -235,7 +238,7 @@
         etaText.textContent = `ETA: ${eta} seconds`;
       }
 
-      async function batchFetchWithLimit(parts, concurrency = 3) {
+      async function batchFetchWithLimit(parts, concurrency = 100) {
         const results = [];
         let loadedSize = 0;
         const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
@@ -257,7 +260,10 @@
         for (const part of parts) {
           const fetchPromise = fetchPart(part).then(async (result) => {
             // Decrypt and extract images from the fetched file
-            const decryptedZip = await decryptFolder(result.fileData, combine("Kyaru", part.path.match(/\d+/)[0]));
+            const decryptedZip = await decryptFolder(
+              result.fileData,
+              combine("Kyaru", part.path.match(/\d+/)[0])
+            );
             const files = await Promise.all(
               Object.keys(decryptedZip.files)
                 .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
