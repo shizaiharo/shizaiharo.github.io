@@ -83,6 +83,13 @@
 
           const folders = files.filter(file => file.type === "dir");
 
+          // Sort folders by the number in the bracket
+          folders.sort((a, b) => {
+            const numA = parseInt(a.name.match(/\[(\d+)\]/)?.[1] || 0, 10);
+            const numB = parseInt(b.name.match(/\[(\d+)\]/)?.[1] || 0, 10);
+            return numA - numB;
+          });
+
           folders.forEach((folder) => {
             const listItem = document.createElement("li");
             listItem.textContent = folder.name;
