@@ -84,6 +84,7 @@
         <div id="etaText">ETA:</div>
       </div>
       <button id="downloadButton">Download book</button>
+      <span id="fetchTimeText"></span>
     </div>
     <div id="imagesContainer"></div>
 
@@ -280,6 +281,13 @@
 
         const totalFetchTime = (Date.now() - startTime) / 1000; // Calculate total fetch time in seconds
         console.log(`Total fetch time: ${totalFetchTime} seconds`);
+
+        // Update the download button text and the new span element
+        const downloadButton = document.getElementById("downloadButton");
+        const fetchTimeText = document.getElementById("fetchTimeText");
+        downloadButton.textContent = `Download book ${totalFetchTime} seconds)`;
+        fetchTimeText.textContent = `${totalFetchTime} seconds`;
+
         hideProgressContainer(); // Hide progress container after fetching is complete
         showDownloadButton(); // Show the download button after fetching is complete
 
