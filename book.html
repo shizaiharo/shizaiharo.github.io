@@ -230,53 +230,61 @@
           return numA - numB;
         });
 
-        const fetchPromises = parts.map(async (part, index) => {
+        const fetchPromises = parts.map(async (part) => {
           try {
             const result = await fetchBookPart(part.path); // Fetch in parallel
             loadedSize += part.size;
 
-            // Process the ZIP file immediately
-            const decryptedZip = await decryptFolder(
-              result,
-              combine("Kyaru", parts[index].path.match(/\d+/)[0])
-            );
-
-            // Extract files
-            const files = await Promise.all(
-              Object.keys(decryptedZip.files)
-                .filter((fileName) => !decryptedZip.files[fileName].dir)
-                .map((fileName) =>
-                  decryptedZip.files[fileName]
-                    .async("arraybuffer")
-                    .then((fileData) => ({
-                      fileName,
-                      fileData,
-                    }))
-                )
-            );
-
-            // Display images and update progress
-            displayImages(files);
+            // Update progress
             updateProgress(loadedSize, totalSize, startTime);
 
-            return files; // Return extracted files
+            return result; // Return fetched data
           } catch (error) {
-            console.error(
-              "Error fetching or processing file:",
-              part.path,
-              error
-            );
+            console.error("Error fetching file:", part.path, error);
             return null; // Skip failed fetches instead of stopping everything
           }
         });
 
-        // Wait for all fetch & process to complete
-        const allFiles = await Promise.allSettled(fetchPromises);
+        // Wait for all fetches to complete
+        const allResults = await Promise.all(fetchPromises);
 
-        // Flatten and filter out failed results
-        return allFiles
-          .filter((result) => result.status === "fulfilled" && result.value)
-          .flatMap((result) => result.value);
+        // Filter out failed results
+        const validResults = allResults.filter((result) => result !== null);
+
+        // Concatenate all parts
+        const combinedData = new Uint8Array(
+          validResults.reduce((sum, result) => sum + result.byteLength, 0)
+        );
+        let offset = 0;
+        validResults.forEach((result) => {
+          combinedData.set(new Uint8Array(result), offset);
+          offset += result.byteLength;
+        });
+
+        // Decrypt the combined data
+        const decryptedZip = await decryptFolder(
+          combinedData.buffer,
+          combine("Kyaru", parts[0].path.match(/\d+/)[0])
+        );
+
+        // Extract files
+        const files = await Promise.all(
+          Object.keys(decryptedZip.files)
+            .filter((fileName) => !decryptedZip.files[fileName].dir)
+            .map((fileName) =>
+              decryptedZip.files[fileName]
+                .async("arraybuffer")
+                .then((fileData) => ({
+                  fileName,
+                  fileData,
+                }))
+            )
+        );
+
+        // Display images
+        displayImages(files);
+
+        return files; // Return extracted files
       }
 
       // Function to update progress UI
