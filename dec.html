@@ -19,6 +19,12 @@
       #searchBar {
         display: none;
       }
+      /* Container for aligning the button and search bar */
+      .search-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
     </style>
   </head>
   <body>
@@ -26,10 +32,12 @@
     <h4>Click on a book to decrypt and view its contents</h4>
     <button id="backToIndexButton">Main</button>
     </br>
-    <button id="browseBookButton" onclick="browseBooks()" style="display: none">
-      Browse Books
-    </button>
-    <input type="text" id="searchBar" placeholder="Search for a book..." oninput="filterBooks()" />
+    <div class="search-container">
+      <button id="browseBookButton" onclick="browseBooks()" style="display: none">
+        Browse Books
+      </button>
+      <input type="text" id="searchBar" placeholder="Search for a book..." oninput="filterBooks()" />
+    </div>
     <ul id="booksList"></ul>
     <div id="imagesContainer"></div>
 
