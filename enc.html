@@ -160,15 +160,12 @@
             new Promise((resolve) => {
               const worker = workers[zipIndex % workerCount];
               worker.onmessage = async (event) => {
-                if (event.data.success) {
-                  await uploadToGitHub(
-                    event.data.base64Data,
-                    folderName,
-                    zipIndex
-                  );
+                const { success, base64Data } = event.data;
+                if (success) {
+                  await uploadToGitHub(folderName, zipIndex, base64Data);
                 } else {
                   console.error(
-                    `Encryption failed for part ${event.data.zipIndex}, retrying...`
+                    `Encryption failed for part ${zipIndex}, retrying...`
                   );
                   console.error(`Error details: ${event.data.error}`);
                   // Implement retry logic
