@@ -9,6 +9,7 @@ self.onmessage = async function (e) {
   try {
     const zip = new JSZip();
     files.forEach((file) => {
+      console.log("Processing file in worker:", file); // Debugging statement
       zip.file(file.webkitRelativePath || file.name, file);
     });
 
@@ -63,6 +64,7 @@ self.onmessage = async function (e) {
       base64Data,
     });
   } catch (error) {
+    console.error("Error in worker:", error); // Debugging statement
     self.postMessage({
       success: false,
       zipIndex,
