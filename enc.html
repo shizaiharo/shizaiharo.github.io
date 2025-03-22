@@ -134,6 +134,7 @@
         let currentZipSize = 0;
         let zipIndex = 1;
         let queue = [];
+        let uploadingZips = new Set(); // Track currently uploading zips
 
         for (const file of files) {
           if (file.name === ".DS_Store") continue;
@@ -162,7 +163,11 @@
               worker.onmessage = async (event) => {
                 const { success, base64Data } = event.data;
                 if (success) {
-                  await uploadToGitHub(folderName, zipIndex, base64Data);
+                  if (!uploadingZips.has(zipIndex)) {
+                    uploadingZips.add(zipIndex);
+                    await uploadToGitHub(folderName, zipIndex, base64Data);
+                    uploadingZips.delete(zipIndex);
+                  }
                 } else {
                   console.error(
                     `Encryption failed for part ${zipIndex}, retrying...`
