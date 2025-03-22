@@ -3,11 +3,14 @@ importScripts(
 );
 
 self.onmessage = async function (e) {
-  const { file, password, folderName, zipIndex } = e.data;
+  const { files, password, folderName, zipIndex } = e.data;
+  console.log("Received files in worker:", files); // Debugging statement
 
   try {
     const zip = new JSZip();
-    zip.file(file.webkitRelativePath || file.name, file);
+    files.forEach((file) => {
+      zip.file(file.webkitRelativePath || file.name, file);
+    });
 
     const zipBlob = await zip.generateAsync({
       type: "blob",

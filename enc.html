@@ -217,8 +217,15 @@
               }
               resolve();
             };
+            console.log("Sending files to worker:", zipFiles); // Debugging statement
             worker.postMessage({
-              files: zipFiles,
+              files: zipFiles.map((file) => ({
+                name: file.name,
+                size: file.size,
+                type: file.type,
+                webkitRelativePath: file.webkitRelativePath,
+                lastModified: file.lastModified,
+              })),
               password,
               folderName,
               zipIndex,
