@@ -6,12 +6,24 @@ self.onmessage = async function (e) {
   const { files, password, folderName, zipIndex } = e.data;
   console.log("Received files in worker:", files); // Debugging statement
 
+  if (!files) {
+    console.error("Files are undefined in worker");
+    self.postMessage({
+      success: false,
+      zipIndex,
+      error: "Files are undefined",
+    });
+    return;
+  }
+
   try {
     const zip = new JSZip();
-    for (const file of files) {
+    files.forEach((file) => {
       console.log("Processing file in worker:", file); // Debugging statement
-      zip.file(file.webkitRelativePath || file.name, file.data);
-    }
+      zip.file(file.webkitRelativePath || file.name, file.data, {
+        binary: true,
+      });
+    });
 
     const zipBlob = await zip.generateAsync({
       type: "blob",
