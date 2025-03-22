@@ -129,13 +129,12 @@
           const fileSize = file.size;
           if (fileSize > MAX_ZIP_SIZE) {
             // Handle large file by chunking
-            await encryptAndUploadLargeFile(
+            zipIndex = await encryptAndUploadLargeFile(
               file,
               password,
               folderName,
               zipIndex
             );
-            zipIndex++;
             continue;
           }
 
@@ -186,6 +185,8 @@
           start = end;
           zipIndex++;
         }
+
+        return zipIndex;
       }
 
       async function processZip(zip, password, zipIndex, folderName) {
