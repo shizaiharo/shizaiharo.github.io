@@ -170,6 +170,7 @@
                   console.error(
                     `Encryption failed for part ${event.data.zipIndex}, retrying...`
                   );
+                  console.error(`Error details: ${event.data.error}`);
                   // Implement retry logic
                 }
                 resolve();
