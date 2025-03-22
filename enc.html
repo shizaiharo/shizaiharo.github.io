@@ -43,7 +43,7 @@
       const repo = "Amrita"; // Change to your repository name
       const owner = "shizaiharo"; // Change to your GitHub username
       const branch = "main"; // Change to your default branch
-      const MAX_ZIP_SIZE = 25 * 1024 * 1024; // After add encryption will near limit 100MB
+      const MAX_ZIP_SIZE = 25 * 1024 * 1024; // After add encryption will near limit 40MiB (40/1.33 = 30)
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -127,6 +127,18 @@
 
         for (const file of files) {
           const fileSize = file.size;
+          if (fileSize > MAX_ZIP_SIZE) {
+            // Handle large file by chunking
+            await encryptAndUploadLargeFile(
+              file,
+              password,
+              folderName,
+              zipIndex
+            );
+            zipIndex++;
+            continue;
+          }
+
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
             // Generate the current zip blob and reset for the next zip
             await processZip(zip, password, zipIndex, folderName);
@@ -144,6 +156,35 @@
         // Generate and upload the last zip
         if (currentZipSize > 0) {
           await processZip(zip, password, zipIndex, folderName);
+        }
+      }
+
+      async function encryptAndUploadLargeFile(
+        file,
+        password,
+        folderName,
+        zipIndex
+      ) {
+        const chunkSize = MAX_ZIP_SIZE;
+        let start = 0;
+
+        while (start < file.size) {
+          const end = Math.min(start + chunkSize, file.size);
+          const chunk = file.slice(start, end);
+
+          let zip = new JSZip();
+          const chunkName = `${file.name}.part${zipIndex}`;
+          zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
+
+          console.log(`Creating ZIP for chunk: ${chunkName}`);
+          document.getElementById(
+            "status"
+          ).textContent = `Zipping part ${zipIndex}...`;
+
+          await processZip(zip, password, zipIndex, folderName);
+
+          start = end;
+          zipIndex++;
         }
       }
 
