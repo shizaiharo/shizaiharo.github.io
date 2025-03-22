@@ -121,10 +121,15 @@
       let isUploading = false;
 
       async function encryptFolder(files, password, folderName) {
-        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+        files.sort((a, b) =>
+          a.name.localeCompare(b.name, undefined, { numeric: true })
+        );
 
         const workerCount = Math.min(navigator.hardwareConcurrency || 4, 6); // Limit to 6 workers max
-        const workers = Array.from({ length: workerCount }, () => new Worker("encryptWorker.js"));
+        const workers = Array.from(
+          { length: workerCount },
+          () => new Worker("encryptWorker.js")
+        );
 
         let currentZipSize = 0;
         let zipIndex = 1;
@@ -135,7 +140,12 @@
 
           const fileSize = file.size;
           if (fileSize > MAX_ZIP_SIZE) {
-            zipIndex = await encryptAndUploadLargeFile(file, password, folderName, zipIndex);
+            zipIndex = await encryptAndUploadLargeFile(
+              file,
+              password,
+              folderName,
+              zipIndex
+            );
             continue;
           }
 
@@ -146,19 +156,27 @@
             currentZipSize = 0;
           }
 
-          queue.push(new Promise((resolve) => {
-            const worker = workers[zipIndex % workerCount];
-            worker.onmessage = async (event) => {
-              if (event.data.success) {
-                await uploadToGitHub(event.data.base64Data, folderName, zipIndex);
-              } else {
-                console.error(`Encryption failed for part ${event.data.zipIndex}, retrying...`);
-                // Implement retry logic
-              }
-              resolve();
-            };
-            worker.postMessage({ file, password, folderName, zipIndex });
-          }));
+          queue.push(
+            new Promise((resolve) => {
+              const worker = workers[zipIndex % workerCount];
+              worker.onmessage = async (event) => {
+                if (event.data.success) {
+                  await uploadToGitHub(
+                    event.data.base64Data,
+                    folderName,
+                    zipIndex
+                  );
+                } else {
+                  console.error(
+                    `Encryption failed for part ${event.data.zipIndex}, retrying...`
+                  );
+                  // Implement retry logic
+                }
+                resolve();
+              };
+              worker.postMessage({ file, password, folderName, zipIndex });
+            })
+          );
 
           currentZipSize += fileSize;
         }
@@ -168,9 +186,21 @@
       }
 
       // Function to encrypt and upload large file using workers
-      async function encryptAndUploadLargeFile(file, password, folderName, zipIndex) {
+      async function encryptAndUploadLargeFile(
+        file,
+        password,
+        folderName,
+        zipIndex
+      ) {
         return new Promise((resolve, reject) => {
-          const task = { file, password, folderName, zipIndex, resolve, reject };
+          const task = {
+            file,
+            password,
+            folderName,
+            zipIndex,
+            resolve,
+            reject,
+          };
           workerQueue.push(task);
           processWorkerQueue();
         });
@@ -184,12 +214,12 @@
 
           const task = workerQueue.shift();
           activeWorkers.add(worker);
-          
+
           worker.postMessage({
             file: task.file,
             password: task.password,
             folderName: task.folderName,
-            zipIndex: task.zipIndex
+            zipIndex: task.zipIndex,
           });
 
           worker.resolve = task.resolve;
@@ -216,6 +246,46 @@
         }
 
         processWorkerQueue(); // Process next task
+      }
+
+      // Upload to GitHub function
+      async function uploadToGitHub(folderName, zipIndex, base64Data) {
+        const formattedZipIndex = String(zipIndex).padStart(5, "0");
+        const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
+        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+        console.log(`Uploading ${path}...`);
+
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+        let attempts = 0;
+        while (true) {
+          try {
+            const response = await fetch(url, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github+json",
+                "Content-Type": "application/octet-stream",
+              },
+              body: JSON.stringify({
+                message: `Upload encrypted part ${formattedZipIndex}`,
+                content: base64Data,
+                branch: branch,
+              }),
+            });
+
+            if (response.ok) {
+              console.log(`Upload successful: ${path}`);
+              return;
+            } else {
+              console.warn(`Upload failed (attempt ${attempts + 1})`);
+            }
+          } catch (error) {
+            console.error(`Upload error (attempt ${attempts + 1}):`, error);
+          }
+          attempts++;
+          await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+        }
       }
 
       async function processZip(zip, password, zipIndex, folderName) {
