@@ -8,10 +8,10 @@ self.onmessage = async function (e) {
 
   try {
     const zip = new JSZip();
-    files.forEach((file) => {
+    for (const file of files) {
       console.log("Processing file in worker:", file); // Debugging statement
-      zip.file(file.webkitRelativePath || file.name, file);
-    });
+      zip.file(file.webkitRelativePath || file.name, file.data);
+    }
 
     const zipBlob = await zip.generateAsync({
       type: "blob",
