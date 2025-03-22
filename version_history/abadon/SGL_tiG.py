@@ -11,6 +11,8 @@ from hashlib import sha256
 import requests
 import re
 import platform
+import shutil
+import json
 
 import tkinter as tk
 from tkinter import filedialog
@@ -31,9 +33,11 @@ def get_valid_token():
 
 # Git Configuration
 token = get_valid_token()
-REPO_URL = f"https://{token}@github.com/shizaiharo/shizaiharo.github.io.git"
+REPO = "Amrita"
+OWNER = "shizaiharo"
 BRANCH = "main"
 MAX_ZIP_SIZE = 87 * 1024 * 1024  # 87 MiB
+target_repo = "Amrita"
 
 def combine(str1, str2):
     combined = []
@@ -50,8 +54,8 @@ def zip_files(files, output_path):
             zipf.write(file, os.path.relpath(file, os.path.dirname(files[0])))
     return output_path
 
-def encrypt_file(input_path, output_path, password):
-    """Encrypt a file using AES-CTR."""
+def encrypt_file(input_path, password):
+    """Encrypt a file using AES-CTR and keep the .zip extension."""
     with open(input_path, "rb") as f:
         data = f.read()
 
@@ -62,69 +66,87 @@ def encrypt_file(input_path, output_path, password):
     encryptor = cipher.encryptor()
     encrypted_data = encryptor.update(data) + encryptor.finalize()
 
-    with open(output_path, "wb") as f:
+    with open(input_path, "wb") as f:
         f.write(iv + encrypted_data)
 
-    return output_path
+    print(f"Encrypted zip size: {os.path.getsize(input_path)} bytes")  # Print the size of the encrypted zip file
+    return input_path
 
-def git_push(commit_message):
-    try:
-        subprocess.run(["git", "init"], check=True)
-        # Check if the remote 'origin' already exists
-        result = subprocess.run(["git", "remote", "get-url", "origin"], capture_output=True, text=True)
-        if result.returncode != 0:
-            subprocess.run(["git", "remote", "add", "origin", REPO_URL], check=True)
-        # Check if the branch already exists
-        result = subprocess.run(["git", "rev-parse", "--verify", BRANCH], capture_output=True, text=True)
-        if result.returncode != 0:
-            subprocess.run(["git", "checkout", "-b", BRANCH], check=True)
-        else:
-            subprocess.run(["git", "checkout", BRANCH], check=True)
-        subprocess.run(["git", "add", "."], check=True)
-        subprocess.run(["git", "commit", "-m", commit_message], check=True)
-        subprocess.run(["git", "push", "--set-upstream", "origin", BRANCH], check=True)
-        print("✅ Git push successful!")
-    except subprocess.CalledProcessError as e:
-        print(f"❌ Git push failed: {e}")
 
-def process_folder(folder_path):
+def upload_to_github(file_path, repo_path):
+    """Upload a file to GitHub."""
+    url = f"https://api.github.com/repos/{OWNER}/{REPO}/contents/{repo_path}"
+    with open(file_path, "rb") as f:
+        content = base64.b64encode(f.read()).decode('utf-8')
+
+    payload = {
+        "message": f"Upload {repo_path}",
+        "content": content,
+        "branch": BRANCH
+    }
+
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "Content-Type": "application/octet-stream"
+    }
+
+    # Check if the file already exists
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        sha = response.json()["sha"]
+        payload["sha"] = sha
+
+    response = requests.put(url, headers=headers, data=json.dumps(payload))
+    print(f"Uploading {repo_path}")
+    if not response.ok:
+        print(f"Upload failed: {response.status_code}")
+        print(response.json())  # Check the detailed error message
+    
+    return response.json()
+
+def process_folder(folder_path, number_in_bracket):
     """Process folder: zip, encrypt, and push to Git."""
-    # print("stop here")
+    folder_name = os.path.basename(folder_path)
+    folder_name_with_number = folder_name + " " + number_in_bracket
+    print(f"Folder name with number: {folder_name_with_number}")
     files = [os.path.join(root, f) for root, _, files in os.walk(folder_path) for f in files]
     files.sort(key=lambda f: [int(n) if n.isdigit() else n for n in os.path.basename(f).split()])
 
     zip_index = 1
     current_zip_size = 0
     zip_files_list = []
-    repo_books_path = os.path.join(folder_path, "Books", os.path.basename(folder_path))
+    repo_books_path = os.path.join("Books", folder_name_with_number)
     os.makedirs(repo_books_path, exist_ok=True)
 
     for file in files:
         file_size = os.path.getsize(file)
         if current_zip_size + file_size > MAX_ZIP_SIZE:
-            zip_path = os.path.join(repo_books_path, f"part{zip_index:05d}.zip")
+            zip_path = os.path.join(repo_books_path, f"{folder_name}_part{zip_index:05d}.zip")
             zip_files(zip_files_list, zip_path)
-            encrypt_path = zip_path + ".enc"
-            password = combine("Kyaru", os.path.basename(folder_path))
-            encrypt_file(zip_path, encrypt_path, password)
-            os.remove(zip_path)
+            password = combine("Kyaru", number_in_bracket)
+            encrypt_file(zip_path, password)
             zip_files_list.clear()
             current_zip_size = 0
             zip_index += 1
+
+            # Upload to GitHub
+            upload_to_github(zip_path, f"Books/{folder_name_with_number}/{os.path.basename(zip_path)}")
 
         zip_files_list.append(file)
         current_zip_size += file_size
 
     if zip_files_list:
-        zip_path = os.path.join(repo_books_path, f"part{zip_index:05d}.zip")
+        zip_path = os.path.join(repo_books_path, f"{folder_name}_part{zip_index:05d}.zip")
         zip_files(zip_files_list, zip_path)
-        encrypt_path = zip_path + ".enc"
-        password = combine("Kyaru", os.path.basename(folder_path))
-        encrypt_file(zip_path, encrypt_path, password)
-        os.remove(zip_path)
+        password = combine("Kyaru", number_in_bracket)
+        encrypt_file(zip_path, password)
 
-    # Commit & push changes
-    git_push(f"Upload files for {os.path.basename(folder_path)}")
+        # Upload to GitHub
+        upload_to_github(zip_path, f"Books/{folder_name_with_number}/{os.path.basename(zip_path)}")
+
+    # Clean up
+    shutil.rmtree(repo_books_path)  # Use shutil.rmtree to remove the directory and its contents
 
 def select_folder():
     root = tk.Tk()
@@ -153,8 +175,7 @@ def check_number_in_bracket_in_folder_name(folder_path):
         number = input("No number found in brackets. Please add a number by yourself: ")
 
     number_in_bracket = f"[{number}]"
-    folder_path_with_number = folder_path + " " + number_in_bracket
-    print(f"Folder path with number: {folder_path_with_number}")
-    return folder_path_with_number
+    return folder_path, number_in_bracket
 
-process_folder(check_number_in_bracket_in_folder_name(select_folder()))
+folder_path, number_in_bracket = check_number_in_bracket_in_folder_name(select_folder())
+process_folder(folder_path, number_in_bracket)
