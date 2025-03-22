@@ -227,11 +227,10 @@
           new TextEncoder().encode(password)
         );
 
-        const maxAttempts = 3;
-        let attempts = 0;
         let uploadSuccess = false;
+        let attempts = 0;
 
-        while (!uploadSuccess && attempts < maxAttempts) {
+        while (!uploadSuccess) {
           try {
             const cryptoKey = await crypto.subtle.importKey(
               "raw",
@@ -325,10 +324,8 @@
               ).textContent = `Failed to upload encrypted folder part ${formattedZipIndex} (attempt ${
                 attempts + 1
               }) ❌`;
-              if (attempts < maxAttempts - 1) {
-                console.log("Retrying upload...");
-                document.getElementById("status").textContent += " Retrying...";
-              }
+              console.log("Retrying upload...");
+              document.getElementById("status").textContent += " Retrying...";
               attempts++;
             }
 
@@ -339,10 +336,8 @@
             document.getElementById(
               "status"
             ).textContent = `Encryption failed (attempt ${attempts + 1}).`;
-            if (attempts < maxAttempts - 1) {
-              console.log("Retrying encryption...");
-              document.getElementById("status").textContent += " Retrying...";
-            }
+            console.log("Retrying encryption...");
+            document.getElementById("status").textContent += " Retrying...";
             attempts++;
           }
         }
