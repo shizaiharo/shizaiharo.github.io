@@ -348,6 +348,9 @@
           }
         }
 
+        // Release resources
+        base64CombinedData = null;
+
         isUploading = false;
         processUploadQueue();
       }
@@ -365,7 +368,7 @@
         }
 
         const folderName = files[0].webkitRelativePath.split("/")[0];
-        const numberInFolderName = folderName.match(/\d+/)[0];
+        const numberInFolderName = folderName.match(/\[\d+\]/)[0];
         const password = combine("Kyaru", numberInFolderName);
         console.log(`Password generated: ${password}`);
 
@@ -417,7 +420,7 @@
 
         for (const folderName of sortedFolderNames) {
           const folderFiles = folders[folderName];
-          const numberInFolderName = folderName.match(/\d+/)[0];
+          const numberInFolderName = folderName.match(/\[\d+\]/)[0];
           const password = combine("Kyaru", numberInFolderName);
           console.log(`Password generated for ${folderName}: ${password}`);
 
