@@ -276,7 +276,7 @@
           document.getElementById("status").textContent =
             "Converting encrypted data to base64...";
 
-          const base64CombinedData = bufferToBase64(combinedData);
+          let base64CombinedData = bufferToBase64(combinedData);
 
           const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
 
