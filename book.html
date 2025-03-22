@@ -82,7 +82,7 @@
       <div id="progressContainer">
         <div id="progressBar">
           <div></div>
-          <div id="progressText">0%</div>
+          <div id="progressText">0%</</div>
         </div>
         <div id="etaText">ETA:</div>
       </div>
@@ -544,12 +544,13 @@
       async function downloadAllFiles() {
         const zip = new JSZip();
 
-        // Recombine .part files before adding to the ZIP
-        // const recombinedFiles = await recombineParts(allFiles);
+        // Recombine .part files before adding to the zip object
+        const recombinedFiles = await recombineParts(allFiles);
 
-        // recombinedFiles.forEach((file) => {
-        //   zip.file(file.fileName, file.fileData);
-        // });
+        // Add files to the zip object
+        recombinedFiles.forEach((file) => {
+          zip.file(file.fileName, file.fileData);
+        });
 
         zip
           .generateAsync({
