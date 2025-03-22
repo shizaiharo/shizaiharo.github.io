@@ -46,7 +46,12 @@ self.onmessage = async function (e) {
     combinedData.set(new Uint8Array(encryptedData), iv.length);
 
     // Convert to Base64 for upload
-    const base64Data = btoa(String.fromCharCode(...combinedData));
+    let binary = "";
+    const len = combinedData.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(combinedData[i]);
+    }
+    const base64Data = btoa(binary);
 
     // Send encrypted data back to main thread
     self.postMessage({
