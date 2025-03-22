@@ -269,7 +269,7 @@
       ) {
         return new Promise((resolve, reject) => {
           const task = {
-            file,
+            files: [file], // Change 'file' to 'files' and wrap it in an array
             password,
             folderName,
             zipIndex,
@@ -291,7 +291,7 @@
           activeWorkers.add(worker);
 
           worker.postMessage({
-            file: task.file,
+            files: task.files, // Ensure 'files' property is sent
             password: task.password,
             folderName: task.folderName,
             zipIndex: task.zipIndex,
