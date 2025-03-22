@@ -438,7 +438,14 @@
         }
 
         const folderName = files[0].webkitRelativePath.split("/")[0];
-        const numberInBracket = folderName.match(/\[\d+\]/)[1];
+        // console.log(`Processing folder: ${folderName}`);
+        const matchResult = folderName.match(/\[(\d+)\]/);
+        if (!matchResult) {
+          console.error(`No number found in folder name: ${folderName}`);
+          alert(`Error: No number found in folder name: ${folderName}`);
+          return;
+        }
+        const numberInBracket = matchResult[1]; // Now it's safe
         const password = combine("Kyaru", numberInBracket);
         console.log(`Password generated: ${password}`);
 
@@ -490,7 +497,14 @@
 
         for (const folderName of sortedFolderNames) {
           const folderFiles = folders[folderName];
-          const numberInBracket = folderName.match(/\[\d+\]/)[1];
+          // console.log(`Processing folder: ${folderName}`);
+          const matchResult = folderName.match(/\[(\d+)\]/);
+          if (!matchResult) {
+            console.error(`No number found in folder name: ${folderName}`);
+            alert(`Error: No number found in folder name: ${folderName}`);
+            return;
+          }
+          const numberInBracket = matchResult[1]; // Now it's safe
           const password = combine("Kyaru", numberInBracket);
           console.log(`Password generated for ${folderName}: ${password}`);
 
