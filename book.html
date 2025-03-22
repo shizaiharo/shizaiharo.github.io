@@ -367,8 +367,8 @@
         const flattenedFiles = decryptedFiles.flat();
 
         // Add new files to the allFiles array
-        allFiles = allFiles.concat(files);
-        
+        allFiles = allFiles.concat(results);
+
         // Recombine .part files
         const recombinedFiles = await recombineParts(allFiles);
 
