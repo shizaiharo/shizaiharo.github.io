@@ -71,23 +71,25 @@ self.onmessage = async function (e) {
     const base64Data = btoa(binary);
 
     // Upload to GitHub
+    if(folderName) {
     const formattedZipIndex = String(zipIndex).padStart(5, "0");
     const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
     const response = await fetch(url, {
-      method: "PUT",
-      headers: {
+    method: "PUT",
+    headers: {
         Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github+json",
         "Content-Type": "application/octet-stream",
-      },
-      body: JSON.stringify({
+    },
+    body: JSON.stringify({
         message: `Upload encrypted part ${formattedZipIndex}`,
         content: base64Data,
         branch: branch,
-      }),
+    }),
     });
+    }
 
     if (response.ok) {
       console.log(`Upload successful: ${path}`);
