@@ -3,7 +3,8 @@ importScripts(
 );
 
 self.onmessage = async function (e) {
-  const { files, password, folderName, zipIndex } = e.data;
+  const { files, password, folderName, zipIndex, token, owner, repo, branch } =
+    e.data;
   console.log("Received message in worker:", e.data); // Debugging statement
 
   if (!files) {
@@ -69,12 +70,39 @@ self.onmessage = async function (e) {
     }
     const base64Data = btoa(binary);
 
-    // Send encrypted data back to main thread
-    self.postMessage({
-      success: true,
-      zipIndex,
-      base64Data,
+    // Upload to GitHub
+    const formattedZipIndex = String(zipIndex).padStart(5, "0");
+    const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
+    const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/octet-stream",
+      },
+      body: JSON.stringify({
+        message: `Upload encrypted part ${formattedZipIndex}`,
+        content: base64Data,
+        branch: branch,
+      }),
     });
+
+    if (response.ok) {
+      console.log(`Upload successful: ${path}`);
+      self.postMessage({
+        success: true,
+        zipIndex,
+      });
+    } else {
+      console.error(`Upload failed: ${path}`);
+      self.postMessage({
+        success: false,
+        zipIndex,
+        error: `Upload failed: ${response.statusText}`,
+      });
+    }
   } catch (error) {
     console.error("Error in worker:", error); // Debugging statement
     self.postMessage({

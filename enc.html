@@ -201,16 +201,14 @@
           new Promise((resolve) => {
             const worker = workers[zipIndex % workers.length];
             worker.onmessage = async (event) => {
-              const { success, base64Data } = event.data;
+              const { success } = event.data;
               if (success) {
-                if (!uploadingZips.has(zipIndex)) {
-                  uploadingZips.add(zipIndex);
-                  await uploadToGitHub(folderName, zipIndex, base64Data);
-                  uploadingZips.delete(zipIndex);
-                }
+                console.log(
+                  `Encryption and upload completed for part ${zipIndex}`
+                );
               } else {
                 console.error(
-                  `Encryption failed for part ${zipIndex}, retrying...`
+                  `Encryption or upload failed for part ${zipIndex}, retrying...`
                 );
                 console.error(`Error details: ${event.data.error}`);
                 // Implement retry logic
@@ -246,6 +244,10 @@
                     password,
                     folderName,
                     zipIndex,
+                    token, // Pass token to worker
+                    owner, // Pass owner to worker
+                    repo, // Pass repo to worker
+                    branch, // Pass branch to worker
                   });
                 } else {
                   console.error("No files to send to worker");
