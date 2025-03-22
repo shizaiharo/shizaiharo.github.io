@@ -193,7 +193,7 @@
 
         console.log("Loading book:", bookName);
 
-        const bookNumber = bookName.match(/\d+/)[0];
+        const bookNumber = bookName.match(/\[\d+\]/)[1];
         const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
@@ -346,7 +346,7 @@
           results.map(async (result) => {
             const decryptedZip = await decryptFolder(
               result.fileData,
-              combine("Kyaru", result.fileName.match(/\d+/)[0])
+              combine("Kyaru", result.fileName.match(/\[\d+\]/)[1])
             );
             return Promise.all(
               Object.keys(decryptedZip.files)
