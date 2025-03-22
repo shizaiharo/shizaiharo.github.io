@@ -51,14 +51,12 @@ self.onmessage = async function (e) {
     // Send encrypted data back to main thread
     self.postMessage({
       success: true,
-      folderName,
       zipIndex,
       base64Data,
     });
   } catch (error) {
     self.postMessage({
       success: false,
-      folderName,
       zipIndex,
       error: error.message,
     });
