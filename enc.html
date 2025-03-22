@@ -45,6 +45,7 @@
       const branch = "main"; // Change to your default branch
       const MAX_ZIP_SIZE = 25 * 1024 * 1024; // After add encryption will near limit 40MiB (40/1.33 = 30)
 
+      let workers = {};
       const MAX_WORKERS = navigator.hardwareConcurrency || 4; // Use CPU cores
       const workerPool = []; // Pool of workers
       const workerQueue = []; // Queue of pending tasks
@@ -122,8 +123,8 @@
       async function encryptFolder(files, password, folderName) {
         files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
-        // const workerCount = Math.min(navigator.hardwareConcurrency || 4, 6); // Limit to 6 workers max
-        // const workers = Array.from({ length: workerCount }, () => new Worker("encryptWorker.js"));
+        const workerCount = Math.min(navigator.hardwareConcurrency || 4, 6); // Limit to 6 workers max
+        const workers = Array.from({ length: workerCount }, () => new Worker("encryptWorker.js"));
 
         let currentZipSize = 0;
         let zipIndex = 1;
