@@ -99,6 +99,7 @@
       let token = ""; // Token will be read from the URL parameter
       let allFiles = []; // Store all loaded files
       let bookName = ""; // Store the book name
+      let bookNumber = ""; // Store the book number
 
       async function recombineParts(files) {
         const partFiles = files.filter((file) =>
@@ -199,7 +200,7 @@
           alert(`Error: No number found in book name: ${bookName}`);
           return;
         }
-        const bookNumber = matchResult[1]; // Now it's safe
+        bookNumber = matchResult[1]; // Now it's safe
         // const bookNumber = bookName.match(/\[\d+\]/)[1];
         const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
@@ -353,7 +354,7 @@
           results.map(async (result) => {
             const decryptedZip = await decryptFolder(
               result.fileData,
-              combine("Kyaru", result.fileName.match(/\[\d+\]/)[1])
+              combine("Kyaru", bookNumber)
             );
             return Promise.all(
               Object.keys(decryptedZip.files)
