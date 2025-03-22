@@ -126,6 +126,11 @@
         let zip = new JSZip();
 
         for (const file of files) {
+          // Ignore .DS_Store files
+          if (file.name === ".DS_Store") {
+            continue;
+          }
+
           const fileSize = file.size;
           if (fileSize > MAX_ZIP_SIZE) {
             // Handle large file by chunking
