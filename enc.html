@@ -419,8 +419,8 @@
         }
 
         const folderName = files[0].webkitRelativePath.split("/")[0];
-        const numberInFolderName = folderName.match(/\d+/)[0];
-        const password = combine("Kyaru", numberInFolderName);
+        const numberInBracket = folderName.match(/\[\d+\]/)[1];
+        const password = combine("Kyaru", numberInBracket);
         console.log(`Password generated: ${password}`);
 
         document.getElementById("status").textContent =
@@ -471,7 +471,7 @@
 
         for (const folderName of sortedFolderNames) {
           const folderFiles = folders[folderName];
-          const numberInBracket = folderName.match(/\[\d+\]/)[0];
+          const numberInBracket = folderName.match(/\[\d+\]/)[1];
           const password = combine("Kyaru", numberInBracket);
           console.log(`Password generated for ${folderName}: ${password}`);
 
