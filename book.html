@@ -142,22 +142,11 @@
         return otherFiles.concat(recombinedBlobs);
       }
 
-      async function displayImages(files) {
+      async function displayImages(recombinedFiles) {
         const imagesContainer = document.getElementById("imagesContainer");
-
-        // Add new files to the allFiles array
-        allFiles = allFiles.concat(files);
 
         // Clear the images container
         imagesContainer.innerHTML = "";
-
-        // Recombine .part files
-        const recombinedFiles = await recombineParts(allFiles);
-
-        // Remove path prefix from non-combined files
-        recombinedFiles.forEach((file) => {
-          file.fileName = file.fileName.split("/").pop();
-        });
 
         // Sort all files by fileName in ascending order
         recombinedFiles.sort((a, b) => {
@@ -377,8 +366,19 @@
         // Flatten the array of arrays
         const flattenedFiles = decryptedFiles.flat();
 
+        // Add new files to the allFiles array
+        allFiles = allFiles.concat(files);
+        
+        // Recombine .part files
+        const recombinedFiles = await recombineParts(allFiles);
+
+        // Remove path prefix from non-combined files
+        recombinedFiles.forEach((file) => {
+          file.fileName = file.fileName.split("/").pop();
+        });
+
         // Display images after all fetches and processing are complete
-        displayImages(flattenedFiles);
+        displayImages(recombinedFiles);
 
         return flattenedFiles;
       }
@@ -545,11 +545,11 @@
         const zip = new JSZip();
 
         // Recombine .part files before adding to the ZIP
-        const recombinedFiles = await recombineParts(allFiles);
+        // const recombinedFiles = await recombineParts(allFiles);
 
-        recombinedFiles.forEach((file) => {
-          zip.file(file.fileName, file.fileData);
-        });
+        // recombinedFiles.forEach((file) => {
+        //   zip.file(file.fileName, file.fileData);
+        // });
 
         zip
           .generateAsync({
