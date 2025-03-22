@@ -227,58 +227,143 @@
           new TextEncoder().encode(password)
         );
 
-        try {
-          const cryptoKey = await crypto.subtle.importKey(
-            "raw",
-            key,
-            { name: "AES-CTR" },
-            false,
-            ["encrypt"]
-          );
+        const maxAttempts = 3;
+        let attempts = 0;
+        let uploadSuccess = false;
 
-          console.log("Encrypting data...");
-          document.getElementById("status").textContent = "Encrypting data...";
-          const encryptStartTime = performance.now();
-          const zipArrayBuffer = await zipBlob.arrayBuffer();
-          console.log(
-            `Zip array buffer size: ${zipArrayBuffer.byteLength} bytes`
-          );
+        while (!uploadSuccess && attempts < maxAttempts) {
+          try {
+            const cryptoKey = await crypto.subtle.importKey(
+              "raw",
+              key,
+              { name: "AES-CTR" },
+              false,
+              ["encrypt"]
+            );
 
-          const encryptedData = await crypto.subtle.encrypt(
-            { name: "AES-CTR", counter: iv, length: 128 },
-            cryptoKey,
-            zipArrayBuffer
-          );
-          const encryptEndTime = performance.now();
-          console.log(
-            `Encryption time: ${(encryptEndTime - encryptStartTime).toFixed(
-              2
-            )} ms`
-          );
-          document.getElementById("status").textContent = `Encryption time: ${(
-            encryptEndTime - encryptStartTime
-          ).toFixed(2)} ms`;
+            console.log("Encrypting data...");
+            document.getElementById("status").textContent =
+              "Encrypting data...";
+            const encryptStartTime = performance.now();
+            const zipArrayBuffer = await zipBlob.arrayBuffer();
+            console.log(
+              `Zip array buffer size: ${zipArrayBuffer.byteLength} bytes`
+            );
 
-          const combinedData = new Uint8Array(
-            iv.length + encryptedData.byteLength
-          );
-          combinedData.set(iv, 0);
-          combinedData.set(new Uint8Array(encryptedData), iv.length);
+            const encryptedData = await crypto.subtle.encrypt(
+              { name: "AES-CTR", counter: iv, length: 128 },
+              cryptoKey,
+              zipArrayBuffer
+            );
+            const encryptEndTime = performance.now();
+            console.log(
+              `Encryption time: ${(encryptEndTime - encryptStartTime).toFixed(
+                2
+              )} ms`
+            );
+            document.getElementById(
+              "status"
+            ).textContent = `Encryption time: ${(
+              encryptEndTime - encryptStartTime
+            ).toFixed(2)} ms`;
 
-          console.log("Encryption complete.");
-          console.log(
-            `Final encrypted data size: ${combinedData.length} bytes`
-          );
+            const combinedData = new Uint8Array(
+              iv.length + encryptedData.byteLength
+            );
+            combinedData.set(iv, 0);
+            combinedData.set(new Uint8Array(encryptedData), iv.length);
+
+            console.log("Encryption complete.");
+            console.log(
+              `Final encrypted data size: ${combinedData.length} bytes`
+            );
+            document.getElementById("status").textContent =
+              "Encryption complete.";
+
+            console.log("Converting encrypted data to base64...");
+            document.getElementById("status").textContent =
+              "Converting encrypted data to base64...";
+
+            let base64CombinedData = bufferToBase64(combinedData);
+
+            const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
+
+            console.log(`Uploading to GitHub at path: ${path}`);
+            document.getElementById(
+              "status"
+            ).textContent = `Uploading to GitHub at path: ${path}`;
+            const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+
+            const response = await fetch(url, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github+json",
+                "Content-Type": "application/octet-stream",
+              },
+              body: JSON.stringify({
+                message: `Upload encrypted folder part ${formattedZipIndex}`,
+                content: base64CombinedData,
+                branch: branch,
+              }),
+            });
+
+            if (response.ok) {
+              console.log("Upload successful.");
+              document.getElementById(
+                "status"
+              ).textContent = `Uploaded encrypted folder part ${formattedZipIndex} ✅`;
+              uploadSuccess = true;
+            } else {
+              const errorResponse = await response.json();
+              console.log(
+                `Upload failed (attempt ${attempts + 1}).`,
+                errorResponse
+              );
+              document.getElementById(
+                "status"
+              ).textContent = `Failed to upload encrypted folder part ${formattedZipIndex} (attempt ${
+                attempts + 1
+              }) ❌`;
+              if (attempts < maxAttempts - 1) {
+                console.log("Retrying upload...");
+                document.getElementById("status").textContent += " Retrying...";
+              }
+              attempts++;
+            }
+
+            // Release resources
+            base64CombinedData = null;
+          } catch (error) {
+            console.error("Encryption failed:", error);
+            document.getElementById(
+              "status"
+            ).textContent = `Encryption failed (attempt ${attempts + 1}).`;
+            if (attempts < maxAttempts - 1) {
+              console.log("Retrying encryption...");
+              document.getElementById("status").textContent += " Retrying...";
+            }
+            attempts++;
+          }
+        }
+
+        if (!uploadSuccess) {
+          console.error("Failed to upload after multiple attempts.");
           document.getElementById("status").textContent =
-            "Encryption complete.";
+            "Failed to upload after multiple attempts.";
+        }
+      }
 
-          console.log("Converting encrypted data to base64...");
-          document.getElementById("status").textContent =
-            "Converting encrypted data to base64...";
+      async function processUploadQueue() {
+        if (isUploading || uploadQueue.length === 0) {
+          return;
+        }
 
-          let base64CombinedData = bufferToBase64(combinedData);
+        isUploading = true;
 
-          const path = `Books/${folderName}/${folderName}_part${formattedZipIndex}.zip`;
+        while (uploadQueue.length > 0) {
+          const { path, base64CombinedData, formattedZipIndex } =
+            uploadQueue.shift();
 
           console.log(`Uploading to GitHub at path: ${path}`);
           document.getElementById(
@@ -328,83 +413,17 @@
               }
               attempts++;
             }
+
+            // Release resources
+            base64CombinedData = null;
           }
 
           // Release resources
           base64CombinedData = null;
-        } catch (error) {
-          console.error("Encryption failed:", error);
-          document.getElementById("status").textContent = "Encryption failed.";
         }
+
+        isUploading = false;
       }
-
-      // async function processUploadQueue() {
-      //   if (isUploading || uploadQueue.length === 0) {
-      //     return;
-      //   }
-
-      //   isUploading = true;
-
-      //   while (uploadQueue.length > 0) {
-      //     const { path, base64CombinedData, formattedZipIndex } =
-      //       uploadQueue.shift();
-
-      //     console.log(`Uploading to GitHub at path: ${path}`);
-      //     document.getElementById(
-      //       "status"
-      //     ).textContent = `Uploading to GitHub at path: ${path}`;
-      //     const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-
-      //     let uploadSuccess = false;
-      //     let attempts = 0;
-      //     const maxAttempts = 3;
-
-      //     while (!uploadSuccess && attempts < maxAttempts) {
-      //       const response = await fetch(url, {
-      //         method: "PUT",
-      //         headers: {
-      //           Authorization: `Bearer ${token}`,
-      //           Accept: "application/vnd.github+json",
-      //           "Content-Type": "application/octet-stream",
-      //         },
-      //         body: JSON.stringify({
-      //           message: `Upload encrypted folder part ${formattedZipIndex}`,
-      //           content: base64CombinedData,
-      //           branch: branch,
-      //         }),
-      //       });
-
-      //       if (response.ok) {
-      //         console.log("Upload successful.");
-      //         document.getElementById(
-      //           "status"
-      //         ).textContent = `Uploaded encrypted folder part ${formattedZipIndex} ✅`;
-      //         uploadSuccess = true;
-      //       } else {
-      //         const errorResponse = await response.json();
-      //         console.log(
-      //           `Upload failed (attempt ${attempts + 1}).`,
-      //           errorResponse
-      //         );
-      //         document.getElementById(
-      //           "status"
-      //         ).textContent = `Failed to upload encrypted folder part ${formattedZipIndex} (attempt ${
-      //           attempts + 1
-      //         }) ❌`;
-      //         if (attempts < maxAttempts - 1) {
-      //           console.log("Retrying upload...");
-      //           document.getElementById("status").textContent += " Retrying...";
-      //         }
-      //         attempts++;
-      //       }
-      //     }
-
-      //     // Release resources
-      //     base64CombinedData = null;
-      //   }
-
-      //   isUploading = false;
-      // }
 
       async function uploadBook() {
         if (!token) {
