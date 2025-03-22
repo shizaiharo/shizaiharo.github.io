@@ -232,6 +232,14 @@
           console.error("Error processing book:", error);
           alert("Failed to process the book. Please try again.");
         }
+
+        // Attach the event listener to the download button
+        document
+          .getElementById("downloadButton")
+          .addEventListener("click", () => {
+            console.log("Download button clicked");
+            downloadAllFiles();
+          });
       }
 
       async function getFileListFromRepoTree(folderName) {
@@ -383,6 +391,7 @@
       function showDownloadButton() {
         const downloadButton = document.getElementById("downloadButton");
         downloadButton.style.display = "inline";
+        console.log("Download button is now visible");
       }
 
       function arrayBufferToBase64(buffer) {
@@ -555,10 +564,6 @@
             link.click();
           });
       }
-
-      document
-        .getElementById("downloadButton")
-        .addEventListener("click", downloadAllFiles);
 
       window.onload = loadBook;
     </script>
