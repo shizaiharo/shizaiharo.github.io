@@ -240,15 +240,21 @@
             Promise.all(fileReaders)
               .then((fileBlobs) => {
                 console.log("Sending files to worker:", fileBlobs); // Debugging statement
-                worker.postMessage({
-                  files: fileBlobs,
-                  password,
-                  folderName,
-                  zipIndex,
-                });
+                if (fileBlobs && fileBlobs.length > 0) {
+                  worker.postMessage({
+                    files: fileBlobs,
+                    password,
+                    folderName,
+                    zipIndex,
+                  });
+                } else {
+                  console.error("No files to send to worker");
+                  resolve();
+                }
               })
               .catch((error) => {
                 console.error("Error reading files:", error);
+                resolve();
               });
           })
         );
