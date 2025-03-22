@@ -135,6 +135,7 @@
         let zipIndex = 1;
         let queue = [];
         let uploadingZips = new Set(); // Track currently uploading zips
+        let zipFiles = [];
 
         for (const file of files) {
           if (file.name === ".DS_Store") continue;
@@ -151,41 +152,79 @@
           }
 
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
-            await Promise.all(queue); // Wait for ongoing encryptions to finish
-            queue = [];
-            zipIndex++;
+            // Give the current zip files to a worker for encryption and upload
+            await processZipFiles(
+              zipFiles,
+              password,
+              zipIndex,
+              folderName,
+              workers,
+              queue,
+              uploadingZips
+            );
+            zipFiles = [];
             currentZipSize = 0;
+            zipIndex++;
           }
 
-          queue.push(
-            new Promise((resolve) => {
-              const worker = workers[zipIndex % workerCount];
-              worker.onmessage = async (event) => {
-                const { success, base64Data } = event.data;
-                if (success) {
-                  if (!uploadingZips.has(zipIndex)) {
-                    uploadingZips.add(zipIndex);
-                    await uploadToGitHub(folderName, zipIndex, base64Data);
-                    uploadingZips.delete(zipIndex);
-                  }
-                } else {
-                  console.error(
-                    `Encryption failed for part ${zipIndex}, retrying...`
-                  );
-                  console.error(`Error details: ${event.data.error}`);
-                  // Implement retry logic
-                }
-                resolve();
-              };
-              worker.postMessage({ file, password, folderName, zipIndex });
-            })
-          );
-
+          zipFiles.push(file);
           currentZipSize += fileSize;
+        }
+
+        // Process and upload the last zip files
+        if (currentZipSize > 0) {
+          await processZipFiles(
+            zipFiles,
+            password,
+            zipIndex,
+            folderName,
+            workers,
+            queue,
+            uploadingZips
+          );
         }
 
         await Promise.all(queue); // Ensure all uploads finish
         workers.forEach((w) => w.terminate()); // Cleanup workers
+      }
+
+      async function processZipFiles(
+        zipFiles,
+        password,
+        zipIndex,
+        folderName,
+        workers,
+        queue,
+        uploadingZips
+      ) {
+        queue.push(
+          new Promise((resolve) => {
+            const worker = workers[zipIndex % workers.length];
+            worker.onmessage = async (event) => {
+              const { success, base64Data } = event.data;
+              if (success) {
+                if (!uploadingZips.has(zipIndex)) {
+                  uploadingZips.add(zipIndex);
+                  await uploadToGitHub(folderName, zipIndex, base64Data);
+                  uploadingZips.delete(zipIndex);
+                }
+              } else {
+                console.error(
+                  `Encryption failed for part ${zipIndex}, retrying...`
+                );
+                console.error(`Error details: ${event.data.error}`);
+                // Implement retry logic
+              }
+              resolve();
+            };
+            worker.postMessage({
+              files: zipFiles,
+              password,
+              folderName,
+              zipIndex,
+            });
+          })
+        );
       }
 
       // Function to encrypt and upload large file using workers
