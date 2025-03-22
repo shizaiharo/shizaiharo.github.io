@@ -100,6 +100,48 @@
       let allFiles = []; // Store all loaded files
       let bookName = ""; // Store the book name
 
+      async function recombineParts(files) {
+        const partFiles = files.filter((file) =>
+          /\.part\d+$/i.test(file.fileName)
+        );
+        const otherFiles = files.filter(
+          (file) => !/\.part\d+$/i.test(file.fileName)
+        );
+
+        const recombinedFiles = {};
+
+        for (const partFile of partFiles) {
+          const baseName = partFile.fileName.replace(/\.part\d+$/i, "");
+          if (!recombinedFiles[baseName]) {
+            recombinedFiles[baseName] = [];
+          }
+          recombinedFiles[baseName].push(partFile);
+        }
+
+        const recombinedBlobs = await Promise.all(
+          Object.keys(recombinedFiles).map(async (baseName) => {
+            const parts = recombinedFiles[baseName].sort((a, b) => {
+              const partA = parseInt(a.fileName.match(/\.part(\d+)$/i)[1], 10);
+              const partB = parseInt(b.fileName.match(/\.part(\d+)$/i)[1], 10);
+              return partA - partB;
+            });
+
+            const combinedBuffer = new Uint8Array(
+              parts.reduce((acc, part) => acc + part.fileData.byteLength, 0)
+            );
+            let offset = 0;
+            for (const part of parts) {
+              combinedBuffer.set(new Uint8Array(part.fileData), offset);
+              offset += part.fileData.byteLength;
+            }
+
+            return { fileName: baseName, fileData: combinedBuffer.buffer };
+          })
+        );
+
+        return otherFiles.concat(recombinedBlobs);
+      }
+
       async function displayImages(files) {
         const imagesContainer = document.getElementById("imagesContainer");
 
@@ -109,8 +151,11 @@
         // Clear the images container
         imagesContainer.innerHTML = "";
 
+        // Recombine .part files
+        const recombinedFiles = await recombineParts(allFiles);
+
         // Sort all files by fileName in ascending order
-        allFiles.sort((a, b) => {
+        recombinedFiles.sort((a, b) => {
           const numsA = (a.fileName.match(/\d+/g) || []).map(Number);
           const numsB = (b.fileName.match(/\d+/g) || []).map(Number);
 
@@ -124,9 +169,9 @@
 
         // Log file names
         console.log("File names in ascending order:");
-        allFiles.forEach((file) => console.log(file.fileName));
+        recombinedFiles.forEach((file) => console.log(file.fileName));
 
-        for (const file of allFiles) {
+        for (const file of recombinedFiles) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
             const blob = new Blob([file.fileData]);
             const img = document.createElement("img");
