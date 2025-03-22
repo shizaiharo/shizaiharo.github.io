@@ -4,7 +4,7 @@ importScripts(
 
 self.onmessage = async function (e) {
   const { files, password, folderName, zipIndex } = e.data;
-  console.log("Received files in worker:", files); // Debugging statement
+  console.log("Received message in worker:", e.data); // Debugging statement
 
   if (!files) {
     console.error("Files are undefined in worker");
