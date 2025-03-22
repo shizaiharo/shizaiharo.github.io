@@ -532,9 +532,13 @@
         return password;
       }
 
-      function downloadAllFiles() {
+      async function downloadAllFiles() {
         const zip = new JSZip();
-        allFiles.forEach((file) => {
+
+        // Recombine .part files before adding to the ZIP
+        const recombinedFiles = await recombineParts(allFiles);
+
+        recombinedFiles.forEach((file) => {
           zip.file(file.fileName, file.fileData);
         });
 
