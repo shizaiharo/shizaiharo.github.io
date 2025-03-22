@@ -154,6 +154,11 @@
         // Recombine .part files
         const recombinedFiles = await recombineParts(allFiles);
 
+        // Remove path prefix from non-combined files
+        recombinedFiles.forEach((file) => {
+          file.fileName = file.fileName.split("/").pop();
+        });
+
         // Sort all files by fileName in ascending order
         recombinedFiles.sort((a, b) => {
           const numsA = (a.fileName.match(/\d+/g) || []).map(Number);
