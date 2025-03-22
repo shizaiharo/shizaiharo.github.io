@@ -297,6 +297,10 @@
             password: task.password,
             folderName: task.folderName,
             zipIndex: task.zipIndex,
+            token, // Pass token to worker
+            owner, // Pass owner to worker
+            repo, // Pass repo to worker
+            branch, // Pass branch to worker
           });
 
           worker.resolve = task.resolve;
