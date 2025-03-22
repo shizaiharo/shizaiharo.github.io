@@ -45,6 +45,18 @@
       const branch = "main"; // Change to your default branch
       const MAX_ZIP_SIZE = 25 * 1024 * 1024; // After add encryption will near limit 40MiB (40/1.33 = 30)
 
+      const MAX_WORKERS = navigator.hardwareConcurrency || 4; // Use CPU cores
+      const workerPool = []; // Pool of workers
+      const workerQueue = []; // Queue of pending tasks
+      const activeWorkers = new Set(); // Set of active workers
+
+      // Initialize worker pool
+      for (let i = 0; i < MAX_WORKERS; i++) {
+        const worker = new Worker("encryptWorker.js");
+        worker.onmessage = handleWorkerResponse;
+        workerPool.push(worker);
+      }
+
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
@@ -108,94 +120,106 @@
       let isUploading = false;
 
       async function encryptFolder(files, password, folderName) {
-        // Sort files by the number in their filenames
-        files.sort((a, b) => {
-          const numsA = (a.name.match(/\d+/g) || []).map(Number);
-          const numsB = (b.name.match(/\d+/g) || []).map(Number);
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
-          for (let i = 0; i < Math.max(numsA.length, numsB.length); i++) {
-            if (numsA[i] !== numsB[i]) {
-              return (numsA[i] || 0) - (numsB[i] || 0);
-            }
-          }
-          return 0;
-        });
+        // const workerCount = Math.min(navigator.hardwareConcurrency || 4, 6); // Limit to 6 workers max
+        // const workers = Array.from({ length: workerCount }, () => new Worker("encryptWorker.js"));
 
         let currentZipSize = 0;
         let zipIndex = 1;
-        let zip = new JSZip();
+        let queue = [];
 
         for (const file of files) {
-          // Ignore .DS_Store files
-          if (file.name === ".DS_Store") {
-            continue;
-          }
+          if (file.name === ".DS_Store") continue;
 
           const fileSize = file.size;
           if (fileSize > MAX_ZIP_SIZE) {
-            // Handle large file by chunking
-            zipIndex = await encryptAndUploadLargeFile(
-              file,
-              password,
-              folderName,
-              zipIndex
-            );
+            zipIndex = await encryptAndUploadLargeFile(file, password, folderName, zipIndex);
             continue;
           }
 
           if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
-            // Generate the current zip blob and reset for the next zip
-            await processZip(zip, password, zipIndex, folderName);
-            zip = new JSZip();
-            currentZipSize = 0;
+            await Promise.all(queue); // Wait for ongoing encryptions to finish
+            queue = [];
             zipIndex++;
+            currentZipSize = 0;
           }
-          console.log(
-            `Adding file to zip: ${file.webkitRelativePath || file.name}`
-          );
-          zip.file(file.webkitRelativePath || file.name, file);
+
+          queue.push(new Promise((resolve) => {
+            const worker = workers[zipIndex % workerCount];
+            worker.onmessage = async (event) => {
+              if (event.data.success) {
+                await uploadToGitHub(event.data.base64Data, folderName, zipIndex);
+              } else {
+                console.error(`Encryption failed for part ${event.data.zipIndex}, retrying...`);
+                // Implement retry logic
+              }
+              resolve();
+            };
+            worker.postMessage({ file, password, folderName, zipIndex });
+          }));
+
           currentZipSize += fileSize;
         }
 
-        // Generate and upload the last zip
-        if (currentZipSize > 0) {
-          await processZip(zip, password, zipIndex, folderName);
+        await Promise.all(queue); // Ensure all uploads finish
+        workers.forEach((w) => w.terminate()); // Cleanup workers
+      }
+
+      // Function to encrypt and upload large file using workers
+      async function encryptAndUploadLargeFile(file, password, folderName, zipIndex) {
+        return new Promise((resolve, reject) => {
+          const task = { file, password, folderName, zipIndex, resolve, reject };
+          workerQueue.push(task);
+          processWorkerQueue();
+        });
+      }
+
+      // Process queue and assign tasks to available workers
+      function processWorkerQueue() {
+        while (workerQueue.length > 0 && activeWorkers.size < MAX_WORKERS) {
+          const worker = workerPool.pop(); // Get an available worker
+          if (!worker) break;
+
+          const task = workerQueue.shift();
+          activeWorkers.add(worker);
+          
+          worker.postMessage({
+            file: task.file,
+            password: task.password,
+            folderName: task.folderName,
+            zipIndex: task.zipIndex
+          });
+
+          worker.resolve = task.resolve;
+          worker.reject = task.reject;
         }
       }
 
-      async function encryptAndUploadLargeFile(
-        file,
-        password,
-        folderName,
-        zipIndex
-      ) {
-        const chunkSize = MAX_ZIP_SIZE;
-        let start = 0;
+      // Handle worker responses
+      function handleWorkerResponse(e) {
+        const worker = this;
+        activeWorkers.delete(worker);
+        workerPool.push(worker); // Return worker to pool
 
-        while (start < file.size) {
-          const end = Math.min(start + chunkSize, file.size);
-          const chunk = file.slice(start, end);
+        const { success, folderName, zipIndex, base64Data, error } = e.data;
 
-          let zip = new JSZip();
-          const chunkName = `${file.name}.part${zipIndex}`;
-          zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
-
-          console.log(`Creating ZIP for chunk: ${chunkName}`);
-          document.getElementById(
-            "status"
-          ).textContent = `Zipping part ${zipIndex}...`;
-
-          await processZip(zip, password, zipIndex, folderName);
-
-          start = end;
-          zipIndex++;
+        if (success) {
+          console.log(`Encryption completed for part ${zipIndex}`);
+          uploadToGitHub(folderName, zipIndex, base64Data)
+            .then(() => worker.resolve())
+            .catch(worker.reject);
+        } else {
+          console.error(`Encryption failed for part ${zipIndex}:`, error);
+          worker.reject(error);
         }
 
-        return zipIndex;
+        processWorkerQueue(); // Process next task
       }
 
       async function processZip(zip, password, zipIndex, folderName) {
         const formattedZipIndex = String(zipIndex).padStart(5, "0");
+        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
         console.log("Generating zip blob...");
         document.getElementById(
           "status"
@@ -339,6 +363,7 @@
             console.log("Retrying encryption...");
             document.getElementById("status").textContent += " Retrying...";
             attempts++;
+            await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
           }
         }
 
