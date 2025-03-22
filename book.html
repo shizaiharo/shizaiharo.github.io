@@ -193,7 +193,14 @@
 
         console.log("Loading book:", bookName);
 
-        const bookNumber = bookName.match(/\[\d+\]/)[1];
+        const matchResult = bookName.match(/\[(\d+)\]/);
+        if (!matchResult) {
+          console.error(`No number found in book name: ${bookName}`);
+          alert(`Error: No number found in book name: ${bookName}`);
+          return;
+        }
+        const bookNumber = matchResult[1]; // Now it's safe
+        // const bookNumber = bookName.match(/\[\d+\]/)[1];
         const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
         const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
         document.getElementById("pageTitle").textContent = bookNumber;
