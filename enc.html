@@ -245,7 +245,7 @@
               remainingZips++;
             }
             console.log(
-              `Adding file to zip: ${file.webkitRelativePath || file.name}`
+              `Adding file to part${zipIndex}: ${file.webkitRelativePath || file.name}`
             );
             zip.file(file.webkitRelativePath || file.name, file);
             currentZipSize += file.size;
