@@ -400,13 +400,13 @@
       function showDownloadButton(recombinedFiles) {
         const downloadButton = document.getElementById("downloadButton");
         downloadButton.style.display = "inline";
-        const temp = recombinedFiles
+        // const temp = recombinedFiles
         console.log("Download button is now visible");
 
         // Attach the event listener to the download button
         downloadButton.addEventListener("click", () => {
           console.log("Download button clicked");
-          downloadAllFiles(temp);
+          downloadAllFiles(recombinedFiles);
         });
       }
 
@@ -558,25 +558,36 @@
       }
 
       async function downloadAllFiles(recombinedFiles) {
+        if (!recombinedFiles || recombinedFiles.length === 0) {
+          console.error("No files to download.");
+          alert("No files available for download.");
+          return;
+        }
+
+        console.log("Preparing files for download...");
+
         const zip = new JSZip();
 
-        // Add files to the zip object
-        recombinedFiles.forEach((file) => {
-          zip.file(file.fileName, file.fileData);
-        });
-
-        zip
-          .generateAsync({
-            type: "blob",
-            compression: "STORE",
-            compressionOptions: { level: 0 },
+        // Add all files in parallel
+        await Promise.all(
+          recombinedFiles.map(async (file) => {
+            zip.file(file.fileName, file.fileData);
           })
-          .then((content) => {
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(content);
-            link.download = `${bookName}.zip`;
-            link.click();
-          });
+        );
+
+        // Generate ZIP file
+        console.log("Generating ZIP file...");
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+
+        // Trigger file download
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(zipBlob);
+        a.download = `${bookName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        console.log("Download started.");
       }
 
       window.onload = loadBook;
