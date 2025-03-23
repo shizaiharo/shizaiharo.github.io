@@ -398,6 +398,18 @@
       }
 
       function showDownloadButton(recombinedFiles) {
+        console.log("Preparing files for download...");
+        const zip = new JSZip();
+        // Add all files in parallel
+        Promise.all(
+          recombinedFiles.map(async (file) => {
+            zip.file(file.fileName, file.fileData);
+          })
+        );
+        // Generate ZIP file
+        console.log("Generating ZIP file...");
+        const zipBlob = zip.generateAsync({ type: "blob" });
+
         const downloadButton = document.getElementById("downloadButton");
         downloadButton.style.display = "inline";
         // const temp = recombinedFiles
@@ -406,7 +418,7 @@
         // Attach the event listener to the download button
         downloadButton.addEventListener("click", () => {
           console.log("Download button clicked");
-          downloadAllFiles(recombinedFiles);
+          downloadAllFiles(zipBlob);
         });
       }
 
@@ -564,20 +576,7 @@
           return;
         }
 
-        console.log("Preparing files for download...");
-
-        const zip = new JSZip();
-
-        // Add all files in parallel
-        await Promise.all(
-          recombinedFiles.map(async (file) => {
-            zip.file(file.fileName, file.fileData);
-          })
-        );
-
-        // Generate ZIP file
-        console.log("Generating ZIP file...");
-        const zipBlob = await zip.generateAsync({ type: "blob" });
+        
 
         // Trigger file download
         const a = document.createElement("a");
