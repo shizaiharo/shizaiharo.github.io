@@ -75,29 +75,33 @@
         return worker;
       }
 
-      async function uploadToGitHub(folderName, zipIndex, base64Data) {
+      async function uploadToGitHub(
+        folderName,
+        zipIndex,
+        base64Data
+      ) {
         const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
-        let sha = null;
-        try {
-            const response = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                sha = data.sha; // Latest sha required for updates
-            }
-        } catch (error) {
-            console.warn("File may not exist yet, proceeding without sha.");
-        }
+        // let sha = null;
+        // try {
+        //   const response = await fetch(url, {
+        //     headers: { Authorization: `Bearer ${token}` },
+        //   });
+        //   if (response.ok) {
+        //     const data = await response.json();
+        //     sha = data.sha; // Latest sha required for updates
+        //   }
+        // } catch (error) {
+        //   console.warn("File may not exist yet, proceeding without sha.");
+        // }
 
         // Prepare file data
         const fileData = {
-            message: `Upload encrypted folder part ${zipIndex}`,
-            content: base64Data, // Base64 encode content
-            sha: sha, // Include sha if updating
-            branch: branch,
+          message: `Upload encrypted folder part ${zipIndex}`,
+          content: base64Data, // Base64 encode content
+          // sha: sha, // Include sha if updating
+          branch: branch,
         };
 
         try {
@@ -113,11 +117,24 @@
 
           if (Upload_response.ok) {
             console.log(`Uploaded ${path}`);
+          } else if (Upload_response.status === 422) {
+            console.log(`Part ${zipIndex} already exists. Skipping...`);
           } else {
-            console.error(`Upload failed:`, await Upload_response.json());
+            const errorData = await Upload_response.json();
+            console.error(`Upload failed:`, errorData);
+            if (retries > 0) {
+              console.log(`Retrying upload... (${retries} retries left)`);
+              await uploadToGitHub(
+                folderName,
+                zipIndex,
+                base64Data
+              );
+            }
           }
         } catch (error) {
-          console.error("Upload error:", error);
+          console.error(`Part${zipIndex} Upload error:`, error);
+          console.log(`Part${zipIndex} retrying upload...`);
+          await uploadToGitHub(folderName, zipIndex, base64Data);
         }
       }
 
@@ -162,6 +179,18 @@
         const chunks = [];
         let currentChunk = [];
         let currentSize = 0;
+
+        files.sort((a, b) => {
+          const numsA = (a.name.match(/\d+/g) || []).map(Number);
+          const numsB = (b.name.match(/\d+/g) || []).map(Number);
+
+          for (let i = 0; i < Math.max(numsA.length, numsB.length); i++) {
+            if (numsA[i] !== numsB[i]) {
+              return (numsA[i] || 0) - (numsB[i] || 0);
+            }
+          }
+          return 0;
+        });
 
         files.forEach((file) => {
           if (file.name === ".DS_Store") return;
