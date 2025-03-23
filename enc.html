@@ -172,8 +172,9 @@
           }
           return 0;
         });
+        console.log(files);
 
-        const pendingZip = [];
+        // const pendingZip = [];
         // let currentZip = [];
         let currentZipSize = 0;
         let zipIndex = 1;
@@ -214,28 +215,31 @@
               start = end;
               zipIndex++;
             }
-          } else if (currentZipSize + file.size > MAX_ZIP_SIZE) {
-            const zipBlob = await zip.generateAsync({ type: "blob" });
-            const zipArrayBuffer = await zipBlob.arrayBuffer();
-            const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+            continue;
+          } else {
+            if (currentZipSize + file.size > MAX_ZIP_SIZE) {
+              const zipBlob = await zip.generateAsync({ type: "blob" });
+              const zipArrayBuffer = await zipBlob.arrayBuffer();
+              const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
 
-            const worker = getNextWorker();
-            worker.postMessage({
-              action: "ZipEncrypt",
-              folderName,
-              zip: zipSerialized,
-              zipIndex,
-              password,
-            });
-            zip = new JSZip();
-            currentZipSize = 0;
-            zipIndex++;
+              const worker = getNextWorker();
+              worker.postMessage({
+                action: "ZipEncrypt",
+                folderName,
+                zip: zipSerialized,
+                zipIndex,
+                password,
+              });
+              zip = new JSZip();
+              currentZipSize = 0;
+              zipIndex++;
+            }
+            console.log(
+              `Adding file to zip: ${file.webkitRelativePath || file.name}`
+            );
+            zip.file(file.webkitRelativePath || file.name, file);
+            currentZipSize += file.size;
           }
-          console.log(
-            `Adding file to zip: ${file.webkitRelativePath || file.name}`
-          );
-          zip.file(file.webkitRelativePath || file.name, file);
-          currentZipSize += file.size;
         }
         if (currentZipSize > 0) {
           const zipBlob = await zip.generateAsync({ type: "blob" });
