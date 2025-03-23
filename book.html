@@ -400,12 +400,13 @@
       function showDownloadButton(recombinedFiles) {
         const downloadButton = document.getElementById("downloadButton");
         downloadButton.style.display = "inline";
+        const temp = recombinedFiles
         console.log("Download button is now visible");
 
         // Attach the event listener to the download button
         downloadButton.addEventListener("click", () => {
           console.log("Download button clicked");
-          downloadAllFiles(recombinedFiles);
+          downloadAllFiles(temp);
         });
       }
 
