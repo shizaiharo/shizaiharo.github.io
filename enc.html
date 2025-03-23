@@ -146,7 +146,7 @@
 
       function checkAllBooksComplete() {
         for (const folderName in uploadedParts) {
-          // const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
+          const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
           // const maxPart = Math.max(...parts);
           const totalUploadedParts = parts.length;
           console.log(
