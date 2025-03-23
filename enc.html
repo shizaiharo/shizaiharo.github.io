@@ -150,6 +150,9 @@
           const parts = Array.from(uploadedParts[folderName]);
           const maxPart = Math.max(...parts);
           const totalUploadedParts = parts.length;
+          console.log(
+            `Checking ${folderName}: ${totalUploadedParts} / ${maxPart}`
+          );
 
           // Check if all parts from 1 to maxPart are uploaded
           for (let i = 1; i <= maxPart; i++) {
