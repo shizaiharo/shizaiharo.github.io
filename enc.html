@@ -75,15 +75,11 @@
         return worker;
       }
 
-      async function uploadToGitHub(
-        folderName,
-        zipIndex,
-        base64Data
-      ) {
+      async function uploadToGitHub(folderName, zipIndex, base64Data) {
         const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
         const delay = (ms) => new Promise((res) => setTimeout(res, ms));
-        
+
         // let sha = null;
         // try {
         //   const response = await fetch(url, {
@@ -164,7 +160,7 @@
 
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
-        
+
         files.sort((a, b) => {
           const numsA = (a.name.match(/\d+/g) || []).map(Number);
           const numsB = (b.name.match(/\d+/g) || []).map(Number);
@@ -184,8 +180,8 @@
         let zip = new JSZip();
 
         for (const file of files) {
-          if (file.name === ".DS_Store") { 
-            continue; 
+          if (file.name === ".DS_Store") {
+            continue;
           } else if (file.size > MAX_ZIP_SIZE) {
             const chunkSize = MAX_ZIP_SIZE;
             let start = 0;
@@ -203,11 +199,15 @@
                 "status"
               ).textContent = `Zipping part ${zipIndex}...`;
 
+              const zipBlob = await zip.generateAsync({ type: "blob" });
+              const zipArrayBuffer = await zipBlob.arrayBuffer();
+              const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+
               const worker = getNextWorker();
               worker.postMessage({
                 action: "ZipEncrypt",
                 folderName,
-                zip,
+                zip: zipSerialized,
                 zipIndex,
                 password,
               });
@@ -215,11 +215,15 @@
               zipIndex++;
             }
           } else if (currentZipSize + file.size > MAX_ZIP_SIZE) {
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            const zipArrayBuffer = await zipBlob.arrayBuffer();
+            const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+
             const worker = getNextWorker();
             worker.postMessage({
               action: "ZipEncrypt",
               folderName,
-              zip,
+              zip: zipSerialized,
               zipIndex,
               password,
             });
@@ -227,18 +231,24 @@
             currentZipSize = 0;
             zipIndex++;
           }
-          console.log(`Adding file to zip: ${file.webkitRelativePath || file.name}`);
+          console.log(
+            `Adding file to zip: ${file.webkitRelativePath || file.name}`
+          );
           zip.file(file.webkitRelativePath || file.name, file);
           currentZipSize += file.size;
         }
         if (currentZipSize > 0) {
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const zipArrayBuffer = await zipBlob.arrayBuffer();
+          const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+
           const worker = getNextWorker();
           worker.postMessage({
-              action: "ZipEncrypt",
-              folderName,
-              zip,
-              zipIndex,
-              password,
+            action: "ZipEncrypt",
+            folderName,
+            zip: zipSerialized,
+            zipIndex,
+            password,
           });
         }
       }
@@ -248,9 +258,6 @@
       //   let currentZip = [];
       //   let currentSize = 0;
 
-        
-
-        
       //     if (file.name === ".DS_Store") return;
 
       //     if (file.size > maxSize) {
@@ -272,7 +279,7 @@
       //         start = end;
       //         partIndex++;
       //       }
-            
+
       //     }
 
       //     if (currentSize + file.size > maxSize) {

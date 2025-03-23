@@ -3,58 +3,16 @@ importScripts(
 );
 
 self.onmessage = async function (e) {
-  const { action, folderName, zip, zipIndex, password } =
-    e.data;
+  const { action, folderName, zip: zipSerialized, zipIndex, password } = e.data;
 
   if (action === "ZipEncrypt") {
-    // let zip = new JSZip();
-    // let currentZipSize = 0;
-    // let partIndex = zipIndex;
+    const zipArrayBuffer = new Uint8Array(zipSerialized).buffer;
+    const zipBlob = new Blob([zipArrayBuffer]);
+    const zip = await JSZip.loadAsync(zipBlob);
 
-    // const sortedFiles = files.sort((a, b) => {
-    //   const numA = (a.name.match(/\d+/g) || []).map(Number);
-    //   const numB = (b.name.match(/\d+/g) || []).map(Number);
-    //   for (let i = 0; i < Math.max(numA.length, numB.length); i++) {
-    //     if (numA[i] !== numB[i]) return (numA[i] || 0) - (numB[i] || 0);
-    //   }
-    //   return 0;
-    // });
+    await processZip(zip, password, zipIndex, folderName);
 
-    // for (const file of sortedFiles) {
-    //   if (file.name === ".DS_Store") continue;
-
-    //   const fileSize = file.size;
-    //   if (fileSize > MAX_ZIP_SIZE) {
-    //     partIndex = await encryptAndUploadLargeFile(
-    //       file,
-    //       password,
-    //       folderName,
-    //       partIndex,
-    //       MAX_ZIP_SIZE
-    //     );
-    //     continue;
-    //   }
-
-    //   if (currentZipSize + fileSize > MAX_ZIP_SIZE) {
-    //     await processZip(zip, password, partIndex, folderName);
-    //     zip = new JSZip();
-    //     currentZipSize = 0;
-    //     partIndex++;
-    //   }
-
-    //   const fileContent = await file.arrayBuffer();
-    //   zip.file(file.webkitRelativePath || file.name, fileContent);
-    //   currentZipSize += fileSize;
-
-    //   // Log the file name being added to the zip
-    //   console.log(`Adding file to part${partIndex}: ${file.name}`);
-    // }
-
-    // if (currentZipSize > 0) {
-      await processZip(zip, password, zipIndex, folderName);
-    // }
-
-    self.postMessage({ status: "complete", folderName, zipIndex: partIndex });
+    self.postMessage({ status: "complete", folderName, zipIndex });
   }
 };
 
