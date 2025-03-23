@@ -59,20 +59,22 @@
               e.data.base64CombinedData
             );
           } else if (e.data.status === "complete") {
-            document.getElementById(
-              "status"
-            ).textContent = `Part ${e.data.zipIndex} upload complete✅`;
-            remainingZips--;
-            document.getElementById(
-              "status"
-            ).textContent += ` Remaining ZIPs: ${remainingZips}`;
+            if (i === 0) {
+              document.getElementById("status").textContent = "Complete✅";
+            } else {
+              document.getElementById("status").textContent = `Active worker: ${i + 1})`;
+            }
+            // remainingZips--;
+            // document.getElementById(
+            //   "status"
+            // ).textContent += ` Remaining ZIPs: ${remainingZips}`;
           }
         };
         workers.push(worker);
       }
 
       let currentWorkerIndex = 0;
-      let remainingZips = 0;
+      // let remainingZips = 0;
 
       function getNextWorker() {
         const worker = workers[currentWorkerIndex];
@@ -222,7 +224,7 @@
               });
               start = end;
               zipIndex++;
-              remainingZips++;
+              // remainingZips++;
             }
             continue;
           } else {
@@ -242,10 +244,12 @@
               zip = new JSZip();
               currentZipSize = 0;
               zipIndex++;
-              remainingZips++;
+              // remainingZips++;
             }
             console.log(
-              `Adding file to part${zipIndex}: ${file.webkitRelativePath || file.name}`
+              `Adding file to part${zipIndex}: ${
+                file.webkitRelativePath || file.name
+              }`
             );
             zip.file(file.webkitRelativePath || file.name, file);
             currentZipSize += file.size;
@@ -264,11 +268,11 @@
             zipIndex,
             password,
           });
-          remainingZips++;
+          // remainingZips++;
         }
-        document.getElementById(
-          "status"
-        ).textContent += ` Remaining ZIPs: ${remainingZips}`;
+        // document.getElementById(
+        //   "status"
+        // ).textContent += ` Remaining ZIPs: ${remainingZips}`;
       }
 
       // function splitFilesIntoChunks(files, maxSize) {
