@@ -45,21 +45,35 @@
       const branch = "main"; // Change to your default branch
       const MAX_ZIP_SIZE = 25 * 1024 * 1024; // After add encryption will near limit 40MiB (40/1.33 = 30)
 
-      const worker = new Worker("worker.js");
+      const maxWorkers = navigator.hardwareConcurrency || 4; // Fallback to 4 if the property is not supported
+      console.log(`Using up to ${maxWorkers} workers.`);
 
-      worker.onmessage = async function (e) {
-        if (e.data.status === "upload") {
-          await uploadToGitHub(
-            e.data.folderName,
-            e.data.zipIndex,
-            e.data.base64CombinedData
-          );
-        } else if (e.data.status === "complete") {
-          document.getElementById(
-            "status"
-          ).textContent = `Upload complete for ${e.data.folderName}`;
-        }
-      };
+      const workers = [];
+      for (let i = 0; i < maxWorkers; i++) {
+        const worker = new Worker("worker.js");
+        worker.onmessage = async function (e) {
+          if (e.data.status === "upload") {
+            await uploadToGitHub(
+              e.data.folderName,
+              e.data.zipIndex,
+              e.data.base64CombinedData
+            );
+          } else if (e.data.status === "complete") {
+            document.getElementById(
+              "status"
+            ).textContent = `Upload complete for ${e.data.folderName}`;
+          }
+        };
+        workers.push(worker);
+      }
+
+      let currentWorkerIndex = 0;
+
+      function getNextWorker() {
+        const worker = workers[currentWorkerIndex];
+        currentWorkerIndex = (currentWorkerIndex + 1) % maxWorkers;
+        return worker;
+      }
 
       async function uploadToGitHub(folderName, zipIndex, base64Data) {
         const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
@@ -113,6 +127,7 @@
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
 
+        const worker = getNextWorker();
         worker.postMessage({
           action: "encryptAndZip",
           files,
@@ -184,9 +199,6 @@
 
       let uploadQueue = [];
       let isUploading = false;
-
-      const maxWorkers = navigator.hardwareConcurrency || 4; // Fallback to 4 if the property is not supported
-      console.log(`Using up to ${maxWorkers} workers.`);
 
       async function encryptFolder(files, password, folderName) {
         // Sort files by the number in their filenames
@@ -500,37 +512,6 @@
 
         isUploading = false;
       }
-
-      // async function uploadBook() {
-      //   if (!token) {
-      //     alert("Please upload the token file first.");
-      //     return;
-      //   }
-
-      //   const files = Array.from(document.getElementById("bookInput").files);
-      //   if (files.length === 0) {
-      //     alert("No files selected.");
-      //     return;
-      //   }
-
-      //   const folderName = files[0].webkitRelativePath.split("/")[0];
-      //   // console.log(`Processing folder: ${folderName}`);
-      //   const matchResult = folderName.match(/\[(\d+)\]/);
-      //   if (!matchResult) {
-      //     console.error(`No number found in folder name: ${folderName}`);
-      //     alert(`Error: No number found in folder name: ${folderName}`);
-      //     return;
-      //   }
-      //   const numberInBracket = matchResult[1]; // Now it's safe
-      //   const password = combine("Kyaru", numberInBracket);
-      //   console.log(`Password generated: ${password}`);
-
-      //   document.getElementById("status").textContent =
-      //     "Encrypting and uploading...";
-
-      //   console.log("Starting encryption...");
-      //   await encryptFolder(files, password, folderName);
-      // }
 
       async function uploadMotherFolder() {
         if (!token) {
