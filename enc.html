@@ -49,6 +49,8 @@
       console.log(`Using up to ${maxWorkers} workers.`);
 
       const workers = [];
+      let activeWorkers = 0;
+
       for (let i = 0; i < maxWorkers; i++) {
         const worker = new Worker("worker.js");
         worker.onmessage = async function (e) {
@@ -59,26 +61,27 @@
               e.data.base64CombinedData
             );
           } else if (e.data.status === "complete") {
-            if (i === 0) {
-              document.getElementById("status").textContent = "Complete✅";
-            } else {
-              document.getElementById("status").textContent = `Active worker: ${i + 1})`;
+            activeWorkers--;
+            document.getElementById(
+              "status"
+            ).textContent = `Active workers: ${activeWorkers}`;
+            if (activeWorkers === 0) {
+              document.getElementById("status").textContent += " - Complete✅";
             }
-            // remainingZips--;
-            // document.getElementById(
-            //   "status"
-            // ).textContent += ` Remaining ZIPs: ${remainingZips}`;
           }
         };
         workers.push(worker);
       }
 
       let currentWorkerIndex = 0;
-      // let remainingZips = 0;
 
       function getNextWorker() {
         const worker = workers[currentWorkerIndex];
         currentWorkerIndex = (currentWorkerIndex + 1) % maxWorkers;
+        activeWorkers++;
+        document.getElementById(
+          "status"
+        ).textContent = `Active workers: ${activeWorkers}`;
         return worker;
       }
 
@@ -87,24 +90,9 @@
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
         const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-        // let sha = null;
-        // try {
-        //   const response = await fetch(url, {
-        //     headers: { Authorization: `Bearer ${token}` },
-        //   });
-        //   if (response.ok) {
-        //     const data = await response.json();
-        //     sha = data.sha; // Latest sha required for updates
-        //   }
-        // } catch (error) {
-        //   console.warn("File may not exist yet, proceeding without sha.");
-        // }
-
-        // Prepare file data
         const fileData = {
           message: `Upload encrypted folder part ${zipIndex}`,
           content: base64Data, // Base64 encode content
-          // sha: sha, // Include sha if updating
           branch: branch,
         };
 
@@ -133,14 +121,12 @@
               console.log(`Part${zipIndex} retrying upload ${attempts} times`);
               attempts++;
               await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
-              // await uploadToGitHub(folderName, zipIndex, base64Data);
             }
           } catch (error) {
             console.error(`Part${zipIndex} Upload error:`, error);
             console.log(`Part${zipIndex} retrying upload ${attempts} times`);
             attempts++;
             await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
-            // await uploadToGitHub(folderName, zipIndex, base64Data);
           }
         }
       }
@@ -184,8 +170,6 @@
         });
         console.log(files);
 
-        // const pendingZip = [];
-        // let currentZip = [];
         let currentZipSize = 0;
         let zipIndex = 1;
         let zip = new JSZip();
@@ -224,7 +208,6 @@
               });
               start = end;
               zipIndex++;
-              // remainingZips++;
             }
             continue;
           } else {
@@ -244,7 +227,6 @@
               zip = new JSZip();
               currentZipSize = 0;
               zipIndex++;
-              // remainingZips++;
             }
             console.log(
               `Adding file to part${zipIndex}: ${
@@ -268,59 +250,8 @@
             zipIndex,
             password,
           });
-          // remainingZips++;
         }
-        // document.getElementById(
-        //   "status"
-        // ).textContent += ` Remaining ZIPs: ${remainingZips}`;
       }
-
-      // function splitFilesIntoChunks(files, maxSize) {
-      //   const pendingZip = [];
-      //   let currentZip = [];
-      //   let currentSize = 0;
-
-      //     if (file.name === ".DS_Store") return;
-
-      //     if (file.size > maxSize) {
-      //       const chunkSize = MAX_ZIP_SIZE;
-      //       let partIndex = 1;
-      //       let start = 0;
-
-      //       while (start < file.size) {
-      //         const end = Math.min(start + chunkSize, file.size);
-      //         const chunk = file.slice(start, end);
-
-      //         let zip = new JSZip();
-      //         const chunkName = `${file.name}.part${partIndex}`;
-      //         zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
-
-      //         // console.warn(`Split file to part${zipIndex}: ${file.name}`);
-      //         // await processZip(zip, password, zipIndex, folderName);
-      //         pendingZip.push(zip);
-      //         start = end;
-      //         partIndex++;
-      //       }
-
-      //     }
-
-      //     if (currentSize + file.size > maxSize) {
-      //       pendingZip.push(currentZip);
-      //       currentZip = [];
-      //       currentSize = 0;
-      //     }
-
-      //     currentZip.push(file);
-      //     // console.log(`Adding file to part${partIndex}: ${file.name}`);
-      //     currentSize += file.size;
-      //   });
-
-      //   if (currentZip.length > 0) {
-      //     pendingZip.push(currentZip);
-      //   }
-
-      //   return pendingZip;
-      // }
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -361,42 +292,6 @@
 
         return combined.join("");
       }
-
-      // Don't change this function because of error "RangeError: too many arguments provided for a function call"
-      // function bufferToBase64(buffer) {
-      //   return btoa(
-      //     new Uint8Array(buffer).reduce(
-      //       (data, byte) => data + String.fromCharCode(byte),
-      //       ""
-      //     )
-      //   );
-      // }
-
-      // function base64ToArrayBuffer(base64) {
-      //   const binaryString = atob(base64);
-      //   const bytes = new Uint8Array(binaryString.length);
-      //   for (let i = 0; i < binaryString.length; i++) {
-      //     bytes[i] = binaryString.charCodeAt(i);
-      //   }
-      //   return bytes.buffer;
-      // }
-
-      // let uploadQueue = [];
-      // let isUploading = false;
-
-      // async function encryptFolder(files, password, folderName) {
-      //   const chunks = splitFilesIntoChunks(files, MAX_ZIP_SIZE);
-      //   chunks.forEach((chunk, index) => {
-      //     const worker = getNextWorker();
-      //     worker.postMessage({
-      //       action: "ZipEncrypt",
-      //       folderName,
-      //       zip,
-      //       zipIndex,
-      //       password,
-      //     });
-      //   });
-      // }
 
       async function uploadMotherFolder() {
         if (!token) {
