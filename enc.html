@@ -426,7 +426,12 @@
         });
 
         for (const folderName of sortedFolderNames) {
-          const folderFiles = folders[folderName];
+          const folderFiles = folders[folderName].map((file) => {
+            const parts = file.webkitRelativePath.split("/");
+            return new File([file], parts.slice(2).join("/"), {
+              type: file.type,
+            });
+          });
           const matchResult = folderName.match(/\[(\d+)\]/);
           if (!matchResult) {
             alert(`Error: No number found in folder name: ${folderName}`);
