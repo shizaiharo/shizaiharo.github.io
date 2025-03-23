@@ -65,9 +65,9 @@
             document.getElementById(
               "status"
             ).textContent = `Active workers: ${activeWorkers}`;
-            if (activeWorkers === 0) {
-              document.getElementById("status").textContent += " - Complete✅";
-            }
+            // if (activeWorkers === 0) {
+            //   document.getElementById("status").textContent += " - Complete ✅";
+            // }
           }
         };
         workers.push(worker);
@@ -84,6 +84,8 @@
         ).textContent = `Active workers: ${activeWorkers}`;
         return worker;
       }
+
+      const uploadedParts = {};
 
       async function uploadToGitHub(folderName, zipIndex, base64Data) {
         const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
@@ -111,9 +113,11 @@
 
             if (Upload_response.ok) {
               console.log(`Uploaded ${path}`);
+              recordUploadedPart(folderName, zipIndex);
               break;
             } else if (Upload_response.status === 422) {
               console.log(`Part ${zipIndex} already exists. Skipping...`);
+              recordUploadedPart(folderName, zipIndex);
               break;
             } else {
               const errorData = await Upload_response.json();
@@ -129,6 +133,27 @@
             await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
           }
         }
+      }
+
+      function recordUploadedPart(folderName, zipIndex) {
+        if (!uploadedParts[folderName]) {
+          uploadedParts[folderName] = new Set();
+        }
+        uploadedParts[folderName].add(zipIndex);
+        checkAllBooksComplete();
+      }
+
+      function checkAllBooksComplete() {
+        for (const folderName in uploadedParts) {
+          const parts = Array.from(uploadedParts[folderName]);
+          const maxPart = Math.max(...parts);
+          for (let i = 1; i <= maxPart; i++) {
+            if (!uploadedParts[folderName].has(i)) {
+              return;
+            }
+          }
+        }
+        document.getElementById("status").textContent += " - Complete ✅";
       }
 
       async function uploadBook() {
@@ -190,9 +215,9 @@
               zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
 
               console.log(`Creating ZIP for chunk: ${chunkName}`);
-              document.getElementById(
-                "status"
-              ).textContent = `Zipping part ${zipIndex}...`;
+              // document.getElementById(
+              //   "status"
+              // ).textContent = `Zipping part ${zipIndex}...`;
 
               const zipBlob = await zip.generateAsync({ type: "blob" });
               const zipArrayBuffer = await zipBlob.arrayBuffer();
