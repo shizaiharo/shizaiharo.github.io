@@ -50,6 +50,7 @@
 
       const workers = [];
       let activeWorkers = 0;
+      let totalWorkers = 0;
 
       for (let i = 0; i < maxWorkers; i++) {
         const worker = new Worker("worker.js");
@@ -79,6 +80,7 @@
         const worker = workers[currentWorkerIndex];
         currentWorkerIndex = (currentWorkerIndex + 1) % maxWorkers;
         activeWorkers++;
+        totalWorkers++;
         document.getElementById(
           "status"
         ).textContent = `Active workers: ${activeWorkers}`;
@@ -152,8 +154,13 @@
               return;
             }
           }
+          if (totalWorkers < maxPart) {
+            return;
+          }
         }
-        document.getElementById("status").textContent += " - Complete ✅";
+        if (activeWorkers === 0) {
+          document.getElementById("status").textContent += " - Complete ✅";
+        }
       }
 
       async function uploadBook() {
