@@ -151,15 +151,15 @@
           const maxPart = Math.max(...parts);
           const totalUploadedParts = parts.length;
           console.log(
-            `Checking ${folderName}: ${totalUploadedParts} / ${maxPart}`
+            `Checking ${folderName}: ${totalUploadedParts} / ${maxPart} ${parts}`
           );
-
+          // console.log(parts);
           // Check if all parts from 1 to maxPart are uploaded
-          // for (let i = 1; i <= maxPart; i++) {
-          //   if (!uploadedParts[folderName].has(i)) {
-          //     return;
-          //   }
-          // }
+          for (let i = 1; i <= maxPart; i++) {
+            if (!uploadedParts[folderName].has(i)) {
+              return;
+            }
+          }
 
           // Check if the total uploaded count matches the maxPart
           if (totalUploadedParts !== maxPart) {
