@@ -127,14 +127,14 @@
             } else {
               const errorData = await Upload_response.json();
               console.error(`Part${zipIndex} upload failed:`, errorData);
-              console.log(`Part${zipIndex} retrying upload ${attempts}times`);
+              console.log(`Part${zipIndex} retrying upload ${attempts} times`);
               attempts++;
               await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
               // await uploadToGitHub(folderName, zipIndex, base64Data);
             }
           } catch (error) {
             console.error(`Part${zipIndex} Upload error:`, error);
-            console.log(`Part${zipIndex} retrying upload ${attempts}times`);
+            console.log(`Part${zipIndex} retrying upload ${attempts} times`);
             attempts++;
             await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
             // await uploadToGitHub(folderName, zipIndex, base64Data);
@@ -164,26 +164,7 @@
 
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
-
-        const chunks = splitFilesIntoChunks(files, MAX_ZIP_SIZE);
-        chunks.forEach((chunk, index) => {
-          const worker = getNextWorker();
-          worker.postMessage({
-            action: "encryptAndZip",
-            files: chunk,
-            password,
-            folderName,
-            zipIndex: index + 1,
-            MAX_ZIP_SIZE,
-          });
-        });
-      }
-
-      function splitFilesIntoChunks(files, maxSize) {
-        const chunks = [];
-        let currentChunk = [];
-        let currentSize = 0;
-
+        
         files.sort((a, b) => {
           const numsA = (a.name.match(/\d+/g) || []).map(Number);
           const numsB = (b.name.match(/\d+/g) || []).map(Number);
@@ -196,25 +177,121 @@
           return 0;
         });
 
-        files.forEach((file) => {
-          if (file.name === ".DS_Store") return;
+        const pendingZip = [];
+        // let currentZip = [];
+        let currentZipSize = 0;
+        let zipIndex = 1;
+        let zip = new JSZip();
 
-          if (currentSize + file.size > maxSize) {
-            chunks.push(currentChunk);
-            currentChunk = [];
-            currentSize = 0;
+        for (const file of files) {
+          if (file.name === ".DS_Store") { 
+            continue; 
+          } else if (file.size > MAX_ZIP_SIZE) {
+            const chunkSize = MAX_ZIP_SIZE;
+            let start = 0;
+
+            while (start < file.size) {
+              const end = Math.min(start + chunkSize, file.size);
+              const chunk = file.slice(start, end);
+
+              let zip = new JSZip();
+              const chunkName = `${file.name}.part${zipIndex}`;
+              zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
+
+              console.log(`Creating ZIP for chunk: ${chunkName}`);
+              document.getElementById(
+                "status"
+              ).textContent = `Zipping part ${zipIndex}...`;
+
+              const worker = getNextWorker();
+              worker.postMessage({
+                action: "ZipEncrypt",
+                folderName,
+                zip,
+                zipIndex,
+                password,
+              });
+              start = end;
+              zipIndex++;
+            }
+          } else if (currentZipSize + file.size > MAX_ZIP_SIZE) {
+            const worker = getNextWorker();
+            worker.postMessage({
+              action: "ZipEncrypt",
+              folderName,
+              zip,
+              zipIndex,
+              password,
+            });
+            zip = new JSZip();
+            currentZipSize = 0;
+            zipIndex++;
           }
-
-          currentChunk.push(file);
-          currentSize += file.size;
-        });
-
-        if (currentChunk.length > 0) {
-          chunks.push(currentChunk);
+          console.log(`Adding file to zip: ${file.webkitRelativePath || file.name}`);
+          zip.file(file.webkitRelativePath || file.name, file);
+          currentZipSize += fileSize;
         }
-
-        return chunks;
+        if (currentZipSize > 0) {
+          const worker = getNextWorker();
+          worker.postMessage({
+              action: "ZipEncrypt",
+              folderName,
+              zip,
+              zipIndex,
+              password,
+          });
+        }
       }
+
+      // function splitFilesIntoChunks(files, maxSize) {
+      //   const pendingZip = [];
+      //   let currentZip = [];
+      //   let currentSize = 0;
+
+        
+
+        
+      //     if (file.name === ".DS_Store") return;
+
+      //     if (file.size > maxSize) {
+      //       const chunkSize = MAX_ZIP_SIZE;
+      //       let partIndex = 1;
+      //       let start = 0;
+
+      //       while (start < file.size) {
+      //         const end = Math.min(start + chunkSize, file.size);
+      //         const chunk = file.slice(start, end);
+
+      //         let zip = new JSZip();
+      //         const chunkName = `${file.name}.part${partIndex}`;
+      //         zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
+
+      //         // console.warn(`Split file to part${zipIndex}: ${file.name}`);
+      //         // await processZip(zip, password, zipIndex, folderName);
+      //         pendingZip.push(zip);
+      //         start = end;
+      //         partIndex++;
+      //       }
+            
+      //     }
+
+      //     if (currentSize + file.size > maxSize) {
+      //       pendingZip.push(currentZip);
+      //       currentZip = [];
+      //       currentSize = 0;
+      //     }
+
+      //     currentZip.push(file);
+      //     // console.log(`Adding file to part${partIndex}: ${file.name}`);
+      //     currentSize += file.size;
+      //   });
+
+      //   if (currentZip.length > 0) {
+      //     pendingZip.push(currentZip);
+      //   }
+
+      //   return pendingZip;
+      // }
 
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -257,41 +334,41 @@
       }
 
       // Don't change this function because of error "RangeError: too many arguments provided for a function call"
-      function bufferToBase64(buffer) {
-        return btoa(
-          new Uint8Array(buffer).reduce(
-            (data, byte) => data + String.fromCharCode(byte),
-            ""
-          )
-        );
-      }
+      // function bufferToBase64(buffer) {
+      //   return btoa(
+      //     new Uint8Array(buffer).reduce(
+      //       (data, byte) => data + String.fromCharCode(byte),
+      //       ""
+      //     )
+      //   );
+      // }
 
-      function base64ToArrayBuffer(base64) {
-        const binaryString = atob(base64);
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-        return bytes.buffer;
-      }
+      // function base64ToArrayBuffer(base64) {
+      //   const binaryString = atob(base64);
+      //   const bytes = new Uint8Array(binaryString.length);
+      //   for (let i = 0; i < binaryString.length; i++) {
+      //     bytes[i] = binaryString.charCodeAt(i);
+      //   }
+      //   return bytes.buffer;
+      // }
 
-      let uploadQueue = [];
-      let isUploading = false;
+      // let uploadQueue = [];
+      // let isUploading = false;
 
-      async function encryptFolder(files, password, folderName) {
-        const chunks = splitFilesIntoChunks(files, MAX_ZIP_SIZE);
-        chunks.forEach((chunk, index) => {
-          const worker = getNextWorker();
-          worker.postMessage({
-            action: "encryptAndZip",
-            files: chunk,
-            password,
-            folderName,
-            zipIndex: index + 1,
-            MAX_ZIP_SIZE,
-          });
-        });
-      }
+      // async function encryptFolder(files, password, folderName) {
+      //   const chunks = splitFilesIntoChunks(files, MAX_ZIP_SIZE);
+      //   chunks.forEach((chunk, index) => {
+      //     const worker = getNextWorker();
+      //     worker.postMessage({
+      //       action: "encryptAndZip",
+      //       files: chunk,
+      //       password,
+      //       folderName,
+      //       zipIndex: index + 1,
+      //       MAX_ZIP_SIZE,
+      //     });
+      //   });
+      // }
 
       async function uploadMotherFolder() {
         if (!token) {
