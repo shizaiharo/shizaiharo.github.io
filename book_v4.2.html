@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title id="pageTitle">Book Images</title>
+    <style>
+      body,
+      html {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+      }
+      #imagesContainer {
+        display: flex;
+        overflow-x: auto;
+        height: calc(
+          100vh - 60px
+        ); /* Adjust 60px to the actual height of the headerContainer */
+      }
+      #imagesContainer img {
+        height: 100%;
+        object-fit: contain;
+      }
+      #headerContainer {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start; /* Align items to the left */
+        margin-bottom: 10px;
+        height: 50px; /* Adjust this value to match the actual height of the header */
+      }
+      #progressContainer {
+        display: flex;
+        align-items: center;
+        margin-left: 20px; /* Add some space between the h2 and the progress container */
+      }
+      #progressBar {
+        width: 150px;
+        height: 20px;
+        background-color: #f3f3f3;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+        overflow: hidden;
+        position: relative; /* Ensure relative positioning for child elements */
+      }
+      #progressBar div:first-child {
+        height: 100%;
+        background-color: #4caf50;
+        width: 0;
+        transition: width 0.3s ease-in-out; /* Smooth transition */
+      }
+      #progressText {
+        position: absolute;
+        width: 100%;
+        text-align: center;
+        white-space: nowrap;
+        left: 0;
+        top: 0;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        pointer-events: none; /* Prevents interaction */
+        color: white;
+        font-weight: bold;
+      }
+      #etaText {
+        margin-left: 10px; /* Add some space between the progress bar and the ETA text */
+      }
+      #processingMessage {
+        margin-left: 20px; /* Add some space between the fetch time text and the processing message */
+        display: none; /* Hide the message initially */
+      }
+      #downloadButton {
+        margin-left: 20px; /* Add some space between the ETA text and the download button */
+        display: none; /* Hide the button initially */
+      }
+      #fetchTimeText {
+        margin-left: 10px; /* Add some space between the download button and the fetch time text */
+      }
+    </style>
+  </head>
+  <body>
+    <div id="headerContainer">
+      <h2 id="bookNameBeforeNumber">Book's name</h2>
+      <div id="progressContainer">
+        <div id="progressBar">
+          <div></div>
+          <div id="progressText">0%</div>
+        </div>
+        <div id="etaText">ETA:</div>
+      </div>
+      <div id="processingMessage">Downloading..</div>
+      <button id="downloadButton">Download book</button>
+      <span id="fetchTimeText"></span>
+    </div>
+    <div id="imagesContainer"></div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+    <script>
+      const repo = "Amrita"; // Change to your repository name
+      const owner = "shizaiharo"; // Change to your GitHub username
+      const branch = "main"; // Change to your default branch
+      let token = ""; // Token will be read from the URL parameter
+      let allFiles = []; // Store all loaded files
+      let bookName = ""; // Store the book name
+      let bookNumber = ""; // Store the book number
+      // let recombinedFiles = {}; // Store recombined files
+
+      async function recombineParts(files) {
+        const partFiles = files.filter((file) =>
+          /\.part\d+$/i.test(file.fileName)
+        );
+        const otherFiles = files.filter(
+          (file) => !/\.part\d+$/i.test(file.fileName)
+        );
+
+        const recombinedFiles = {};
+
+        for (const partFile of partFiles) {
+          const baseName = partFile.fileName.replace(/\.part\d+$/i, "");
+          if (!recombinedFiles[baseName]) {
+            recombinedFiles[baseName] = [];
+          }
+          recombinedFiles[baseName].push(partFile);
+        }
+
+        const recombinedBlobs = await Promise.all(
+          Object.keys(recombinedFiles).map(async (baseName) => {
+            const parts = recombinedFiles[baseName].sort((a, b) => {
+              const partA = parseInt(a.fileName.match(/\.part(\d+)$/i)[1], 10);
+              const partB = parseInt(b.fileName.match(/\.part(\d+)$/i)[1], 10);
+              return partA - partB;
+            });
+
+            const combinedBuffer = new Uint8Array(
+              parts.reduce((acc, part) => acc + part.fileData.byteLength, 0)
+            );
+            let offset = 0;
+            for (const part of parts) {
+              combinedBuffer.set(new Uint8Array(part.fileData), offset);
+              offset += part.fileData.byteLength;
+            }
+
+            return { fileName: baseName, fileData: combinedBuffer.buffer };
+          })
+        );
+
+        return otherFiles.concat(recombinedBlobs);
+      }
+
+      async function displayImages(recombinedFiles) {
+        const imagesContainer = document.getElementById("imagesContainer");
+
+        // Clear the images container
+        imagesContainer.innerHTML = "";
+
+        // Sort all files by fileName in ascending order
+        recombinedFiles.sort((a, b) => {
+          const numsA = (a.fileName.match(/\d+/g) || []).map(Number);
+          const numsB = (b.fileName.match(/\d+/g) || []).map(Number);
+
+          for (let i = 0; i < Math.max(numsA.length, numsB.length); i++) {
+            if (numsA[i] !== numsB[i]) {
+              return (numsA[i] || 0) - (numsB[i] || 0);
+            }
+          }
+          return 0;
+        });
+
+        // Log file names
+        console.log("File names in ascending order:");
+        recombinedFiles.forEach((file) => console.log(file.fileName));
+        showDownloadButton(recombinedFiles); // Pass recombinedFiles to showDownloadButton
+
+        for (const file of recombinedFiles) {
+          if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
+            const blob = new Blob([file.fileData]);
+            const img = document.createElement("img");
+            const objectURL = URL.createObjectURL(blob);
+            img.src = objectURL;
+            imagesContainer.appendChild(img);
+
+            // Clean up the object URL after the image is loaded
+            img.onload = () => {
+              URL.revokeObjectURL(objectURL);
+            };
+          }
+        }
+      }
+
+      async function loadBook() {
+        const urlParams = new URLSearchParams(window.location.search);
+        bookName = urlParams.get("bookName");
+        token = urlParams.get("token");
+
+        if (!bookName) {
+          alert("Missing book name.");
+          return;
+        }
+
+        console.log("Loading book:", bookName);
+
+        const matchResult = bookName.match(/\[(\d+)\]/);
+        if (!matchResult) {
+          console.error(`No number found in book name: ${bookName}`);
+          alert(`Error: No number found in book name: ${bookName}`);
+          return;
+        }
+        bookNumber = matchResult[1]; // Now it's safe
+        // const bookNumber = bookName.match(/\[\d+\]/)[1];
+        const bookNumberWithBrackets = bookName.match(/\[\d+\]/)[0];
+        const bookNameBeforeNumber = bookName.split(bookNumberWithBrackets)[0];
+        document.getElementById("pageTitle").textContent = bookNumber;
+        document.getElementById("bookNameBeforeNumber").textContent =
+          bookNameBeforeNumber;
+
+        try {
+          const parts = await getFileListFromRepoTree(bookName);
+
+          // Calculate total size
+          const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
+          console.log(`Total book size: ${totalSize} bytes`);
+
+          // Sort parts numerically
+          parts.sort((a, b) => {
+            const numA = parseInt(a.path.match(/\d+/)[0], 10);
+            const numB = parseInt(b.path.match(/\d+/)[0], 10);
+            return numA - numB;
+          });
+
+          const buffers = await batchFetchWithLimit(parts); // Fetch sequentially with concurrency limit
+          // hideProgressContainer(); // Hide progress container after loading
+          // showDownloadButton(); // Show the download button after loading
+        } catch (error) {
+          console.error("Error processing book:", error);
+          alert("Failed to process the book. Please try again.");
+        }
+
+        // Attach the event listener to the download button
+        // document
+        //   .getElementById("downloadButton")
+        //   .addEventListener("click", () => {
+        //     console.log("Download button clicked");
+        //     downloadAllFiles();
+        //   });
+      }
+
+      async function getFileListFromRepoTree(folderName) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+        console.log("Fetching repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch repo tree: ${await response.text()}`
+          );
+        }
+
+        const treeData = await response.json();
+
+        return treeData.tree
+          .filter(
+            (file) =>
+              file.path.startsWith(`Books/${folderName}/`) &&
+              file.type === "blob"
+          )
+          .map((file) => ({
+            path: file.path.replace("Books/", ""), // Remove the Books/ prefix
+            size: file.size,
+          }));
+      }
+
+      async function fetchBookPart(part) {
+        const url = `https://api.github.com/repos/${owner}/${repo}/contents/Books/${part}`;
+
+        console.log("Fetching file:", url);
+
+        const response = await fetch(url, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/vnd.github.v3.raw", // ✅ Get raw file data directly
+          },
+        });
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch file: ${await response.text()}`);
+        }
+
+        return await response.arrayBuffer(); // ✅ Fetch as binary data
+      }
+
+      function updateProgress(loadedSize, totalSize, startTime) {
+        const progressBar =
+          document.getElementById("progressBar").firstElementChild;
+        const progressText = document.getElementById("progressText");
+        const etaText = document.getElementById("etaText");
+
+        const percentage = Math.round((loadedSize / totalSize) * 100);
+        progressBar.style.width = `${percentage}%`;
+        progressText.textContent = `${percentage}%`;
+
+        const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
+        const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
+        const eta = Math.round(estimatedTotalTime - elapsedTime);
+
+        etaText.textContent = `ETA: ${eta} seconds`;
+      }
+
+      async function batchFetchWithLimit(parts, concurrency = 8) {
+        const results = [];
+        let loadedSize = 0;
+        const totalSize = parts.reduce((sum, part) => sum + part.size, 0);
+        const startTime = Date.now();
+
+        async function fetchPart(part) {
+          try {
+            const result = await fetchBookPart(part.path);
+            loadedSize += part.size;
+            updateProgress(loadedSize, totalSize, startTime);
+            return { fileName: part.path, fileData: result }; // Return the file object
+          } catch (error) {
+            console.error(`Failed to fetch ${part.path}, retrying...`, error);
+            return fetchPart(part); // Retry logic (be careful with infinite loops!)
+          }
+        }
+
+        const fetchQueue = [];
+        for (const part of parts) {
+          const fetchPromise = fetchPart(part).then((result) =>
+            results.push(result)
+          );
+          fetchQueue.push(fetchPromise);
+
+          // Limit concurrent fetches
+          if (fetchQueue.length >= concurrency) {
+            await Promise.race(fetchQueue);
+            fetchQueue.splice(0, 1); // Remove completed fetch from queue
+          }
+        }
+
+        await Promise.all(fetchQueue); // Wait for remaining fetches
+
+        const totalFetchTime = ((Date.now() - startTime) / 1000).toFixed(1); // Calculate total fetch time in seconds and round to 1 decimal place
+        console.log(`Total fetch time: ${totalFetchTime} seconds`);
+
+        // Update the download button text and the new span element
+        const downloadButton = document.getElementById("downloadButton");
+        const fetchTimeText = document.getElementById("fetchTimeText");
+        downloadButton.textContent = `Download book`;
+        fetchTimeText.textContent = ` ${totalFetchTime} seconds`;
+
+        hideProgressContainer(); // Hide progress container after fetching is complete
+
+        // Decrypt and extract images from the fetched files in parallel
+        const decryptedFiles = await Promise.all(
+          results.map(async (result) => {
+            const decryptedZip = await decryptFolder(
+              result.fileData,
+              combine("Kyaru", bookNumber)
+            );
+            return Promise.all(
+              Object.keys(decryptedZip.files)
+                .filter((fileName) => !decryptedZip.files[fileName].dir) // Exclude directories
+                .map((fileName) =>
+                  decryptedZip.files[fileName]
+                    .async("arraybuffer")
+                    .then((fileData) => ({
+                      fileName,
+                      fileData,
+                    }))
+                )
+            );
+          })
+        );
+
+        // Flatten the array of arrays
+        const flattenedFiles = decryptedFiles.flat();
+
+        // Add new files to the allFiles array
+        allFiles = allFiles.concat(flattenedFiles);
+
+        // Recombine .part files
+        const recombinedFiles = await recombineParts(allFiles);
+
+        // Remove path prefix from non-combined files
+        recombinedFiles.forEach((file) => {
+          file.fileName = file.fileName.split("/").pop();
+        });
+
+        // Display images after all fetches and processing are complete
+        displayImages(recombinedFiles);
+
+        return flattenedFiles;
+      }
+
+      function hideProgressContainer() {
+        const progressContainer = document.getElementById("progressContainer");
+        progressContainer.style.display = "none";
+      }
+
+      async function showDownloadButton(recombinedFiles) {
+        console.log("Preparing for download...");
+        const zip = new JSZip();
+        const processingMessage = document.getElementById("processingMessage");
+        processingMessage.style.display = "inline"; // Show processing message
+
+        // Add all files in parallel
+        Promise.all(
+          recombinedFiles.map(async (file) => {
+            zip.file(file.fileName, file.fileData);
+          })
+        ).then(async () => {
+          // Generate ZIP file
+          console.log("Generating ZIP file...");
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+
+          const downloadButton = document.getElementById("downloadButton");
+          downloadButton.style.display = "inline";
+          // console.log("Download button is now visible");
+
+          processingMessage.style.display = "none"; // Hide processing message
+
+          // Attach the event listener to the download button
+          downloadButton.addEventListener("click", () => {
+            console.log("Download button clicked");
+            downloadAllFiles(zipBlob);
+          });
+        });
+      }
+
+      function arrayBufferToBase64(buffer) {
+        let binary = "";
+        const bytes = new Uint8Array(buffer);
+        const len = bytes.byteLength;
+        for (let i = 0; i < len; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        return btoa(binary);
+      }
+
+      function base64ToArrayBuffer(base64) {
+        const binaryString = atob(base64.replace(/[^A-Za-z0-9+/=]/g, "")); // Remove invalid characters
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+        return bytes.buffer;
+      }
+
+      async function decryptFolder(combinedData, password) {
+        if (combinedData.byteLength < 16) {
+          console.error("Data too short, missing IV.");
+          return;
+        }
+
+        const iv = combinedData.slice(0, 16);
+        const encryptedData = combinedData.slice(16);
+
+        console.log("Extracted IV:", new Uint8Array(iv));
+        console.log("Encrypted Data Size:", encryptedData.byteLength);
+
+        const key = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(password)
+        );
+
+        try {
+          const cryptoKey = await crypto.subtle.importKey(
+            "raw",
+            key,
+            { name: "AES-CTR" },
+            false,
+            ["decrypt"]
+          );
+
+          const decryptedData = await crypto.subtle.decrypt(
+            { name: "AES-CTR", counter: iv, length: 128 },
+            cryptoKey,
+            encryptedData
+          );
+
+          console.log("Decryption successful!");
+          return JSZip.loadAsync(decryptedData);
+        } catch (error) {
+          console.error(
+            "Decryption failed! Possible IV mismatch or corrupted data.",
+            error
+          );
+        }
+      }
+
+      async function getFileSHA(filePath) {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${branch}?recursive=1`;
+
+        console.log("Fetching full repo tree:", treeUrl);
+
+        const response = await fetch(treeUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!response.ok) {
+          throw new Error(
+            `Failed to fetch repo tree: ${await response.text()}`
+          );
+        }
+
+        const treeData = await response.json();
+
+        const fileNode = treeData.tree.find(
+          (node) => node.path === `Books/${filePath}`
+        );
+
+        if (!fileNode) {
+          throw new Error(`SHA not found for ${filePath}`);
+        }
+
+        console.log(`SHA for ${filePath}:`, fileNode.sha);
+        return fileNode.sha;
+      }
+
+      async function storeBookData(bookName, files, password) {
+        return new Promise((resolve, reject) => {
+          const request = indexedDB.open("bookDatabase", 1);
+
+          request.onupgradeneeded = function (event) {
+            const db = event.target.result;
+            if (!db.objectStoreNames.contains("books")) {
+              db.createObjectStore("books", { keyPath: "name" });
+            }
+          };
+
+          request.onsuccess = function (event) {
+            const db = event.target.result;
+            const transaction = db.transaction("books", "readwrite");
+            const store = transaction.objectStore("books");
+
+            store.put({ name: bookName, files, password });
+
+            transaction.oncomplete = function () {
+              console.log(`Book ${bookName} stored successfully`);
+              resolve();
+            };
+
+            transaction.onerror = function () {
+              console.error("IndexedDB Transaction Failed:", transaction.error);
+              reject(transaction.error);
+            };
+          };
+
+          request.onerror = function () {
+            reject(request.error);
+          };
+        });
+      }
+
+      function combine(str1, str2) {
+        const combined = [];
+        const len1 = str1.length;
+        const len2 = str2.length;
+        const maxLen = Math.max(len1, len2);
+
+        for (let i = 0; i < maxLen; i++) {
+          if (i < len1) {
+            combined.push(str1[i]);
+          } else {
+            combined.push("!");
+          }
+
+          if (i < len2) {
+            combined.push(str2[i]);
+          }
+        }
+        const password = combined.join("");
+        console.log("Generated Password:", password);
+        return password;
+      }
+
+      async function downloadAllFiles(zipBlob) {
+        // Trigger file download
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(zipBlob);
+        a.download = `${bookName}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        console.log("Download started.");
+      }
+
+      window.onload = loadBook;
+    </script>
+  </body>
+</html>
