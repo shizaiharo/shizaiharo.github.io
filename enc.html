@@ -155,11 +155,11 @@
           );
 
           // Check if all parts from 1 to maxPart are uploaded
-          for (let i = 1; i <= maxPart; i++) {
-            if (!uploadedParts[folderName].has(i)) {
-              return;
-            }
-          }
+          // for (let i = 1; i <= maxPart; i++) {
+          //   if (!uploadedParts[folderName].has(i)) {
+          //     return;
+          //   }
+          // }
 
           // Check if the total uploaded count matches the maxPart
           if (totalUploadedParts !== maxPart) {
