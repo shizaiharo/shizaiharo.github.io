@@ -165,6 +165,7 @@
         // Log file names
         console.log("File names in ascending order:");
         recombinedFiles.forEach((file) => console.log(file.fileName));
+        showDownloadButton(recombinedFiles); // Pass recombinedFiles to showDownloadButton
 
         for (const file of recombinedFiles) {
           if (/\.(jpe?g|png|gif)$/i.test(file.fileName)) {
@@ -231,12 +232,12 @@
         }
 
         // Attach the event listener to the download button
-        document
-          .getElementById("downloadButton")
-          .addEventListener("click", () => {
-            console.log("Download button clicked");
-            downloadAllFiles();
-          });
+        // document
+        //   .getElementById("downloadButton")
+        //   .addEventListener("click", () => {
+        //     console.log("Download button clicked");
+        //     downloadAllFiles();
+        //   });
       }
 
       async function getFileListFromRepoTree(folderName) {
@@ -347,7 +348,6 @@
         fetchTimeText.textContent = ` ${totalFetchTime} seconds`;
 
         hideProgressContainer(); // Hide progress container after fetching is complete
-        showDownloadButton(); // Show the download button after fetching is complete
 
         // Decrypt and extract images from the fetched files in parallel
         const decryptedFiles = await Promise.all(
@@ -396,10 +396,16 @@
         progressContainer.style.display = "none";
       }
 
-      function showDownloadButton() {
+      function showDownloadButton(recombinedFiles) {
         const downloadButton = document.getElementById("downloadButton");
         downloadButton.style.display = "inline";
         console.log("Download button is now visible");
+
+        // Attach the event listener to the download button
+        downloadButton.addEventListener("click", () => {
+          console.log("Download button clicked");
+          downloadAllFiles(recombinedFiles);
+        });
       }
 
       function arrayBufferToBase64(buffer) {
@@ -549,11 +555,8 @@
         return password;
       }
 
-      async function downloadAllFiles() {
+      async function downloadAllFiles(recombinedFiles) {
         const zip = new JSZip();
-
-        // Recombine .part files before adding to the zip object
-        const recombinedFiles = await recombineParts(allFiles);
 
         // Add files to the zip object
         recombinedFiles.forEach((file) => {
