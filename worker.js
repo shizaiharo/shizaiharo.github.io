@@ -29,7 +29,8 @@ self.onmessage = async function (e) {
           file,
           password,
           folderName,
-          partIndex
+          partIndex,
+          MAX_ZIP_SIZE
         );
         continue;
       }
@@ -46,7 +47,7 @@ self.onmessage = async function (e) {
       currentZipSize += fileSize;
 
       // Log the file name being added to the zip
-      console.log(`Adding file to zip: ${file.name}`);
+      console.log(`Adding file to part${zipIndex}: ${file.name}`);
     }
 
     if (currentZipSize > 0) {
@@ -107,7 +108,7 @@ function bufferToBase64(buffer) {
   return btoa(binary);
 }
 
-async function encryptAndUploadLargeFile(file, password, folderName, zipIndex) {
+async function encryptAndUploadLargeFile(file, password, folderName, zipIndex, MAX_ZIP_SIZE) {
   const chunkSize = MAX_ZIP_SIZE;
   let start = 0;
 
@@ -125,6 +126,7 @@ async function encryptAndUploadLargeFile(file, password, folderName, zipIndex) {
     ).textContent = `Zipping part ${zipIndex}...`;
 
     await processZip(zip, password, zipIndex, folderName);
+    console.log(`${file.name} split into part${zipIndex}`);
 
     start = end;
     zipIndex++;
