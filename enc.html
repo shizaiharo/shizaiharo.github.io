@@ -145,25 +145,25 @@
       }
 
       function checkAllBooksComplete() {
-        for (const folderName in uploadedParts) {
-          const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
-          // const maxPart = Math.max(...parts);
-          const totalUploadedParts = parts.length;
-          console.log(
-            `Checking ${folderName}: ${totalUploadedParts} / ${uploadedPartsCount}`
-          );
+        // for (const folderName in uploadedParts) {
+        //   const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
+        //   // const maxPart = Math.max(...parts);
+        //   const totalUploadedParts = parts.length;
+        //   console.log(
+        //     `Checking ${folderName}: ${totalUploadedParts} / ${uploadedPartsCount}`
+        //   );
 
-          // Check if all parts from 1 to maxPart are uploaded
-          // for (let i = 1; i <= maxPart; i++) {
-          //   if (!parts.includes(i)) {
-          //     return;
-          //   }
+        // Check if all parts from 1 to maxPart are uploaded
+        // for (let i = 1; i <= maxPart; i++) {
+        //   if (!parts.includes(i)) {
+        //     return;
+        //   }
+        // }
+
+        // Check if the total uploaded count matches the maxPart
+        if (uploadedPartsCount < totalParts) {
+          return;
           // }
-
-          // Check if the total uploaded count matches the maxPart
-          if (totalUploadedParts < uploadedPartsCount) {
-            return;
-          }
         }
 
         // If all books satisfy the conditions, update the status
@@ -229,9 +229,9 @@
               let zip = new JSZip();
               const chunkName = `${file.name}.part${zipIndex}`;
               console.log(
-              `Adding file to part${zipIndex}: ${
-                file.webkitRelativePath || file.name
-              }`
+                `Adding file to part${zipIndex}: ${
+                  file.webkitRelativePath || file.name
+                }`
               );
               zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
 
