@@ -569,15 +569,7 @@
         return password;
       }
 
-      async function downloadAllFiles(recombinedFiles) {
-        if (!recombinedFiles || recombinedFiles.length === 0) {
-          console.error("No files to download.");
-          alert("No files available for download.");
-          return;
-        }
-
-        
-
+      async function downloadAllFiles(zipBlob) {
         // Trigger file download
         const a = document.createElement("a");
         a.href = URL.createObjectURL(zipBlob);
@@ -585,7 +577,6 @@
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
-
         console.log("Download started.");
       }
 
