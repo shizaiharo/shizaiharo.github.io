@@ -229,7 +229,7 @@
           }
           console.log(`Adding file to zip: ${file.webkitRelativePath || file.name}`);
           zip.file(file.webkitRelativePath || file.name, file);
-          currentZipSize += fileSize;
+          currentZipSize += file.size;
         }
         if (currentZipSize > 0) {
           const worker = getNextWorker();
