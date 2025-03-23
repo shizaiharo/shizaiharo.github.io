@@ -79,25 +79,42 @@
         const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
         const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
 
+        let sha = null;
         try {
-          const response = await fetch(url, {
+            const response = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                sha = data.sha; // Latest sha required for updates
+            }
+        } catch (error) {
+            console.warn("File may not exist yet, proceeding without sha.");
+        }
+
+        // Prepare file data
+        const fileData = {
+            message: `Upload encrypted folder part ${zipIndex}`,
+            content: base64Data, // Base64 encode content
+            sha: sha, // Include sha if updating
+            branch: branch,
+        };
+
+        try {
+          const Upload_response = await fetch(url, {
             method: "PUT",
             headers: {
               Authorization: `Bearer ${token}`,
               Accept: "application/vnd.github+json",
               "Content-Type": "application/octet-stream",
             },
-            body: JSON.stringify({
-              message: `Upload encrypted folder part ${zipIndex}`,
-              content: base64Data,
-              branch: branch,
-            }),
+            body: JSON.stringify(fileData),
           });
 
-          if (response.ok) {
+          if (Upload_response.ok) {
             console.log(`Uploaded ${path}`);
           } else {
-            console.error(`Upload failed:`, await response.json());
+            console.error(`Upload failed:`, await Upload_response.json());
           }
         } catch (error) {
           console.error("Upload error:", error);
