@@ -51,6 +51,8 @@
       const workers = [];
       let activeWorkers = 0;
       let totalWorkers = 0;
+      let totalParts = 0; // Track the total number of parts to be uploaded
+      let uploadedPartsCount = 0; // Track the number of uploaded parts
 
       for (let i = 0; i < maxWorkers; i++) {
         const worker = new Worker("worker.js");
@@ -66,9 +68,6 @@
             document.getElementById(
               "status"
             ).textContent = `Active workers: ${activeWorkers}`;
-            // if (activeWorkers === 0) {
-            //   document.getElementById("status").textContent += " - Complete ✅";
-            // }
           }
         };
         workers.push(worker);
@@ -119,7 +118,6 @@
               break;
             } else if (Upload_response.status === 422) {
               console.log(`Part ${zipIndex} already exists. Skipping...`);
-              // recordUploadedPart(folderName, zipIndex);
               break;
             } else {
               const errorData = await Upload_response.json();
@@ -142,27 +140,28 @@
           uploadedParts[folderName] = new Set();
         }
         uploadedParts[folderName].add(zipIndex);
+        uploadedPartsCount++;
         checkAllBooksComplete();
       }
 
       function checkAllBooksComplete() {
         for (const folderName in uploadedParts) {
-          const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
-          const maxPart = Math.max(...parts);
+          // const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
+          // const maxPart = Math.max(...parts);
           const totalUploadedParts = parts.length;
           console.log(
-            `Checking ${folderName}: ${totalUploadedParts} / ${maxPart} ${parts}`
+            `Checking ${folderName}: ${totalUploadedParts} / ${uploadedPartsCount}`
           );
 
           // Check if all parts from 1 to maxPart are uploaded
-          for (let i = 1; i <= maxPart; i++) {
-            if (!parts.includes(i)) {
-              return;
-            }
-          }
+          // for (let i = 1; i <= maxPart; i++) {
+          //   if (!parts.includes(i)) {
+          //     return;
+          //   }
+          // }
 
           // Check if the total uploaded count matches the maxPart
-          if (totalUploadedParts !== maxPart) {
+          if (totalUploadedParts < uploadedPartsCount) {
             return;
           }
         }
@@ -229,13 +228,14 @@
 
               let zip = new JSZip();
               const chunkName = `${file.name}.part${zipIndex}`;
+              console.log(
+              `Adding file to part${zipIndex}: ${
+                file.webkitRelativePath || file.name
+              }`
+              );
               zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
 
-              console.log(`Creating ZIP for chunk: ${chunkName}`);
-              // document.getElementById(
-              //   "status"
-              // ).textContent = `Zipping part ${zipIndex}...`;
-
+              // console.log(`Creating ZIP for chunk: ${chunkName}`);
               const zipBlob = await zip.generateAsync({ type: "blob" });
               const zipArrayBuffer = await zipBlob.arrayBuffer();
               const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
@@ -250,6 +250,7 @@
               });
               start = end;
               zipIndex++;
+              totalParts++; // Increment total parts count
             }
             continue;
           } else {
@@ -269,6 +270,7 @@
               zip = new JSZip();
               currentZipSize = 0;
               zipIndex++;
+              totalParts++; // Increment total parts count
             }
             console.log(
               `Adding file to part${zipIndex}: ${
@@ -292,6 +294,7 @@
             zipIndex,
             password,
           });
+          totalParts++; // Increment total parts count
         }
       }
 
