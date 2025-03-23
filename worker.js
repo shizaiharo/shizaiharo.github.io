@@ -120,13 +120,8 @@ async function encryptAndUploadLargeFile(file, password, folderName, zipIndex, M
     const chunkName = `${file.name}.part${zipIndex}`;
     zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
 
-    console.log(`Creating ZIP for chunk: ${chunkName}`);
-    document.getElementById(
-      "status"
-    ).textContent = `Zipping part ${zipIndex}...`;
-
     await processZip(zip, password, zipIndex, folderName);
-    console.log(`${file.name} split into part${zipIndex}`);
+    console.log(`Split file to part${zipIndex}: ${file.name}`);
 
     start = end;
     zipIndex++;
