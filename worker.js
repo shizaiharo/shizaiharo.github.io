@@ -85,8 +85,7 @@ async function processZip(zip, password, zipIndex, folderName) {
   combinedData.set(iv, 0);
   combinedData.set(new Uint8Array(encryptedData), iv.length);
 
-  // Use TextDecoder and Uint8Array to handle large arrays
-  const base64CombinedData = btoa(new TextDecoder().decode(combinedData));
+  const base64CombinedData = bufferToBase64(combinedData);
 
   self.postMessage({
     status: "upload",
@@ -94,4 +93,13 @@ async function processZip(zip, password, zipIndex, folderName) {
     zipIndex: formattedZipIndex,
     base64CombinedData,
   });
+}
+
+function bufferToBase64(buffer) {
+  let binary = "";
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < bytes.length; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
 }
