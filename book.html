@@ -100,6 +100,7 @@
       let allFiles = []; // Store all loaded files
       let bookName = ""; // Store the book name
       let bookNumber = ""; // Store the book number
+      let recombinedFiles = {}; // Store recombined files
 
       async function recombineParts(files) {
         const partFiles = files.filter((file) =>
@@ -108,8 +109,6 @@
         const otherFiles = files.filter(
           (file) => !/\.part\d+$/i.test(file.fileName)
         );
-
-        const recombinedFiles = {};
 
         for (const partFile of partFiles) {
           const baseName = partFile.fileName.replace(/\.part\d+$/i, "");
@@ -555,7 +554,7 @@
         return password;
       }
 
-      async function downloadAllFiles(recombinedFiles) {
+      async function downloadAllFiles() {
         const zip = new JSZip();
 
         // Add files to the zip object
