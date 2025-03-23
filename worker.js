@@ -44,6 +44,9 @@ self.onmessage = async function (e) {
       const fileContent = await file.arrayBuffer();
       zip.file(file.webkitRelativePath || file.name, fileContent);
       currentZipSize += fileSize;
+
+      // Log the file name being added to the zip
+      console.log(`Adding file to zip: ${file.name}`);
     }
 
     if (currentZipSize > 0) {
@@ -102,4 +105,30 @@ function bufferToBase64(buffer) {
     binary += String.fromCharCode(bytes[i]);
   }
   return btoa(binary);
+}
+
+async function encryptAndUploadLargeFile(file, password, folderName, zipIndex) {
+  const chunkSize = MAX_ZIP_SIZE;
+  let start = 0;
+
+  while (start < file.size) {
+    const end = Math.min(start + chunkSize, file.size);
+    const chunk = file.slice(start, end);
+
+    let zip = new JSZip();
+    const chunkName = `${file.name}.part${zipIndex}`;
+    zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
+
+    console.log(`Creating ZIP for chunk: ${chunkName}`);
+    document.getElementById(
+      "status"
+    ).textContent = `Zipping part ${zipIndex}...`;
+
+    await processZip(zip, password, zipIndex, folderName);
+
+    start = end;
+    zipIndex++;
+  }
+
+  return zipIndex;
 }
