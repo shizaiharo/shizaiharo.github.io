@@ -49,9 +49,15 @@
 
       worker.onmessage = async function (e) {
         if (e.data.status === "upload") {
-          await uploadToGitHub(e.data.folderName, e.data.zipIndex, e.data.base64CombinedData);
+          await uploadToGitHub(
+            e.data.folderName,
+            e.data.zipIndex,
+            e.data.base64CombinedData
+          );
         } else if (e.data.status === "complete") {
-          document.getElementById("status").textContent = `Upload complete for ${e.data.folderName}`;
+          document.getElementById(
+            "status"
+          ).textContent = `Upload complete for ${e.data.folderName}`;
         }
       };
 
@@ -104,9 +110,17 @@
         }
         const password = combine("Kyaru", matchResult[1]);
 
-        document.getElementById("status").textContent = "Encrypting and uploading...";
+        document.getElementById("status").textContent =
+          "Encrypting and uploading...";
 
-        worker.postMessage({ action: "encryptAndZip", files, password, folderName, zipIndex: 1, MAX_ZIP_SIZE });
+        worker.postMessage({
+          action: "encryptAndZip",
+          files,
+          password,
+          folderName,
+          zipIndex: 1,
+          MAX_ZIP_SIZE,
+        });
       }
 
       function getTokenFromUrl() {
@@ -170,6 +184,9 @@
 
       let uploadQueue = [];
       let isUploading = false;
+
+      const maxWorkers = navigator.hardwareConcurrency || 4; // Fallback to 4 if the property is not supported
+      console.log(`Using up to ${maxWorkers} workers.`);
 
       async function encryptFolder(files, password, folderName) {
         // Sort files by the number in their filenames
