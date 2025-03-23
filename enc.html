@@ -62,12 +62,17 @@
             document.getElementById(
               "status"
             ).textContent = `Part ${e.data.zipIndex} upload complete✅`;
+            remainingZips--;
+            document.getElementById(
+              "status"
+            ).textContent += ` Remaining ZIPs: ${remainingZips}`;
           }
         };
         workers.push(worker);
       }
 
       let currentWorkerIndex = 0;
+      let remainingZips = 0;
 
       function getNextWorker() {
         const worker = workers[currentWorkerIndex];
@@ -160,7 +165,10 @@
 
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
+        await encryptFolder(files, password, folderName);
+      }
 
+      async function encryptFolder(files, password, folderName) {
         files.sort((a, b) => {
           const numsA = (a.name.match(/\d+/g) || []).map(Number);
           const numsB = (b.name.match(/\d+/g) || []).map(Number);
@@ -214,6 +222,7 @@
               });
               start = end;
               zipIndex++;
+              remainingZips++;
             }
             continue;
           } else {
@@ -233,6 +242,7 @@
               zip = new JSZip();
               currentZipSize = 0;
               zipIndex++;
+              remainingZips++;
             }
             console.log(
               `Adding file to zip: ${file.webkitRelativePath || file.name}`
@@ -254,7 +264,11 @@
             zipIndex,
             password,
           });
+          remainingZips++;
         }
+        document.getElementById(
+          "status"
+        ).textContent += ` Remaining ZIPs: ${remainingZips}`;
       }
 
       // function splitFilesIntoChunks(files, maxSize) {
@@ -371,12 +385,11 @@
       //   chunks.forEach((chunk, index) => {
       //     const worker = getNextWorker();
       //     worker.postMessage({
-      //       action: "encryptAndZip",
-      //       files: chunk,
-      //       password,
+      //       action: "ZipEncrypt",
       //       folderName,
-      //       zipIndex: index + 1,
-      //       MAX_ZIP_SIZE,
+      //       zip,
+      //       zipIndex,
+      //       password,
       //     });
       //   });
       // }
