@@ -236,15 +236,15 @@
               zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
 
               // console.log(`Creating ZIP for chunk: ${chunkName}`);
-              const zipBlob = await zip.generateAsync({ type: "blob" });
-              const zipArrayBuffer = await zipBlob.arrayBuffer();
-              const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+              // const zipBlob = await zip.generateAsync({ type: "blob" });
+              // const zipArrayBuffer = await zipBlob.arrayBuffer();
+              // const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
 
               const worker = getNextWorker();
               worker.postMessage({
                 action: "ZipEncrypt",
                 folderName,
-                zip: zipSerialized,
+                zip,
                 zipIndex,
                 password,
               });
@@ -255,15 +255,15 @@
             continue;
           } else {
             if (currentZipSize + file.size > MAX_ZIP_SIZE) {
-              const zipBlob = await zip.generateAsync({ type: "blob" });
-              const zipArrayBuffer = await zipBlob.arrayBuffer();
-              const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+              // const zipBlob = await zip.generateAsync({ type: "blob" });
+              // const zipArrayBuffer = await zipBlob.arrayBuffer();
+              // const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
 
               const worker = getNextWorker();
               worker.postMessage({
                 action: "ZipEncrypt",
                 folderName,
-                zip: zipSerialized,
+                zip,
                 zipIndex,
                 password,
               });
@@ -282,15 +282,15 @@
           }
         }
         if (currentZipSize > 0) {
-          const zipBlob = await zip.generateAsync({ type: "blob" });
-          const zipArrayBuffer = await zipBlob.arrayBuffer();
-          const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+          // const zipBlob = await zip.generateAsync({ type: "blob" });
+          // const zipArrayBuffer = await zipBlob.arrayBuffer();
+          // const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
 
           const worker = getNextWorker();
           worker.postMessage({
             action: "ZipEncrypt",
             folderName,
-            zip: zipSerialized,
+            zip,
             zipIndex,
             password,
           });

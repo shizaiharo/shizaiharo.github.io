@@ -3,12 +3,12 @@ importScripts(
 );
 
 self.onmessage = async function (e) {
-  const { action, folderName, zip: zipSerialized, zipIndex, password } = e.data;
+  const { action, folderName, zip, zipIndex, password } = e.data;
 
   if (action === "ZipEncrypt") {
-    const zipArrayBuffer = new Uint8Array(zipSerialized).buffer;
-    const zipBlob = new Blob([zipArrayBuffer]);
-    const zip = await JSZip.loadAsync(zipBlob);
+    // const zipArrayBuffer = new Uint8Array(zipSerialized).buffer;
+    // const zipBlob = new Blob([zipArrayBuffer]);
+    // const zip = await JSZip.loadAsync(zipBlob);
 
     await processZip(zip, password, zipIndex, folderName);
 
