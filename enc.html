@@ -119,7 +119,7 @@
               break;
             } else if (Upload_response.status === 422) {
               console.log(`Part ${zipIndex} already exists. Skipping...`);
-              recordUploadedPart(folderName, zipIndex);
+              // recordUploadedPart(folderName, zipIndex);
               break;
             } else {
               const errorData = await Upload_response.json();
@@ -149,15 +149,22 @@
         for (const folderName in uploadedParts) {
           const parts = Array.from(uploadedParts[folderName]);
           const maxPart = Math.max(...parts);
+          const totalUploadedParts = parts.length;
+
+          // Check if all parts from 1 to maxPart are uploaded
           for (let i = 1; i <= maxPart; i++) {
             if (!uploadedParts[folderName].has(i)) {
               return;
             }
           }
-          if (totalWorkers < maxPart) {
+
+          // Check if the total uploaded count matches the maxPart
+          if (totalUploadedParts !== maxPart) {
             return;
           }
         }
+
+        // If all books satisfy the conditions, update the status
         if (activeWorkers === 0) {
           document.getElementById("status").textContent += " - Complete ✅";
         }
