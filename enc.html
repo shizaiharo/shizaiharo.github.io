@@ -61,7 +61,7 @@
           } else if (e.data.status === "complete") {
             document.getElementById(
               "status"
-            ).textContent = `Upload complete for ${e.data.folderName}`;
+            ).textContent = `Part ${e.data.zipIndex} upload complete✅`;
           }
         };
         workers.push(worker);
@@ -105,33 +105,39 @@
           branch: branch,
         };
 
-        try {
-          const Upload_response = await fetch(url, {
-            method: "PUT",
-            headers: {
-              Authorization: `Bearer ${token}`,
-              Accept: "application/vnd.github+json",
-              "Content-Type": "application/octet-stream",
-            },
-            body: JSON.stringify(fileData),
-          });
+        let attempts = 0;
+        while (true) {
+          try {
+            const Upload_response = await fetch(url, {
+              method: "PUT",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github+json",
+                "Content-Type": "application/octet-stream",
+              },
+              body: JSON.stringify(fileData),
+            });
 
-          if (Upload_response.ok) {
-            console.log(`Uploaded ${path}`);
-          } else if (Upload_response.status === 422) {
-            console.log(`Part ${zipIndex} already exists. Skipping...`);
-          } else {
-            const errorData = await Upload_response.json();
-            console.error(`Part${zipIndex} upload failed:`, errorData);
+            if (Upload_response.ok) {
+              console.log(`Uploaded ${path}`);
+              break;
+            } else if (Upload_response.status === 422) {
+              console.log(`Part ${zipIndex} already exists. Skipping...`);
+            } else {
+              const errorData = await Upload_response.json();
+              console.error(`Part${zipIndex} upload failed:`, errorData);
+              console.log(`Part${zipIndex} retrying upload...`);
+              attempts++;
+              await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+              // await uploadToGitHub(folderName, zipIndex, base64Data);
+            }
+          } catch (error) {
+            console.error(`Part${zipIndex} Upload error:`, error);
             console.log(`Part${zipIndex} retrying upload...`);
+            attempts++;
             await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
-            await uploadToGitHub(folderName, zipIndex, base64Data);
+            // await uploadToGitHub(folderName, zipIndex, base64Data);
           }
-        } catch (error) {
-          console.error(`Part${zipIndex} Upload error:`, error);
-          console.log(`Part${zipIndex} retrying upload...`);
-          await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
-          await uploadToGitHub(folderName, zipIndex, base64Data);
         }
       }
 
