@@ -1,7 +1,10 @@
-importScripts("https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js");
+importScripts(
+  "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"
+);
 
 self.onmessage = async function (e) {
-  const { action, files, password, folderName, zipIndex, MAX_ZIP_SIZE } = e.data;
+  const { action, files, password, folderName, zipIndex, MAX_ZIP_SIZE } =
+    e.data;
 
   if (action === "encryptAndZip") {
     const zip = new JSZip();
@@ -22,7 +25,12 @@ self.onmessage = async function (e) {
 
       const fileSize = file.size;
       if (fileSize > MAX_ZIP_SIZE) {
-        partIndex = await encryptAndUploadLargeFile(file, password, folderName, partIndex);
+        partIndex = await encryptAndUploadLargeFile(
+          file,
+          password,
+          folderName,
+          partIndex
+        );
         continue;
       }
 
@@ -48,20 +56,37 @@ self.onmessage = async function (e) {
 
 async function processZip(zip, password, zipIndex, folderName) {
   const formattedZipIndex = String(zipIndex).padStart(5, "0");
-  const zipBlob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+  const zipBlob = await zip.generateAsync({
+    type: "blob",
+    compression: "STORE",
+  });
   const zipArrayBuffer = await zipBlob.arrayBuffer();
 
   const iv = crypto.getRandomValues(new Uint8Array(16));
-  const key = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(password));
-  const cryptoKey = await crypto.subtle.importKey("raw", key, { name: "AES-CTR" }, false, ["encrypt"]);
+  const key = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(password)
+  );
+  const cryptoKey = await crypto.subtle.importKey(
+    "raw",
+    key,
+    { name: "AES-CTR" },
+    false,
+    ["encrypt"]
+  );
 
-  const encryptedData = await crypto.subtle.encrypt({ name: "AES-CTR", counter: iv, length: 128 }, cryptoKey, zipArrayBuffer);
+  const encryptedData = await crypto.subtle.encrypt(
+    { name: "AES-CTR", counter: iv, length: 128 },
+    cryptoKey,
+    zipArrayBuffer
+  );
 
   const combinedData = new Uint8Array(iv.length + encryptedData.byteLength);
   combinedData.set(iv, 0);
   combinedData.set(new Uint8Array(encryptedData), iv.length);
 
-  const base64CombinedData = btoa(String.fromCharCode(...combinedData));
+  // Use TextDecoder and Uint8Array to handle large arrays
+  const base64CombinedData = btoa(new TextDecoder().decode(combinedData));
 
   self.postMessage({
     status: "upload",
