@@ -7,7 +7,7 @@ self.onmessage = async function (e) {
     e.data;
 
   if (action === "encryptAndZip") {
-    const zip = new JSZip();
+    let zip = new JSZip();
     let currentZipSize = 0;
     let partIndex = zipIndex;
 
