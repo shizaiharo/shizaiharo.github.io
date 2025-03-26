@@ -6,20 +6,14 @@ self.onmessage = async function (e) {
   const { action, folderName, zip, zipIndex, password } = e.data;
 
   if (action === "ZipEncrypt") {
-    self.postMessage({ status: "complete", folderName, zipIndex });
+    await processZip(zip, password, zipIndex, folderName);
   }
 };
 
-async function processZip(jszip, password, zipIndex, folderName) {
+async function processZip(zipArrayBuffer, password, zipIndex, folderName) {
   const formattedZipIndex = String(zipIndex).padStart(5, "0");
 
   try {
-    const zipBlob = await jszip.generateAsync({
-      type: "blob",
-      compression: "STORE",
-    });
-    const zipArrayBuffer = await zipBlob.arrayBuffer();
-
     const iv = crypto.getRandomValues(new Uint8Array(16));
     const key = await crypto.subtle.digest(
       "SHA-256",
@@ -46,26 +40,16 @@ async function processZip(jszip, password, zipIndex, folderName) {
     const blob = new Blob([combinedData], { type: "application/octet-stream" });
     const reader = new FileReader();
     reader.onloadend = function () {
-    const base64CombinedData = reader.result.split(",")[1];
-    self.postMessage({
+      const base64CombinedData = reader.result.split(",")[1];
+      self.postMessage({
         status: "upload",
         folderName,
         zipIndex: formattedZipIndex,
         base64CombinedData,
-    });
+      });
     };
     reader.readAsDataURL(blob);
-
   } catch (error) {
     console.error("Error generating ZIP:", error);
   }
-}
-
-function bufferToBase64(buffer) {
-  let binary = "";
-  const bytes = new Uint8Array(buffer);
-  for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i]);
-  }
-  return btoa(binary);
 }
