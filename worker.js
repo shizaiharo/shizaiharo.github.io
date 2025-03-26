@@ -2,17 +2,29 @@ importScripts(
   "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"
 );
 
+worker.onmessage = async function (e) {
+  if (e.data.status === "upload") {
+    await uploadToGitHub(
+      e.data.folderName,
+      e.data.zipIndex,
+      e.data.base64CombinedData
+    );
+  } else if (e.data.status === "complete") {
+    activeWorkers--;
+    worker.isBusy = false; // Mark worker as free
+    assignWork(); // Assign new work
+  }
+};
+
 self.onmessage = async function (e) {
   const { action, folderName, zip, zipIndex, password } = e.data;
 
   if (action === "ZipEncrypt") {
-    // const zipArrayBuffer = new Uint8Array(zipSerialized).buffer;
-    // const zipBlob = new Blob([zipArrayBuffer]);
-    // const zip = await JSZip.loadAsync(zipBlob);
-
     await processZip(zip, password, zipIndex, folderName);
 
     self.postMessage({ status: "complete", folderName, zipIndex });
+    worker.isBusy = false;
+    assignWork();
   }
 };
 

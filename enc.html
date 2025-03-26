@@ -53,9 +53,11 @@
       let totalWorkers = 0;
       let totalParts = 0; // Track the total number of parts to be uploaded
       let uploadedPartsCount = 0; // Track the number of uploaded parts
+      const taskQueue = []; // Define taskQueue as an array
 
       for (let i = 0; i < maxWorkers; i++) {
         const worker = new Worker("worker.js");
+
         worker.onmessage = async function (e) {
           if (e.data.status === "upload") {
             await uploadToGitHub(
@@ -70,20 +72,34 @@
             ).textContent = `Active workers: ${activeWorkers}`;
           }
         };
+
         workers.push(worker);
       }
 
       let currentWorkerIndex = 0;
 
-      function getNextWorker() {
-        const worker = workers[currentWorkerIndex];
-        currentWorkerIndex = (currentWorkerIndex + 1) % maxWorkers;
-        activeWorkers++;
-        totalWorkers++;
-        document.getElementById(
-          "status"
-        ).textContent = `Active workers: ${activeWorkers}`;
-        return worker;
+      function assignWork() {
+        while (taskQueue.length > 0 && activeWorkers < maxWorkers) {
+          const worker = workers.find((w) => !w.isBusy);
+          if (!worker) break; // No available worker
+
+          const task = taskQueue.shift();
+          worker.isBusy = true;
+          activeWorkers++;
+
+          worker.postMessage(task);
+        }
+      }
+
+      function enqueueTask(folderName, zipSerialized, zipIndex, password) {
+        taskQueue.push({
+          action: "ZipEncrypt",
+          folderName,
+          zip: zipSerialized,
+          zipIndex,
+          password,
+        });
+        assignWork(); // Attempt to start processing immediately
       }
 
       const uploadedParts = {};
@@ -145,28 +161,9 @@
       }
 
       function checkAllBooksComplete() {
-        // for (const folderName in uploadedParts) {
-        //   const parts = Array.from(uploadedParts[folderName]).map(Number); // Convert parts to integers
-        //   // const maxPart = Math.max(...parts);
-        //   const totalUploadedParts = parts.length;
-        //   console.log(
-        //     `Checking ${folderName}: ${totalUploadedParts} / ${uploadedPartsCount}`
-        //   );
-
-        // Check if all parts from 1 to maxPart are uploaded
-        // for (let i = 1; i <= maxPart; i++) {
-        //   if (!parts.includes(i)) {
-        //     return;
-        //   }
-        // }
-
-        // Check if the total uploaded count matches the maxPart
         if (uploadedPartsCount < totalParts) {
           return;
-          // }
         }
-
-        // If all books satisfy the conditions, update the status
         if (activeWorkers === 0) {
           document.getElementById("status").textContent += " ✅";
         }
@@ -198,103 +195,69 @@
       }
 
       async function encryptFolder(files, password, folderName) {
-        files.sort((a, b) => {
-          const numsA = (a.name.match(/\d+/g) || []).map(Number);
-          const numsB = (b.name.match(/\d+/g) || []).map(Number);
-
-          for (let i = 0; i < Math.max(numsA.length, numsB.length); i++) {
-            if (numsA[i] !== numsB[i]) {
-              return (numsA[i] || 0) - (numsB[i] || 0);
-            }
-          }
-          return 0;
-        });
-        console.log(files);
-
         let currentZipSize = 0;
         let zipIndex = 1;
         let zip = new JSZip();
 
         for (const file of files) {
-          if (file.name === ".DS_Store") {
-            continue;
-          } else if (file.size > MAX_ZIP_SIZE) {
-            const chunkSize = MAX_ZIP_SIZE;
+          if (file.name === ".DS_Store") continue;
+
+          if (file.size > MAX_ZIP_SIZE) {
+            // Split large file into chunks before adding
+            const chunkSize = MAX_ZIP_SIZE; // Define your chunk size
             let start = 0;
+            let chunkIndex = 1;
 
             while (start < file.size) {
-              const end = Math.min(start + chunkSize, file.size);
-              const chunk = file.slice(start, end);
+              const chunk = file.slice(start, start + chunkSize);
+              const chunkName = `${file.name}.part${chunkIndex}`;
 
-              let zip = new JSZip();
-              const chunkName = `${file.name}.part${zipIndex}`;
-              console.log(
-                `Adding file to part${zipIndex}: ${
-                  file.webkitRelativePath || file.name
-                }`
-              );
-              zip.file(chunkName, chunk); // Add this chunk as a single file in ZIP
+              zip.file(chunkName, chunk);
+              start += chunkSize;
+              chunkIndex++;
 
-              // console.log(`Creating ZIP for chunk: ${chunkName}`);
-              // const zipBlob = await zip.generateAsync({ type: "blob" });
-              // const zipArrayBuffer = await zipBlob.arrayBuffer();
-              // const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+              if (start >= file.size || zipIndex % MAX_ZIP_SIZE === 0) {
+                const zipBlob = await zip.generateAsync({ type: "blob" });
+                const zipArrayBuffer = await zipBlob.arrayBuffer();
+                const zipSerialized = Array.from(
+                  new Uint8Array(zipArrayBuffer)
+                );
 
-              const worker = getNextWorker();
-              worker.postMessage({
-                action: "ZipEncrypt",
-                folderName,
-                zip,
-                zipIndex,
-                password,
-              });
-              start = end;
-              zipIndex++;
-              totalParts++; // Increment total parts count
+                totalParts++;
+                enqueueTask(folderName, zipSerialized, zipIndex, password);
+
+                zip = new JSZip();
+                zipIndex++;
+              }
             }
-            continue;
-          } else {
-            if (currentZipSize + file.size > MAX_ZIP_SIZE) {
-              // const zipBlob = await zip.generateAsync({ type: "blob" });
-              // const zipArrayBuffer = await zipBlob.arrayBuffer();
-              // const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
-
-              const worker = getNextWorker();
-              worker.postMessage({
-                action: "ZipEncrypt",
-                folderName,
-                zip,
-                zipIndex,
-                password,
-              });
-              zip = new JSZip();
-              currentZipSize = 0;
-              zipIndex++;
-              totalParts++; // Increment total parts count
-            }
-            console.log(
-              `Adding file to part${zipIndex}: ${
-                file.webkitRelativePath || file.name
-              }`
-            );
-            zip.file(file.webkitRelativePath || file.name, file);
-            currentZipSize += file.size;
+            continue; // Move to the next file
           }
-        }
-        if (currentZipSize > 0) {
-          // const zipBlob = await zip.generateAsync({ type: "blob" });
-          // const zipArrayBuffer = await zipBlob.arrayBuffer();
-          // const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
 
-          const worker = getNextWorker();
-          worker.postMessage({
-            action: "ZipEncrypt",
-            folderName,
-            zip,
-            zipIndex,
-            password,
-          });
-          totalParts++; // Increment total parts count
+          // Handle normal files as before
+          if (currentZipSize + file.size > MAX_ZIP_SIZE) {
+            const zipBlob = await zip.generateAsync({ type: "blob" });
+            const zipArrayBuffer = await zipBlob.arrayBuffer();
+            const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+
+            totalParts++;
+            enqueueTask(folderName, zipSerialized, zipIndex, password);
+
+            zip = new JSZip();
+            currentZipSize = 0;
+            zipIndex++;
+          }
+
+          zip.file(file.webkitRelativePath || file.name, file);
+          currentZipSize += file.size;
+        }
+
+        if (currentZipSize > 0) {
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const zipArrayBuffer = await zipBlob.arrayBuffer();
+          const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
+
+          totalParts++;
+          enqueueTask(folderName, zipSerialized, zipIndex, password);
         }
       }
 
@@ -334,7 +297,6 @@
             combined.push(str2[i]);
           }
         }
-
         return combined.join("");
       }
 
