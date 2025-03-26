@@ -36,8 +36,8 @@
       Upload Mother Folder
     </button>
     <p id="status"></p>
-    <p id="zipStatus"></p>
-    <p id="uploadStatus"></p>
+    <!-- <p id="zipStatus"></p>
+    <p id="uploadStatus"></p> -->
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
     <script>
@@ -52,8 +52,8 @@
 
       const workers = [];
       let activeWorkers = 0;
-      let activeZippingWorkers = 0; // Track workers handling zipping
-      let activeUploadingWorkers = 0; // Track workers handling uploading
+      // let activeZippingWorkers = 0; // Track workers handling zipping
+      // let activeUploadingWorkers = 0; // Track workers handling uploading
       let totalWorkers = 0;
       let totalParts = 0; // Track the total number of parts to be uploaded
       let uploadedPartsCount = 0; // Track the number of uploaded parts
@@ -64,16 +64,16 @@
 
         worker.onmessage = function (e) {
           if (e.data.status === "upload") {
-            activeZippingWorkers--; // Decrement zipping workers count
-            activeUploadingWorkers++; // Increment uploading workers count
+            // activeZippingWorkers--; // Decrement zipping workers count
+            // activeUploadingWorkers++; // Increment uploading workers count
 
             // Update statuses
-            document.getElementById(
-              "zipStatus"
-            ).textContent = `Zipping workers: ${activeZippingWorkers}, Tasks in queue: ${taskQueue.length}`;
-            document.getElementById(
-              "uploadStatus"
-            ).textContent = `Uploading workers: ${activeUploadingWorkers}`;
+            // document.getElementById(
+            //   "zipStatus"
+            // ).textContent = `Zipping workers: ${activeZippingWorkers}, Tasks in queue: ${taskQueue.length}`;
+            // document.getElementById(
+            //   "uploadStatus"
+            // ).textContent = `Uploading workers: ${activeUploadingWorkers}`;
 
             console.log(
               `Worker handling upload for folder: ${e.data.folderName}, part: ${e.data.zipIndex}`
@@ -85,14 +85,14 @@
             );
           } else if (e.data.status === "complete") {
             activeWorkers--;
-            activeUploadingWorkers--; // Decrement uploading workers count
+            // activeUploadingWorkers--; // Decrement uploading workers count
             worker.isBusy = false; // Mark this worker as free
             assignWork(); // Assign a new task if available
 
             // Update uploading status
-            document.getElementById(
-              "uploadStatus"
-            ).textContent = `Uploading workers: ${activeUploadingWorkers}`;
+            // document.getElementById(
+            //   "uploadStatus"
+            // ).textContent = `Uploading workers: ${activeUploadingWorkers}`;
             document.getElementById(
               "status"
             ).textContent = `Active workers: ${activeWorkers}`;
@@ -112,12 +112,12 @@
           const task = taskQueue.shift();
           worker.isBusy = true;
           activeWorkers++;
-          activeZippingWorkers++; // Increment zipping workers count
+          // activeZippingWorkers++; // Increment zipping workers count
 
           // Update zipping status
-          document.getElementById(
-            "zipStatus"
-          ).textContent = `Zipping workers: ${activeZippingWorkers}, Tasks in queue: ${taskQueue.length}`;
+          // document.getElementById(
+          //   "zipStatus"
+          // ).textContent = `Zipping workers: ${activeZippingWorkers}, Tasks in queue: ${taskQueue.length}`;
 
           worker.postMessage(task);
         }
@@ -180,13 +180,15 @@
                 `Retrying upload for ${path}, attempt ${attempts + 1}`
               );
               attempts++;
-              await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+              // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+              await delay(1000);
             }
           } catch (error) {
             console.error(`Error uploading ${path}:`, error);
             console.log(`Retrying upload for ${path}, attempt ${attempts + 1}`);
             attempts++;
-            await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+            // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+            await delay(1000);
           }
         }
       }
@@ -206,6 +208,8 @@
         }
         if (activeWorkers === 0) {
           document.getElementById("status").textContent += " ✅";
+        } else if (activeWorkers === maxWorkers) {
+          document.getElementById("status").textContent += " 🈵";
         }
       }
 
@@ -311,9 +315,9 @@
           enqueueTask(folderName, zipSerialized, zipIndex, password);
 
           // Update zipping status
-          document.getElementById(
-            "zipStatus"
-          ).textContent = `Zipping workers: ${activeZippingWorkers}, Total parts: ${totalParts}`;
+          // document.getElementById(
+          //   "zipStatus"
+          // ).textContent = `Zipping workers: ${activeZippingWorkers}, Total parts: ${totalParts}`;
         }
       }
 
