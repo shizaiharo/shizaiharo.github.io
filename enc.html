@@ -58,15 +58,17 @@
       for (let i = 0; i < maxWorkers; i++) {
         const worker = new Worker("worker.js");
 
-        worker.onmessage = async function (e) {
+        worker.onmessage = function (e) {
           if (e.data.status === "upload") {
-            await uploadToGitHub(
+            uploadToGitHub(
               e.data.folderName,
               e.data.zipIndex,
               e.data.base64CombinedData
             );
           } else if (e.data.status === "complete") {
             activeWorkers--;
+            worker.isBusy = false; // Mark this worker as free
+            assignWork(); // Assign a new task if available
             document.getElementById(
               "status"
             ).textContent = `Active workers: ${activeWorkers}`;
