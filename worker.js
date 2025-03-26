@@ -27,10 +27,13 @@ async function processZip(zipArrayBuffer, password, zipIndex, folderName) {
       ["encrypt"]
     );
 
+    // Ensure zipArrayBuffer is a Uint8Array
+    const zipData = new Uint8Array(zipArrayBuffer);
+
     const encryptedData = await crypto.subtle.encrypt(
       { name: "AES-CTR", counter: iv, length: 128 },
       cryptoKey,
-      zipArrayBuffer
+      zipData // Pass the Uint8Array here
     );
 
     const combinedData = new Uint8Array(iv.length + encryptedData.byteLength);
