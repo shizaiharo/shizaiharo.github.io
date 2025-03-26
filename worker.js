@@ -6,13 +6,6 @@ self.onmessage = async function (e) {
   const { action, folderName, zip, zipIndex, password } = e.data;
 
   if (action === "ZipEncrypt") {
-    // Ensure zip is correctly created as a JSZip instance
-    const jszip = new JSZip();
-    zip.forEach(({ name, data }) => {
-      jszip.file(name, data, { binary: true });
-    });
-
-    await processZip(jszip, password, zipIndex, folderName);
     self.postMessage({ status: "complete", folderName, zipIndex });
   }
 };
@@ -50,14 +43,19 @@ async function processZip(jszip, password, zipIndex, folderName) {
     combinedData.set(iv, 0);
     combinedData.set(new Uint8Array(encryptedData), iv.length);
 
-    const base64CombinedData = bufferToBase64(combinedData);
-
+    const blob = new Blob([combinedData], { type: "application/octet-stream" });
+    const reader = new FileReader();
+    reader.onloadend = function () {
+    const base64CombinedData = reader.result.split(",")[1];
     self.postMessage({
-      status: "upload",
-      folderName,
-      zipIndex: formattedZipIndex,
-      base64CombinedData,
+        status: "upload",
+        folderName,
+        zipIndex: formattedZipIndex,
+        base64CombinedData,
     });
+    };
+    reader.readAsDataURL(blob);
+
   } catch (error) {
     console.error("Error generating ZIP:", error);
   }

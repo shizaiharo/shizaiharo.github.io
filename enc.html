@@ -45,7 +45,7 @@
       const branch = "main"; // Change to your default branch
       const MAX_ZIP_SIZE = 25 * 1024 * 1024; // After add encryption will near limit 40MiB (40/1.33 = 30)
 
-      const maxWorkers = navigator.hardwareConcurrency || 4; // Fallback to 4 if the property is not supported
+      const maxWorkers = navigator.hardwareConcurrency - 2 || 4; // Fallback to 4 if the property is not supported
       console.log(`Using up to ${maxWorkers} workers.`);
 
       const workers = [];
@@ -93,11 +93,11 @@
         }
       }
 
-      function enqueueTask(folderName, zipSerialized, zipIndex, password) {
+      function enqueueTask(folderName, zip, zipIndex, password) {
         taskQueue.push({
           action: "ZipEncrypt",
           folderName,
-          zip: zipSerialized,
+          zip: zip,
           zipIndex,
           password,
         });
