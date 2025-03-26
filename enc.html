@@ -118,6 +118,7 @@
         };
 
         let attempts = 0;
+        console.log(`Starting upload for ${path}`);
         while (true) {
           try {
             const Upload_response = await fetch(url, {
@@ -131,7 +132,7 @@
             });
 
             if (Upload_response.ok) {
-              console.log(`Uploaded ${path}`);
+              console.log(`Uploaded ${path} successfully.`);
               recordUploadedPart(folderName, zipIndex);
               break;
             } else if (Upload_response.status === 422) {
@@ -140,13 +141,15 @@
             } else {
               const errorData = await Upload_response.json();
               console.error(`Part${zipIndex} upload failed:`, errorData);
-              console.log(`Part${zipIndex} retrying upload ${attempts} times`);
+              console.log(
+                `Retrying upload for ${path}, attempt ${attempts + 1}`
+              );
               attempts++;
               await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
             }
           } catch (error) {
-            console.error(`Part${zipIndex} Upload error:`, error);
-            console.log(`Part${zipIndex} retrying upload ${attempts} times`);
+            console.error(`Error uploading ${path}:`, error);
+            console.log(`Retrying upload for ${path}, attempt ${attempts + 1}`);
             attempts++;
             await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
           }
@@ -191,6 +194,7 @@
         }
         const password = combine("Kyaru", matchResult[1]);
 
+        console.log(`Starting encryption and upload for folder: ${folderName}`);
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
         await encryptFolder(files, password, folderName);
@@ -201,11 +205,12 @@
         let zipIndex = 1;
         let zip = new JSZip();
 
+        console.log(`Encrypting folder: ${folderName}`);
         for (const file of files) {
           if (file.name === ".DS_Store") continue;
 
           if (file.size > MAX_ZIP_SIZE) {
-            // Split large file into chunks before adding
+            console.log(`Splitting large file: ${file.name}`);
             const chunkSize = MAX_ZIP_SIZE; // Define your chunk size
             let start = 0;
             let chunkIndex = 1;
@@ -219,6 +224,9 @@
               chunkIndex++;
 
               if (start >= file.size || zipIndex % MAX_ZIP_SIZE === 0) {
+                console.log(
+                  `Creating zip part ${zipIndex} for folder: ${folderName}`
+                );
                 const zipBlob = await zip.generateAsync({ type: "blob" });
                 const zipArrayBuffer = await zipBlob.arrayBuffer();
                 const zipSerialized = Array.from(
@@ -235,8 +243,10 @@
             continue; // Move to the next file
           }
 
-          // Handle normal files as before
           if (currentZipSize + file.size > MAX_ZIP_SIZE) {
+            console.log(
+              `Creating zip part ${zipIndex} for folder: ${folderName}`
+            );
             const zipBlob = await zip.generateAsync({ type: "blob" });
             const zipArrayBuffer = await zipBlob.arrayBuffer();
             const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
@@ -254,12 +264,70 @@
         }
 
         if (currentZipSize > 0) {
+          console.log(
+            `Finalizing zip part ${zipIndex} for folder: ${folderName}`
+          );
           const zipBlob = await zip.generateAsync({ type: "blob" });
           const zipArrayBuffer = await zipBlob.arrayBuffer();
           const zipSerialized = Array.from(new Uint8Array(zipArrayBuffer));
 
           totalParts++;
           enqueueTask(folderName, zipSerialized, zipIndex, password);
+        }
+      }
+
+      async function uploadMotherFolder() {
+        if (!token) {
+          alert("Please upload the token file first.");
+          return;
+        }
+
+        const files = Array.from(
+          document.getElementById("motherFolderInput").files
+        );
+        if (files.length === 0) {
+          alert("No files selected.");
+          return;
+        }
+
+        const folders = {};
+        files.forEach((file) => {
+          const folderName = file.webkitRelativePath.split("/")[1];
+          if (/\[\d+\]/.test(folderName)) {
+            if (!folders[folderName]) {
+              folders[folderName] = [];
+            }
+            folders[folderName].push(file);
+          }
+        });
+
+        const sortedFolderNames = Object.keys(folders).sort((a, b) => {
+          const numA = parseInt(a.match(/\[(\d+)\]/)[1]);
+          const numB = parseInt(b.match(/\[(\d+)\]/)[1]);
+          return numA - numB;
+        });
+
+        for (const folderName of sortedFolderNames) {
+          console.log(`Processing folder: ${folderName}`);
+          const folderFiles = folders[folderName].map((file) => {
+            const parts = file.webkitRelativePath.split("/");
+            return new File([file], parts.slice(2).join("/"), {
+              type: file.type,
+            });
+          });
+          const matchResult = folderName.match(/\[(\d+)\]/);
+          if (!matchResult) {
+            alert(`Error: No number found in folder name: ${folderName}`);
+            return;
+          }
+          const numberInBracket = matchResult[1];
+          const password = combine("Kyaru", numberInBracket);
+
+          document.getElementById(
+            "status"
+          ).textContent = `Encrypting and uploading folder: ${folderName}...`;
+
+          await encryptFolder(folderFiles, password, folderName);
         }
       }
 
@@ -300,60 +368,6 @@
           }
         }
         return combined.join("");
-      }
-
-      async function uploadMotherFolder() {
-        if (!token) {
-          alert("Please upload the token file first.");
-          return;
-        }
-
-        const files = Array.from(
-          document.getElementById("motherFolderInput").files
-        );
-        if (files.length === 0) {
-          alert("No files selected.");
-          return;
-        }
-
-        const folders = {};
-        files.forEach((file) => {
-          const folderName = file.webkitRelativePath.split("/")[1];
-          if (/\[\d+\]/.test(folderName)) {
-            if (!folders[folderName]) {
-              folders[folderName] = [];
-            }
-            folders[folderName].push(file);
-          }
-        });
-
-        const sortedFolderNames = Object.keys(folders).sort((a, b) => {
-          const numA = parseInt(a.match(/\[(\d+)\]/)[1]);
-          const numB = parseInt(b.match(/\[(\d+)\]/)[1]);
-          return numA - numB;
-        });
-
-        for (const folderName of sortedFolderNames) {
-          const folderFiles = folders[folderName].map((file) => {
-            const parts = file.webkitRelativePath.split("/");
-            return new File([file], parts.slice(2).join("/"), {
-              type: file.type,
-            });
-          });
-          const matchResult = folderName.match(/\[(\d+)\]/);
-          if (!matchResult) {
-            alert(`Error: No number found in folder name: ${folderName}`);
-            return;
-          }
-          const numberInBracket = matchResult[1];
-          const password = combine("Kyaru", numberInBracket);
-
-          document.getElementById(
-            "status"
-          ).textContent = `Encrypting and uploading folder: ${folderName}...`;
-
-          await encryptFolder(folderFiles, password, folderName);
-        }
       }
 
       window.onload = getTokenFromUrl;
