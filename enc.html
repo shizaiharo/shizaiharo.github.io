@@ -125,11 +125,15 @@
 
       function enqueueTask(folderName, zip, zipIndex, password) {
         taskQueue.push({
-          action: "ZipEncrypt",
+          action: "ZipEncryptAndUpload",
           folderName,
           zip: zip,
           zipIndex,
           password,
+          token, // Pass the token
+          owner, // Pass the GitHub owner
+          repo, // Pass the GitHub repository name
+          branch, // Pass the branch name
         });
         assignWork(); // Attempt to start processing immediately
       }
