@@ -123,12 +123,11 @@
         }
       }
 
-      function enqueueTask(folderName, zip, zipIndex, password) {
+      function enqueueTask(fileData, folderName, password) {
         taskQueue.push({
           action: "ZipEncryptAndUpload",
+          fileData,
           folderName,
-          zip: zip,
-          zipIndex,
           password,
           token, // Pass the token
           owner, // Pass the GitHub owner
@@ -140,58 +139,58 @@
 
       const uploadedParts = {};
 
-      async function uploadToGitHub(folderName, zipIndex, base64Data) {
-        const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
-        const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
-        const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+      // async function uploadToGitHub(folderName, zipIndex, base64Data) {
+      //   const path = `Books/${folderName}/${folderName}_part${zipIndex}.zip`;
+      //   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}`;
+      //   const delay = (ms) => new Promise((res) => setTimeout(res, ms));
 
-        const fileData = {
-          message: `Upload encrypted folder part ${zipIndex}`,
-          content: base64Data, // Base64 encode content
-          branch: branch,
-        };
+      //   const fileData = {
+      //     message: `Upload encrypted folder part ${zipIndex}`,
+      //     content: base64Data, // Base64 encode content
+      //     branch: branch,
+      //   };
 
-        let attempts = 0;
-        console.log(`Starting upload for ${path}`);
-        console.log(`Uploading part ${zipIndex} of folder: ${folderName}`);
-        while (true) {
-          try {
-            const Upload_response = await fetch(url, {
-              method: "PUT",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/vnd.github+json",
-                "Content-Type": "application/octet-stream",
-              },
-              body: JSON.stringify(fileData),
-            });
+      //   let attempts = 0;
+      //   console.log(`Starting upload for ${path}`);
+      //   console.log(`Uploading part ${zipIndex} of folder: ${folderName}`);
+      //   while (true) {
+      //     try {
+      //       const Upload_response = await fetch(url, {
+      //         method: "PUT",
+      //         headers: {
+      //           Authorization: `Bearer ${token}`,
+      //           Accept: "application/vnd.github+json",
+      //           "Content-Type": "application/octet-stream",
+      //         },
+      //         body: JSON.stringify(fileData),
+      //       });
 
-            if (Upload_response.ok) {
-              console.log(`Uploaded ${path} successfully.`);
-              recordUploadedPart(folderName, zipIndex);
-              break;
-            } else if (Upload_response.status === 422) {
-              console.log(`Part ${zipIndex} already exists. Skipping...`);
-              break;
-            } else {
-              const errorData = await Upload_response.json();
-              console.error(`Part${zipIndex} upload failed:`, errorData);
-              console.log(
-                `Retrying upload for ${path}, attempt ${attempts + 1}`
-              );
-              attempts++;
-              // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
-              await delay(1000);
-            }
-          } catch (error) {
-            console.error(`Error uploading ${path}:`, error);
-            console.log(`Retrying upload for ${path}, attempt ${attempts + 1}`);
-            attempts++;
-            // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
-            await delay(1000);
-          }
-        }
-      }
+      //       if (Upload_response.ok) {
+      //         console.log(`Uploaded ${path} successfully.`);
+      //         recordUploadedPart(folderName, zipIndex);
+      //         break;
+      //       } else if (Upload_response.status === 422) {
+      //         console.log(`Part ${zipIndex} already exists. Skipping...`);
+      //         break;
+      //       } else {
+      //         const errorData = await Upload_response.json();
+      //         console.error(`Part${zipIndex} upload failed:`, errorData);
+      //         console.log(
+      //           `Retrying upload for ${path}, attempt ${attempts + 1}`
+      //         );
+      //         attempts++;
+      //         // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+      //         await delay(1000);
+      //       }
+      //     } catch (error) {
+      //       console.error(`Error uploading ${path}:`, error);
+      //       console.log(`Retrying upload for ${path}, attempt ${attempts + 1}`);
+      //       attempts++;
+      //       // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
+      //       await delay(1000);
+      //     }
+      //   }
+      // }
 
       function recordUploadedPart(folderName, zipIndex) {
         if (!uploadedParts[folderName]) {
@@ -203,13 +202,10 @@
       }
 
       function checkAllBooksComplete() {
-        if (uploadedPartsCount < totalParts) {
-          return;
-        }
-        if (activeWorkers === 0) {
-          document.getElementById("status").textContent += " ✅";
-        } else if (activeWorkers === maxWorkers) {
+        if (activeWorkers === maxWorkers) {
           document.getElementById("status").textContent += " 🈵";
+        } else if (uploadedPartsCount === totalParts && activeWorkers === 0) {
+          document.getElementById("status").textContent += " ✅";
         }
       }
 
@@ -236,7 +232,8 @@
         console.log(`Starting encryption and upload for folder: ${folderName}`);
         document.getElementById("status").textContent =
           "Encrypting and uploading...";
-        await encryptFolder(files, password, folderName);
+        // await encryptFolder(files, password, folderName);
+        await sendFilesToWorker(files, folderName, password);
       }
 
       async function encryptFolder(files, password, folderName) {
@@ -319,6 +316,42 @@
           //   "zipStatus"
           // ).textContent = `Zipping workers: ${activeZippingWorkers}, Total parts: ${totalParts}`;
         }
+      }
+
+      async function sendFilesToWorker(files, folderName, password) {
+        let fileList = [];
+        let zipIndex = 1;
+
+        for (let file of files) {
+          if (file.size > MAX_ZIP_SIZE) {
+            let chunks = [];
+            let index = 0;
+            for (let start = 0; start < file.size; start += MAX_ZIP_SIZE) {
+              let chunk = file.slice(start, start + MAX_ZIP_SIZE);
+              chunks.push({ chunk, index });
+              index++;
+            }
+            totalParts++;
+            // fileList.push({ name: file.name, chunks, zipIndex });
+            enqueueTask({ name: file.name, chunks, zipIndex }, folderName, password);
+          } else {
+            // fileList.push({ name: file.name, chunks: [{ chunk: file, index: 0 }], zipIndex });
+            totalParts++;
+            enqueueTask({ name: file.name, chunks: [{ chunk: file, index: 0 }], zipIndex }, folderName, password);
+          }
+          zipIndex++; // Increment for next ZIP part
+        }
+
+        // worker.postMessage({
+        //   action: "ZipEncryptAndUpload",
+        //   fileList,
+        //   folderName,
+        //   password,
+        //   token,
+        //   owner,
+        //   repo,
+        //   branch,
+        // });
       }
 
       async function uploadMotherFolder() {
