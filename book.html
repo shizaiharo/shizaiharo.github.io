@@ -443,7 +443,7 @@
                 // Aggregate progress
                 totalProgress =
                   progressByWorker.reduce((a, b) => a + b, 0) / numWorkers;
-                updateProgress("Zipping", totalProgress, 100, startTime);
+                updateProgress("Zipping", totalProgress, 90, startTime);
               } else if (e.data.type === "done") {
                 worker.terminate();
                 resolve(e.data.zipBlob);
