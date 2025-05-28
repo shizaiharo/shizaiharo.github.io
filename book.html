@@ -461,12 +461,24 @@
           // Each blob is a zip file, so add as a folder
           finalZip.file(`part${i + 1}.zip`, zipBlobs[i]);
         }
+
+        // Track progress for the final zip step
         const finalZipBlob = await finalZip.generateAsync(
           {
             type: "blob",
             compression: "STORE",
           },
-          (metadata) => console.log(metadata)
+          (metadata) => {
+            // Calculate overall progress: workers (90%) + final zip (10%)
+            // You can adjust the ratio as needed
+            const workerProgress =
+              progressByWorker.reduce((a, b) => a + b, 0) / numWorkers;
+            const finalZipProgress = metadata.percent || 0;
+            // Weighted: 90% workers, 10% final zip
+            const overallProgress =
+              workerProgress * 0.9 + finalZipProgress * 0.1;
+            updateProgress("Zipping", overallProgress, 100, startTime);
+          }
         );
 
         hideProgressContainer();
