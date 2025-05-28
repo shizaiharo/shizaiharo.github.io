@@ -412,6 +412,7 @@
         recombinedFiles.forEach((file) => {
           zip.file(file.fileName, file.fileData);
         });
+        console.log(recombinedFiles);
 
         // Now generate the ZIP file
         console.log("Generating ZIP file...");
