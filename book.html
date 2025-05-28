@@ -293,21 +293,22 @@
         return await response.arrayBuffer(); // ✅ Fetch as binary data
       }
 
-      function updateProgress(loadedSize, totalSize, startTime) {
+      function updateProgress(type, loaded, total, startTime) {
         const progressBar =
           document.getElementById("progressBar").firstElementChild;
         const progressText = document.getElementById("progressText");
         const etaText = document.getElementById("etaText");
 
-        const percentage = Math.round((loadedSize / totalSize) * 100);
+        const percentage = Math.round((loaded / total) * 100);
         progressBar.style.width = `${percentage}%`;
-        progressText.textContent = `${percentage}%`;
+        progressText.textContent = `${type}: ${percentage}%`;
 
-        const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
-        const estimatedTotalTime = (elapsedTime / loadedSize) * totalSize;
-        const eta = Math.round(estimatedTotalTime - elapsedTime);
-
-        etaText.textContent = `ETA: ${eta} seconds`;
+        if (startTime) {
+          const elapsedTime = (Date.now() - startTime) / 1000; // in seconds
+          const estimatedTotalTime = (elapsedTime / loaded) * total;
+          const eta = Math.round(estimatedTotalTime - elapsedTime);
+          etaText.textContent = `ETA: ${eta} seconds`;
+        }
       }
 
       async function batchFetchWithLimit(parts, concurrency = 8) {
@@ -320,7 +321,7 @@
           try {
             const result = await fetchBookPart(part.path);
             loadedSize += part.size;
-            updateProgress(loadedSize, totalSize, startTime);
+            updateProgress("Downloading", loadedSize, totalSize, startTime);
             return { fileName: part.path, fileData: result }; // Return the file object
           } catch (error) {
             console.error(`Failed to fetch ${part.path}, retrying...`, error);
@@ -406,28 +407,31 @@
         console.log("Preparing for download...");
         const zip = new JSZip();
         const processingMessage = document.getElementById("processingMessage");
-        processingMessage.style.display = "inline"; // Show processing message
+        processingMessage.style.display = "none"; // Hide static message
 
         // Add all files to the zip
         recombinedFiles.forEach((file) => {
           zip.file(file.fileName, file.fileData);
         });
-        console.log(recombinedFiles);
 
-        // Now generate the ZIP file
-        console.log("Generating ZIP file...");
-        const zipBlob = await zip.generateAsync({ type: "blob" }, (metadata) =>
-          console.log(metadata)
+        // Show progress bar for zipping
+        const totalFiles = recombinedFiles.length;
+        let zippedFiles = 0;
+        const startTime = Date.now();
+
+        // Generate ZIP with progress
+        const zipBlob = await zip.generateAsync(
+          { type: "blob" },
+          (metadata) => {
+            // metadata.percent is 0-100
+            updateProgress("Zipping", metadata.percent, 100, startTime);
+          }
         );
 
         const downloadButton = document.getElementById("downloadButton");
-        console.log("Showing download button...");
         downloadButton.style.display = "inline";
-        console.log("Hiding processing message...");
-        processingMessage.style.display = "none"; // Hide processing message
+        processingMessage.style.display = "none";
 
-        // Remove previous event listeners by assigning a new function
-        console.log("Removing previous event listeners...");
         downloadButton.onclick = () => {
           console.log("Download button clicked");
           downloadAllFiles(zipBlob);
