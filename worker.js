@@ -129,26 +129,26 @@ async function ZipEncryptUpload(
               zipIndex: formattedZipIndex,
             });
             break;
-          } else if (response.status === 422) {
-            console.log(
-              `Part ${formattedZipIndex} already exists. Skipping...`
-            );
-            self.postMessage({
-              status: "complete",
-              folderName,
-              zipIndex: formattedZipIndex,
-            });
-            break;
+        //   } else if (response.status === 422) {
+        //     console.log(
+        //       `Part ${formattedZipIndex} already exists. Skipping...`
+        //     );
+        //     self.postMessage({
+        //       status: "complete",
+        //       folderName,
+        //       zipIndex: formattedZipIndex,
+        //     });
+        //     break;
           } else {
             const errorData = await response.json();
-            console.alert(`Upload failed:`, errorData);
+            console.warn(`Upload failed:`, errorData);
             console.log(`Retrying upload for ${path}, attempt ${attempts + 1} times`);
             attempts++;
             // await delay(1000 * Math.pow(2, attempts)); // Exponential backoff
             await delay(1000);
           }
         } catch (error) {
-          console.alert(`Error uploading ${path}:`, error);
+          console.warn(`Error uploading ${path}:`, error);
           console.log(`Retrying upload for ${path}, attempt ${attempts + 1} times`);
           attempts++;
         //   await delay(1000 * Math.pow(2, attempts)); // Exponential backoff

@@ -408,27 +408,25 @@
         const processingMessage = document.getElementById("processingMessage");
         processingMessage.style.display = "inline"; // Show processing message
 
-        // Add all files in parallel
-        Promise.all(
+        // Await all file additions
+        await Promise.all(
           recombinedFiles.map(async (file) => {
             zip.file(file.fileName, file.fileData);
           })
-        ).then(async () => {
-          // Generate ZIP file
-          console.log("Generating ZIP file...");
-          const zipBlob = await zip.generateAsync({ type: "blob" });
+        );
 
-          const downloadButton = document.getElementById("downloadButton");
-          downloadButton.style.display = "inline";
-          // console.log("Download button is now visible");
+        // Now generate the ZIP file
+        console.log("Generating ZIP file...");
+        const zipBlob = await zip.generateAsync({ type: "blob" });
 
-          processingMessage.style.display = "none"; // Hide processing message
+        const downloadButton = document.getElementById("downloadButton");
+        downloadButton.style.display = "inline";
+        processingMessage.style.display = "none"; // Hide processing message
 
-          // Attach the event listener to the download button
-          downloadButton.addEventListener("click", () => {
-            console.log("Download button clicked");
-            downloadAllFiles(zipBlob);
-          });
+        // Attach the event listener to the download button
+        downloadButton.addEventListener("click", () => {
+          console.log("Download button clicked");
+          downloadAllFiles(zipBlob);
         });
       }
 
