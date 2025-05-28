@@ -411,30 +411,66 @@
         const downloadButton = document.getElementById("downloadButton");
         downloadButton.style.display = "none"; // Hide until ready
 
-        // Use a Web Worker for zipping
-        const worker = new Worker("zip.worker.js");
-        const startTime = Date.now();
+        // Split files into N chunks for N workers
+        const numWorkers = Math.min(4, recombinedFiles.length); // You can tune this number
+        const chunkSize = Math.ceil(recombinedFiles.length / numWorkers);
+        const fileChunks = [];
+        for (let i = 0; i < numWorkers; i++) {
+          fileChunks.push(
+            recombinedFiles.slice(i * chunkSize, (i + 1) * chunkSize)
+          );
+        }
 
-        worker.postMessage({
-          files: recombinedFiles.map((file) => ({
-            fileName: file.fileName,
-            fileData: file.fileData,
-          })),
+        const startTime = Date.now();
+        let totalProgress = 0;
+        let progressByWorker = Array(numWorkers).fill(0);
+
+        // Launch all workers
+        const workerPromises = fileChunks.map((chunk, idx) => {
+          return new Promise((resolve) => {
+            const worker = new Worker("zip.worker.js");
+            worker.postMessage({
+              files: chunk.map((file) => ({
+                fileName: file.fileName,
+                fileData: file.fileData,
+              })),
+            });
+
+            worker.onmessage = (e) => {
+              if (e.data.type === "progress") {
+                progressByWorker[idx] = e.data.percent;
+                // Aggregate progress
+                totalProgress =
+                  progressByWorker.reduce((a, b) => a + b, 0) / numWorkers;
+                updateProgress("Zipping", totalProgress, 100, startTime);
+              } else if (e.data.type === "done") {
+                worker.terminate();
+                resolve(e.data.zipBlob);
+              }
+            };
+          });
         });
 
-        worker.onmessage = (e) => {
-          if (e.data.type === "progress") {
-            updateProgress("Zipping", e.data.percent, 100, e.data.startTime);
-          } else if (e.data.type === "done") {
-            hideProgressContainer();
-            downloadButton.style.display = "inline";
-            processingMessage.style.display = "none";
-            downloadButton.onclick = () => {
-              console.log("Download button clicked");
-              downloadAllFiles(e.data.zipBlob);
-            };
-            worker.terminate();
-          }
+        // Wait for all workers to finish and get their blobs
+        const zipBlobs = await Promise.all(workerPromises);
+
+        // Merge all zipped blobs into a final zip
+        const finalZip = new JSZip();
+        for (let i = 0; i < zipBlobs.length; i++) {
+          // Each blob is a zip file, so add as a folder
+          finalZip.file(`part${i + 1}.zip`, zipBlobs[i]);
+        }
+        const finalZipBlob = await finalZip.generateAsync({
+          type: "blob",
+          compression: "STORE",
+        });
+
+        hideProgressContainer();
+        downloadButton.style.display = "inline";
+        processingMessage.style.display = "none";
+        downloadButton.onclick = () => {
+          console.log("Download button clicked");
+          downloadAllFiles(finalZipBlob);
         };
       }
 
