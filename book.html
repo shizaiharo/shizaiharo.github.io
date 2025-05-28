@@ -354,7 +354,7 @@
         downloadButton.textContent = `Download book`;
         fetchTimeText.textContent = ` ${totalFetchTime} seconds`;
 
-        hideProgressContainer(); // Hide progress container after fetching is complete
+        // hideProgressContainer(); // Hide progress container after fetching is complete
 
         // Decrypt and extract images from the fetched files in parallel
         const decryptedFiles = await Promise.all(
