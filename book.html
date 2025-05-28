@@ -405,34 +405,36 @@
 
       async function showDownloadButton(recombinedFiles) {
         console.log("Preparing for download...");
-        const zip = new JSZip();
         const processingMessage = document.getElementById("processingMessage");
-        processingMessage.style.display = "none"; // Hide static message
-
-        // Add all files to the zip
-        recombinedFiles.forEach((file) => {
-          zip.file(file.fileName, file.fileData);
-        });
-
-        // Show progress bar for zipping
-        const totalFiles = recombinedFiles.length;
-        let zippedFiles = 0;
-        const startTime = Date.now();
-
-        // Generate ZIP with progress
-        const zipBlob = await zip.generateAsync(
-          { type: "blob", compression: "STORE" },
-          (metadata) => updateProgress("Zipping", metadata.percent, 100, startTime)
-        );
-
-        hideProgressContainer();
-        const downloadButton = document.getElementById("downloadButton");
-        downloadButton.style.display = "inline";
         processingMessage.style.display = "none";
 
-        downloadButton.onclick = () => {
-          console.log("Download button clicked");
-          downloadAllFiles(zipBlob);
+        const downloadButton = document.getElementById("downloadButton");
+        downloadButton.style.display = "none"; // Hide until ready
+
+        // Use a Web Worker for zipping
+        const worker = new Worker("zip.worker.js");
+        const startTime = Date.now();
+
+        worker.postMessage({
+          files: recombinedFiles.map((file) => ({
+            fileName: file.fileName,
+            fileData: file.fileData,
+          })),
+        });
+
+        worker.onmessage = (e) => {
+          if (e.data.type === "progress") {
+            updateProgress("Zipping", e.data.percent, 100, e.data.startTime);
+          } else if (e.data.type === "done") {
+            hideProgressContainer();
+            downloadButton.style.display = "inline";
+            processingMessage.style.display = "none";
+            downloadButton.onclick = () => {
+              console.log("Download button clicked");
+              downloadAllFiles(e.data.zipBlob);
+            };
+            worker.terminate();
+          }
         };
       }
 
