@@ -418,10 +418,13 @@
         const zipBlob = await zip.generateAsync({ type: "blob" });
 
         const downloadButton = document.getElementById("downloadButton");
+        console.log("Showing download button...");
         downloadButton.style.display = "inline";
+        console.log("Hiding processing message...");
         processingMessage.style.display = "none"; // Hide processing message
 
         // Remove previous event listeners by assigning a new function
+        console.log("Removing previous event listeners...");
         downloadButton.onclick = () => {
           console.log("Download button clicked");
           downloadAllFiles(zipBlob);
