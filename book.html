@@ -412,7 +412,8 @@
         downloadButton.style.display = "none"; // Hide until ready
 
         // Split files into N chunks for N workers
-        const numWorkers = Math.min(4, recombinedFiles.length); // You can tune this number
+        const maxCores = navigator.hardwareConcurrency || 4; // Use all logical cores
+        const numWorkers = Math.min(maxCores, recombinedFiles.length); // You can tune this number
         const chunkSize = Math.ceil(recombinedFiles.length / numWorkers);
         const fileChunks = [];
         for (let i = 0; i < numWorkers; i++) {
@@ -460,10 +461,13 @@
           // Each blob is a zip file, so add as a folder
           finalZip.file(`part${i + 1}.zip`, zipBlobs[i]);
         }
-        const finalZipBlob = await finalZip.generateAsync({
-          type: "blob",
-          compression: "STORE",
-        });
+        const finalZipBlob = await finalZip.generateAsync(
+          {
+            type: "blob",
+            compression: "STORE",
+          },
+          (metadata) => console.log(metadata)
+        );
 
         hideProgressContainer();
         downloadButton.style.display = "inline";
