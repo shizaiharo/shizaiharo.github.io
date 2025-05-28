@@ -421,11 +421,8 @@
 
         // Generate ZIP with progress
         const zipBlob = await zip.generateAsync(
-          { type: "blob" },
-          (metadata) => {
-            // metadata.percent is 0-100
-            updateProgress("Zipping", metadata.percent, 100, startTime);
-          }
+          { type: "blob", compression: "STORE" },
+          (metadata) => updateProgress("Zipping", metadata.percent, 100, startTime)
         );
 
         hideProgressContainer();
