@@ -24,5 +24,5 @@ self.onmessage = async function (e) {
     }
   );
 
-  self.postMessage({ type: "done", zipBlob }, [zipBlob]);
+//   self.postMessage({ type: "done", zipBlob }, [zipBlob]);
 };
