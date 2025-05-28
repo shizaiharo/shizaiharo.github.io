@@ -426,6 +426,16 @@
         let totalProgress = 0;
         let progressByWorker = Array(numWorkers).fill(0);
 
+        // Calculate total bytes to be zipped
+        const totalBytes = recombinedFiles.reduce(
+          (sum, file) => sum + file.fileData.byteLength,
+          0
+        );
+        let zippedBytes = 0;
+        let workerZippedBytes = Array(numWorkers).fill(0);
+        const zippedBytesBeforeFinal = zippedBytes;
+        let finalZipTotal = 0;
+
         // Launch all workers
         const workerPromises = fileChunks.map((chunk, idx) => {
           return new Promise((resolve) => {
@@ -439,11 +449,9 @@
 
             worker.onmessage = (e) => {
               if (e.data.type === "progress") {
-                progressByWorker[idx] = e.data.percent;
-                // Aggregate progress
-                totalProgress =
-                  progressByWorker.reduce((a, b) => a + b, 0) / numWorkers;
-                updateProgress("Zipping", totalProgress, 90, startTime);
+                workerZippedBytes[idx] += e.data.loaded;
+                zippedBytes = workerZippedBytes.reduce((a, b) => a + b, 0);
+                updateProgress("Zipping", zippedBytes, totalBytes, startTime);
               } else if (e.data.type === "done") {
                 worker.terminate();
                 resolve(e.data.zipBlob);
@@ -469,15 +477,14 @@
             compression: "STORE",
           },
           (metadata) => {
-            // Calculate overall progress: workers (90%) + final zip (10%)
-            // You can adjust the ratio as needed
-            const workerProgress =
-              progressByWorker.reduce((a, b) => a + b, 0) / numWorkers;
-            const finalZipProgress = metadata.percent || 0;
-            // Weighted: 90% workers, 10% final zip
-            const overallProgress =
-              workerProgress * 0.9 + finalZipProgress * 0.1;
-            updateProgress("Zipping", overallProgress, 100, startTime);
+            // metadata.loaded and metadata.total are for the final zip step
+            finalZipTotal = metadata.total;
+            updateProgress(
+              "Zipping",
+              zippedBytesBeforeFinal + metadata.loaded,
+              zippedBytesBeforeFinal + metadata.total,
+              startTime
+            );
           }
         );
 
