@@ -6,18 +6,24 @@ importScripts(
 self.onmessage = async function (e) {
   const { files } = e.data;
   const zip = new JSZip();
-  files.forEach((file) => zip.file(file.fileName, file.fileData));
-  let lastLoaded = 0;
+
+  files.forEach((file) => {
+    zip.file(file.fileName, file.fileData);
+  });
+
+  const startTime = Date.now();
+
   const zipBlob = await zip.generateAsync(
     { type: "blob", compression: "STORE" },
     (metadata) => {
-      // metadata.loaded is bytes zipped so far
       self.postMessage({
         type: "progress",
-        loaded: metadata.loaded - lastLoaded,
+        percent: metadata.percent,
+        startTime,
       });
-      lastLoaded = metadata.loaded;
     }
   );
-  self.postMessage({ type: "done", zipBlob });
+
+//   self.postMessage({ type: "done", zipBlob }, [zipBlob]);
+    self.postMessage({ type: "done", zipBlob });
 };

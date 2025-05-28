@@ -426,16 +426,6 @@
         let totalProgress = 0;
         let progressByWorker = Array(numWorkers).fill(0);
 
-        // Calculate total bytes to be zipped
-        const totalBytes = recombinedFiles.reduce(
-          (sum, file) => sum + file.fileData.byteLength,
-          0
-        );
-        let zippedBytes = 0;
-        let workerZippedBytes = Array(numWorkers).fill(0);
-        const zippedBytesBeforeFinal = zippedBytes;
-        let finalZipTotal = 0;
-
         // Launch all workers
         const workerPromises = fileChunks.map((chunk, idx) => {
           return new Promise((resolve) => {
@@ -449,9 +439,12 @@
 
             worker.onmessage = (e) => {
               if (e.data.type === "progress") {
-                workerZippedBytes[idx] += e.data.loaded;
-                zippedBytes = workerZippedBytes.reduce((a, b) => a + b, 0);
-                updateProgress("Zipping", zippedBytes, totalBytes, startTime);
+                progressByWorker[idx] = e.data.percent;
+                // Aggregate progress, cap at 50%
+                totalProgress =
+                  (progressByWorker.reduce((a, b) => a + b, 0) / numWorkers) *
+                  0.5;
+                updateProgress("Zipping", totalProgress, 100, startTime);
               } else if (e.data.type === "done") {
                 worker.terminate();
                 resolve(e.data.zipBlob);
@@ -477,14 +470,14 @@
             compression: "STORE",
           },
           (metadata) => {
-            // metadata.loaded and metadata.total are for the final zip step
-            finalZipTotal = metadata.total;
-            updateProgress(
-              "Zipping",
-              zippedBytesBeforeFinal + metadata.loaded,
-              zippedBytesBeforeFinal + metadata.total,
-              startTime
-            );
+            // Calculate overall progress: workers (50%) + final zip (50%)
+            const workerProgress =
+              progressByWorker.reduce((a, b) => a + b, 0) / numWorkers;
+            const finalZipProgress = metadata.percent || 0;
+            // Weighted: 50% workers, 50% final zip
+            const overallProgress =
+              workerProgress * 0.5 + finalZipProgress * 0.5;
+            updateProgress("Zipping", overallProgress, 100, startTime);
           }
         );
 
