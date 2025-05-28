@@ -90,7 +90,7 @@
         </div>
         <div id="etaText">ETA:</div>
       </div>
-      <div id="processingMessage">Downloading..</div>
+      <div id="processingMessage">Downloading...</div>
       <button id="downloadButton">Download book</button>
       <span id="fetchTimeText"></span>
     </div>
@@ -408,7 +408,7 @@
         const processingMessage = document.getElementById("processingMessage");
         processingMessage.style.display = "inline"; // Show processing message
 
-        // Add all files to the zip (no need for async/await here)
+        // Add all files to the zip
         recombinedFiles.forEach((file) => {
           zip.file(file.fileName, file.fileData);
         });
@@ -421,14 +421,11 @@
         downloadButton.style.display = "inline";
         processingMessage.style.display = "none"; // Hide processing message
 
-        // Remove previous event listeners to avoid duplicates
-        downloadButton.replaceWith(downloadButton.cloneNode(true));
-        const newDownloadButton = document.getElementById("downloadButton");
-        newDownloadButton.style.display = "inline";
-        newDownloadButton.addEventListener("click", () => {
+        // Remove previous event listeners by assigning a new function
+        downloadButton.onclick = () => {
           console.log("Download button clicked");
           downloadAllFiles(zipBlob);
-        });
+        };
       }
 
       function arrayBufferToBase64(buffer) {
