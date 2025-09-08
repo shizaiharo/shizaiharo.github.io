@@ -414,6 +414,7 @@
                 artist: bookData ? bookData.artist : "Unknown Artist",
                 categories: bookData ? bookData.categories : [],
                 tags: bookData ? bookData.tags : {},
+                video_ids: bookData ? bookData.video_ids : [],
                 hasBookData: !!bookData,
               };
             })
@@ -636,10 +637,8 @@
             : "No categories";
 
         const videoIdsText =
-          thumbnail.tags &&
-          thumbnail.tags.video_ids &&
-          thumbnail.tags.video_ids.length > 0
-            ? thumbnail.tags.video_ids.join(", ")
+          thumbnail.video_ids && thumbnail.video_ids.length > 0
+            ? thumbnail.video_ids.join(", ")
             : "No video IDs";
 
         alert(
