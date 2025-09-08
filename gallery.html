@@ -245,21 +245,18 @@
       function decryptXOR(encryptedData, key) {
         console.log("Decrypting with key:", key);
         console.log("Encrypted data length:", encryptedData.length);
-
-        // Match Python logic exactly:
-        // key = key[::-1]  (reverse the string first)
-        // key = key.encode('utf-8')  (then encode to bytes)
-
+        
         if (typeof key === "string") {
-          // Step 1: Reverse the string (same as Python key[::-1])
-          key = key.split("").reverse().join("");
-          console.log("Reversed key string:", key);
-
-          // Step 2: Encode to UTF-8 bytes (same as Python key.encode('utf-8'))
           key = new TextEncoder().encode(key);
         }
-
-        console.log("Key bytes after reversal and encoding:", Array.from(key));
+        
+        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
+        key = key.slice(0, 16);
+        console.log("Key bytes (truncated to 16):", Array.from(key));
+        
+        // Reverse the key (same as Python key[::-1])
+        key = Array.from(key).reverse();
+        console.log("Reversed key bytes:", key);
 
         const decryptedData = new Uint8Array(encryptedData.length);
         const keyLen = key.length;
@@ -268,10 +265,7 @@
           decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
         }
 
-        console.log(
-          "Decrypted data first 20 bytes:",
-          Array.from(decryptedData.slice(0, 20))
-        );
+        console.log("Decrypted data first 20 bytes:", Array.from(decryptedData.slice(0, 20)));
         return decryptedData;
       }
 
