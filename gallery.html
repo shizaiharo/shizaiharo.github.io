@@ -4,10 +4,11 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gallery - Thumbnail Browser</title>
+
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -16,296 +17,178 @@
       }
 
       .header {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 20px;
-        padding: 10px;
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        flex-wrap: wrap;
+        gap: 15px;
+      }
+
+      .header h1 {
+        margin: 0;
+        color: #333;
       }
 
       .controls {
         display: flex;
         gap: 10px;
         align-items: center;
+        flex-wrap: wrap;
       }
 
-      .search-box {
+      .search-input,
+      .decrypt-input {
         padding: 8px 12px;
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 14px;
       }
 
-      .back-button {
+      .search-input {
+        width: 250px;
+      }
+
+      .decrypt-input {
+        width: 150px;
+      }
+
+      .btn {
         padding: 8px 16px;
-        background-color: #6c757d;
-        color: white;
         border: none;
         border-radius: 4px;
         cursor: pointer;
+        font-size: 14px;
         text-decoration: none;
         display: inline-block;
       }
 
-      .token-section {
-        display: none; /* Hidden since Firebase has public read access */
-      }
-
-      .token-input {
-        padding: 10px 15px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        width: 250px;
-        margin-right: 10px;
-      }
-
-      .token-button {
-        padding: 10px 20px;
-        background-color: #007bff;
+      .btn-primary {
+        background: #007bff;
         color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 14px;
       }
 
-      .token-button:hover {
-        background-color: #0056b3;
+      .btn-secondary {
+        background: #6c757d;
+        color: white;
       }
 
-      .gallery-content {
-        display: block; /* Always visible since Firebase has public read access */
+      .btn:hover {
+        opacity: 0.9;
       }
 
-      .back-button:hover {
-        background-color: #5a6268;
-      }
-
-      .gallery-container {
+      .gallery {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 20px;
-        margin-top: 20px;
       }
 
-      .thumbnail-item {
+      .book-item {
         background: white;
         border-radius: 8px;
-        padding: 15px;
+        overflow: hidden;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        text-align: center;
-        transition: transform 0.2s, box-shadow 0.2s;
-        cursor: pointer;
+        transition: transform 0.2s;
       }
 
-      .thumbnail-item:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      .book-item:hover {
+        transform: translateY(-5px);
+      }
+
+      .thumbnail-wrapper {
+        position: relative;
+        aspect-ratio: 3/4;
+        overflow: hidden;
       }
 
       .thumbnail-image {
         width: 100%;
-        height: 250px;
+        height: 100%;
         object-fit: cover;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
+        background: #f8f9fa;
+      }
+
+      .loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #666;
+        font-size: 12px;
+      }
+
+      .book-info {
+        padding: 12px;
       }
 
       .book-number {
         font-weight: bold;
-        font-size: 16px;
-        color: #333;
-        margin-bottom: 5px;
+        color: #007bff;
+        font-size: 12px;
       }
 
       .book-title {
-        font-size: 12px;
-        color: #666;
-        word-wrap: break-word;
-        max-height: 40px;
-        overflow: hidden;
+        font-size: 14px;
+        margin: 5px 0;
+        font-weight: 500;
+        line-height: 1.3;
       }
 
-      .loading {
+      .book-artist {
+        font-size: 12px;
+        color: #666;
+      }
+
+      .status {
         text-align: center;
         padding: 40px;
-        font-size: 16px;
         color: #666;
       }
 
       .error {
-        text-align: center;
-        padding: 40px;
         color: #dc3545;
-        background-color: #f8d7da;
-        border: 1px solid #f5c6cb;
-        border-radius: 4px;
-        margin: 20px 0;
-      }
-
-      .no-thumbnails {
-        text-align: center;
-        padding: 40px;
-        color: #6c757d;
-        font-size: 16px;
-      }
-
-      .encryption-input {
-        padding: 8px 12px;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        font-size: 14px;
-        width: 200px;
-      }
-
-      .decrypt-button {
-        padding: 8px 16px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-left: 10px;
-      }
-
-      .decrypt-button:hover {
-        background-color: #0056b3;
-      }
-
-      .decrypt-button:disabled {
-        background-color: #6c757d;
-        cursor: not-allowed;
       }
     </style>
   </head>
   <body>
-    <!-- Firebase Token Section -->
-    <div id="tokenSection" class="token-section">
-      <h2>Gallery Access</h2>
-      <p>Upload your Firebase service account JSON file</p>
-
-      <!-- File Upload Option -->
-      <div
-        style="
-          margin-bottom: 15px;
-          padding: 15px;
-          border: 2px dashed #007bff;
-          border-radius: 8px;
-          text-align: center;
-          background-color: #f8f9fa;
-        "
-      >
-        <p style="margin: 0 0 15px 0; font-size: 16px; color: #333">
-          📁 Select Firebase JSON file
-        </p>
+    <div class="header">
+      <h1>Gallery</h1>
+      <div class="controls">
         <input
-          type="file"
-          id="tokenFileInput"
-          accept=".json"
-          style="margin-bottom: 15px"
-          onchange="handleTokenFile(event)"
+          type="text"
+          id="searchInput"
+          class="search-input"
+          placeholder="Search by title, book number, or tags..."
+          onkeyup="searchBooks()"
         />
-        <br />
-        <button
-          onclick="loadTokenFromFile()"
-          class="token-button"
-          id="fileTokenButton"
-          disabled
-        >
-          Load Firebase Token
+        <input
+          type="password"
+          id="decryptKey"
+          class="decrypt-input"
+          placeholder="Decrypt key..."
+        />
+        <button class="btn btn-primary" onclick="decryptThumbnails()">
+          Decrypt
         </button>
+        <a href="#" id="backButton" class="btn btn-secondary">Back</a>
       </div>
-
-      <p style="font-size: 12px; color: #666">
-        For testing:
-        <a href="#" onclick="testServiceAccount()" style="color: #007bff"
-          >test with sample service account</a
-        >
-        or
-        <a href="#" onclick="bypassFirebaseAuth()" style="color: #007bff"
-          >bypass authentication</a
-        >
-      </p>
-
-      <!-- JSON File Format Info -->
-      <details style="font-size: 11px; color: #888; margin-top: 10px">
-        <summary style="cursor: pointer">
-          Firebase JSON format (downloaded from Firebase)
-        </summary>
-        <pre
-          style="
-            background: #f5f5f5;
-            padding: 8px;
-            margin: 5px 0;
-            border-radius: 3px;
-          "
-        >
-{
-  "type": "service_account",
-  "project_id": "your-project-id",
-  "private_key_id": "key-id",
-  "private_key": "-----BEGIN PRIVATE KEY-----\n...",
-  "client_email": "service-account@project.iam.gserviceaccount.com",
-  "client_id": "...",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token"
-}</pre
-        >
-        <p style="margin: 5px 0; font-size: 10px">
-          This is the service account JSON downloaded from Firebase Console
-        </p>
-      </details>
     </div>
 
-    <!-- Gallery Content (hidden until token is validated) -->
-    <div id="galleryContent" class="gallery-content">
-      <div class="header">
-        <h2>Gallery - Thumbnail Browser</h2>
-        <div class="controls">
-          <input
-            type="text"
-            id="searchInput"
-            class="search-box"
-            placeholder="Search by title, tags, or book number..."
-            onkeyup="filterThumbnails()"
-          />
-          <input
-            type="password"
-            id="encryptionKey"
-            class="encryption-input"
-            placeholder="Enter encryption key..."
-          />
-          <button class="decrypt-button" onclick="decryptThumbnails()">
-            Decrypt Thumbnails
-          </button>
-          <a href="#" id="backButton" class="back-button">Back to Main</a>
-        </div>
-      </div>
-
-      <div id="loadingMessage" class="loading">Loading thumbnails...</div>
-      <div id="errorMessage" class="error" style="display: none"></div>
-      <div id="noThumbnailsMessage" class="no-thumbnails" style="display: none">
-        No thumbnails found
-      </div>
-      <div id="galleryContainer" class="gallery-container"></div>
-    </div>
-    <!-- End of galleryContent -->
+    <div id="status" class="status">Loading...</div>
+    <div id="gallery" class="gallery"></div>
 
     <script>
+      // Global variables
       let githubToken = "";
-      let firebaseToken = "";
-      let tokenType = "";
-      let thumbnailsData = [];
-      let encryptionKey = "";
+      let booksData = [];
+      let filteredBooks = [];
       let db = null;
 
-      // Firebase configuration (public config - safe to expose)
+      // Firebase config
       const firebaseConfig = {
         apiKey: "AIzaSyBgHpfJmeGjIS51nXKzFey5jI5LlkWwULc",
         authDomain: "cloud-2f6b2.firebaseapp.com",
@@ -319,216 +202,190 @@
       };
 
       // Initialize Firebase
-      try {
-        firebase.initializeApp(firebaseConfig);
-        db = firebase.firestore();
+      firebase.initializeApp(firebaseConfig);
+      db = firebase.firestore();
 
-        // Initialize Firebase Auth
-        const auth = firebase.auth();
+      // Get GitHub token from URL
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get("token");
+        const type = urlParams.get("type");
 
-        console.log("Firebase initialized successfully");
-      } catch (error) {
-        console.error("Firebase initialization failed:", error);
+        if (token && type === "github") {
+          githubToken = token;
+          console.log("GitHub token received");
+        }
+
+        // Set back button URL
+        const backUrl = token
+          ? `index.html?token=${encodeURIComponent(token)}&type=${type}`
+          : "index.html";
+        document.getElementById("backButton").href = backUrl;
       }
 
-      // Load thumbnails from Firebase
-      async function loadThumbnailsFromFirebase() {
+      // Load books from Firebase
+      async function loadBooks() {
         try {
-          console.log("Attempting to load books from Firebase...");
-
-          // Try to access the Book collection
+          console.log("Loading books from Firebase...");
           const querySnapshot = await db.collection("Book").get();
-          thumbnailsData = [];
 
-          if (querySnapshot.empty) {
-            console.log("No books found in Firebase collection");
-
-            // Hide loading message
-            const loadingElement = document.getElementById("loadingMessage");
-            if (loadingElement) loadingElement.style.display = "none";
-
-            displayThumbnails([]); // Show empty gallery
-            return;
-          }
-
+          booksData = [];
           querySnapshot.forEach((doc) => {
             const data = doc.data();
-            const bookData = {
-              id: doc.id,
-              ...data,
-            };
-
-            // Debug: Log the first book's data structure
-            if (thumbnailsData.length === 0) {
-              console.log("First book data structure:", bookData);
-              console.log("Available fields:", Object.keys(bookData));
+            // Only include books that have thumbnail_url
+            if (data.thumbnail_url) {
+              booksData.push({
+                id: doc.id,
+                ...data,
+              });
             }
-
-            thumbnailsData.push(bookData);
           });
 
-          console.log(`Loaded ${thumbnailsData.length} books from Firebase`);
-
-          // Hide loading message
-          const loadingElement = document.getElementById("loadingMessage");
-          if (loadingElement) loadingElement.style.display = "none";
-
-          displayThumbnails(thumbnailsData);
+          console.log(`Loaded ${booksData.length} books with thumbnails`);
+          filteredBooks = [...booksData];
+          displayBooks();
         } catch (error) {
-          console.error("Error loading books from Firebase:", error);
-
-          // Hide loading message
-          const loadingElement = document.getElementById("loadingMessage");
-          if (loadingElement) loadingElement.style.display = "none";
-
-          // Show error message to user
-          const container = document.getElementById("galleryContainer");
-          if (container) {
-            container.innerHTML = `
-              <div style="text-align: center; color: #dc3545; padding: 40px;">
-                <h3>Error Loading Gallery</h3>
-                <p>Failed to load books from Firebase.</p>
-                <p><small>Error: ${error.message}</small></p>
-                <p>Please check your Firebase authentication and try again.</p>
-              </div>
-            `;
-          }
+          console.error("Error loading books:", error);
+          document.getElementById("status").innerHTML =
+            '<div class="error">Error loading books from Firebase</div>';
         }
       }
 
-      // Display thumbnails with Firebase data
-      function displayThumbnails(books) {
-        const container = document.getElementById("galleryContainer");
-        container.innerHTML = "";
+      // Display books in gallery
+      function displayBooks() {
+        const gallery = document.getElementById("gallery");
+        const status = document.getElementById("status");
 
-        if (books.length === 0) {
-          container.innerHTML =
-            '<p style="text-align: center; color: #666;">No books found.</p>';
+        if (filteredBooks.length === 0) {
+          status.textContent = "No books found with thumbnails.";
+          gallery.innerHTML = "";
           return;
         }
 
-        books.forEach((book, index) => {
-          const div = document.createElement("div");
-          div.className = "thumbnail-item";
+        status.style.display = "none";
 
-          // Debug: Log the first few books' data
-          if (index < 3) {
-            console.log(`Book ${index + 1} data:`, book);
-          }
+        gallery.innerHTML = filteredBooks
+          .map((book) => {
+            const title = book.title || "Unknown Title";
+            const artist = getArtist(book.tags);
 
-          // Get title (Firebase stores as 'title')
-          const title = book.title || "Unknown Title";
+            return `
+                    <div class="book-item">
+                        <div class="thumbnail-wrapper">
+                            <img class="thumbnail-image" 
+                                 src="data:image/svg+xml;base64,${btoa(
+                                   '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#666">Loading...</text></svg>'
+                                 )}"
+                                 data-thumbnail-url="${book.thumbnail_url}"
+                                 data-book-id="${book.id}"
+                                 alt="Book ${book.id}">
+                            <div class="loading">Loading...</div>
+                        </div>
+                        <div class="book-info">
+                            <div class="book-number">#${book.id}</div>
+                            <div class="book-title">${escapeHtml(title)}</div>
+                            <div class="book-artist">${escapeHtml(artist)}</div>
+                        </div>
+                    </div>
+                `;
+          })
+          .join("");
 
-          // Get artist from tags (look for 'artist' category)
-          let artist = "Unknown Artist";
-          if (book.tags && typeof book.tags === "object") {
-            if (book.tags.artist && Array.isArray(book.tags.artist)) {
-              artist = book.tags.artist.join(", ");
-            } else if (book.tags.creator && Array.isArray(book.tags.creator)) {
-              artist = book.tags.creator.join(", ");
-            } else if (book.tags.author && Array.isArray(book.tags.author)) {
-              artist = book.tags.author.join(", ");
-            }
-          }
-
-          // Get book number (Firebase uses document ID)
-          const bookNumber = book.id || "N/A";
-
-          div.innerHTML = `
-            <div class="thumbnail-wrapper">
-              <img class="thumbnail-image" data-book-id="${bookNumber}" alt="Loading..." />
-              <div class="loading-overlay">Loading...</div>
-            </div>
-            <div class="book-info">
-              <div class="book-number">#${bookNumber}</div>
-              <div class="book-title">${title}</div>
-              <div class="book-artist">${artist}</div>
-            </div>
-          `;
-
-          container.appendChild(div);
-        });
-
-        // Load actual thumbnail images
-        loadThumbnailImages();
+        // Load thumbnails
+        loadThumbnails();
       }
 
-      // Load and decrypt thumbnail images from GitHub
-      async function loadThumbnailImages() {
-        if (!githubToken) {
-          console.warn("No GitHub token available for thumbnail loading");
-          return;
-        }
+      // Extract artist from tags
+      function getArtist(tags) {
+        if (!tags || typeof tags !== "object") return "Unknown Artist";
 
+        const artistFields = ["artist", "creator", "author"];
+        for (const field of artistFields) {
+          if (
+            tags[field] &&
+            Array.isArray(tags[field]) &&
+            tags[field].length > 0
+          ) {
+            return tags[field].join(", ");
+          }
+        }
+        return "Unknown Artist";
+      }
+
+      // Escape HTML
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
+      }
+
+      // Load thumbnails
+      async function loadThumbnails() {
         const images = document.querySelectorAll(".thumbnail-image");
 
-        for (let img of images) {
+        for (const img of images) {
+          const thumbnailUrl = img.dataset.thumbnailUrl;
           const bookId = img.dataset.bookId;
+
           try {
-            await loadSingleThumbnail(img, bookId);
+            await loadThumbnail(img, thumbnailUrl);
           } catch (error) {
             console.error(
               `Failed to load thumbnail for book ${bookId}:`,
               error
             );
-            img.src =
-              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0iI2Y0ZjRmNCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=";
+            img.src = `data:image/svg+xml;base64,${btoa(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">Load Error</text></svg>'
+            )}`;
           }
+
+          // Hide loading indicator
+          const loading = img.parentElement.querySelector(".loading");
+          if (loading) loading.style.display = "none";
         }
       }
 
-      // Load a single thumbnail from GitHub and decrypt it
-      async function loadSingleThumbnail(imgElement, bookId) {
-        const loadingOverlay =
-          imgElement.parentElement.querySelector(".loading-overlay");
+      // Load single thumbnail
+      async function loadThumbnail(img, thumbnailUrl, decrypt = false) {
+        const headers = githubToken
+          ? { Authorization: `token ${githubToken}` }
+          : {};
+        const response = await fetch(thumbnailUrl, { headers });
 
-        try {
-          // Show loading
-          if (loadingOverlay) loadingOverlay.style.display = "block";
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
 
-          // Get thumbnail from GitHub API
-          const apiUrl = `https://api.github.com/repos/hsiaofongw/thumbnails/contents/${bookId}.png`;
-          const response = await fetch(apiUrl, {
-            headers: {
-              Authorization: `token ${githubToken}`,
-              Accept: "application/vnd.github.v3+json",
-            },
-          });
+        if (decrypt) {
+          const encryptedData = new Uint8Array(await response.arrayBuffer());
+          const decryptKey = document.getElementById("decryptKey").value.trim();
 
-          if (!response.ok) {
-            throw new Error(`GitHub API error: ${response.status}`);
+          if (!decryptKey) {
+            throw new Error("Decrypt key required");
           }
 
-          const data = await response.json();
-
-          // Decode base64 content
-          const binaryString = atob(data.content.replace(/\s/g, ""));
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-
-          // Create blob and URL
-          const blob = new Blob([bytes], { type: "image/png" });
-          const url = URL.createObjectURL(blob);
-
-          // Set image source
-          imgElement.src = url;
-          imgElement.dataset.encrypted = "true";
-
-          // Hide loading
-          if (loadingOverlay) loadingOverlay.style.display = "none";
-        } catch (error) {
-          console.error(`Error loading thumbnail for ${bookId}:`, error);
-          // Hide loading and show error placeholder
-          if (loadingOverlay) loadingOverlay.style.display = "none";
-          imgElement.src =
-            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0iI2Y0ZjRmNCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=";
-          throw error;
+          const decryptedData = decryptXOR(encryptedData, decryptKey);
+          const blob = new Blob([decryptedData], { type: "image/png" });
+          img.src = URL.createObjectURL(blob);
+        } else {
+          const blob = await response.blob();
+          img.src = URL.createObjectURL(blob);
         }
       }
 
-      // Search function for Firebase data
+      // XOR decryption
+      function decryptXOR(data, key) {
+        const keyBytes = new TextEncoder().encode(key).slice(0, 16);
+        const result = new Uint8Array(data.length);
+
+        for (let i = 0; i < data.length; i++) {
+          result[i] = data[i] ^ keyBytes[i % keyBytes.length];
+        }
+
+        return result;
+      }
+
+      // Search books
       function searchBooks() {
         const query = document
           .getElementById("searchInput")
@@ -536,564 +393,62 @@
           .trim();
 
         if (!query) {
-          displayThumbnails(thumbnailsData);
-          return;
-        }
-
-        const filteredBooks = thumbnailsData.filter((book) => {
-          const title = (book.title || "").toLowerCase();
-          const bookNumber = (book.id || "").toString();
-
-          // Extract artist from tags structure
-          let artist = "";
-          if (book.tags && typeof book.tags === "object") {
-            if (book.tags.artist && Array.isArray(book.tags.artist)) {
-              artist = book.tags.artist.join(" ").toLowerCase();
-            } else if (book.tags.creator && Array.isArray(book.tags.creator)) {
-              artist = book.tags.creator.join(" ").toLowerCase();
-            } else if (book.tags.author && Array.isArray(book.tags.author)) {
-              artist = book.tags.author.join(" ").toLowerCase();
-            }
-          }
-
-          // Search in all tag categories
-          let allTags = "";
-          if (book.tags && typeof book.tags === "object") {
-            allTags = JSON.stringify(book.tags).toLowerCase();
-          }
-
-          return (
-            title.includes(query) ||
-            artist.includes(query) ||
-            allTags.includes(query) ||
-            bookNumber.includes(query)
-          );
-        });
-
-        displayThumbnails(filteredBooks);
-      }
-
-      // Legacy function for compatibility
-      function filterThumbnails() {
-        searchBooks();
-      }
-
-      // Bypass authentication for testing
-      function bypassFirebaseAuth() {
-        if (
-          confirm(
-            "Bypass Firebase authentication? This is for testing purposes only."
-          )
-        ) {
-          firebaseToken = "bypass_auth_token";
-          proceedToGallery();
-        }
-      }
-
-      // Test with sample service account
-      function testServiceAccount() {
-        const sampleServiceAccount = {
-          type: "service_account",
-          project_id: "cloud-2f6b2",
-          private_key_id: "sample_key_id",
-          private_key:
-            "-----BEGIN PRIVATE KEY-----\nsample_private_key_content\n-----END PRIVATE KEY-----\n",
-          client_email: "firebase-adminsdk@cloud-2f6b2.iam.gserviceaccount.com",
-        };
-
-        firebaseToken = sampleServiceAccount.private_key;
-        console.log("Testing with sample service account");
-        proceedToGallery();
-      }
-
-      // Proceed to gallery (simplified since no authentication needed)
-      function proceedToGallery() {
-        setupGallery();
-      }
-
-      // File upload handling
-      let uploadedTokenData = null;
-
-      function handleTokenFile(event) {
-        const file = event.target.files[0];
-        const button = document.getElementById("fileTokenButton");
-
-        if (file && file.type === "application/json") {
-          button.disabled = false;
-          button.textContent = `Load from ${file.name}`;
+          filteredBooks = [...booksData];
         } else {
-          button.disabled = true;
-          button.textContent = "Load Firebase Token";
-          if (file) {
-            alert("Please select a valid JSON file.");
-          }
-        }
-      }
+          filteredBooks = booksData.filter((book) => {
+            const title = (book.title || "").toLowerCase();
+            const bookId = book.id.toLowerCase();
+            const artist = getArtist(book.tags).toLowerCase();
 
-      async function loadTokenFromFile() {
-        const fileInput = document.getElementById("tokenFileInput");
-        const file = fileInput.files[0];
-
-        if (!file) {
-          alert("Please select a Firebase JSON file first.");
-          return;
-        }
-
-        try {
-          const text = await file.text();
-          const firebaseData = JSON.parse(text);
-
-          // Check if it's a Firebase service account JSON
-          if (
-            firebaseData.type === "service_account" &&
-            firebaseData.private_key
-          ) {
-            // Use the private_key as our Firebase token for authentication
-            firebaseToken = firebaseData.private_key;
-            console.log("Firebase service account loaded from file");
-          } else if (firebaseData.firebaseToken) {
-            // Fallback: if it's a custom format with firebaseToken field
-            firebaseToken = firebaseData.firebaseToken;
-            console.log("Custom Firebase token loaded from file");
-          } else {
-            throw new Error(
-              "Invalid Firebase JSON format. Expected service account JSON or custom token format."
-            );
-          }
-
-          console.log("Firebase token loaded from file successfully");
-
-          // Automatically validate the token
-          await validateLoadedToken();
-        } catch (error) {
-          console.error("Error reading Firebase JSON file:", error);
-          alert(`Error reading Firebase JSON: ${error.message}`);
-        }
-      }
-
-      async function validateLoadedToken() {
-        try {
-          // Check for test token
-          if (firebaseToken === "test123456789012345") {
-            console.log(
-              "Using test token from file - bypassing Firebase authentication"
-            );
-            proceedToGallery();
-            return;
-          }
-
-          // Check for service account private key
-          if (firebaseToken.includes("-----BEGIN PRIVATE KEY-----")) {
-            console.log("Service account private key loaded from file");
-
-            // For client-side, we can't use service account directly
-            // Instead, we'll try anonymous auth or show instructions
-            await tryFirebaseAuth();
-            return;
-          }
-
-          // Basic validation for other token types
-          if (firebaseToken.length >= 20) {
-            console.log("Token from file appears valid");
-            await tryFirebaseAuth();
-            return;
-          }
-
-          throw new Error("Invalid token format in file");
-        } catch (error) {
-          console.error("File token validation error:", error);
-          alert(`Invalid token in file: ${error.message}`);
-        }
-      }
-
-      // Try Firebase authentication
-      async function tryFirebaseAuth() {
-        try {
-          // Skip authentication and try direct Firestore access
-          console.log("Attempting direct Firestore access...");
-
-          // Test if we can read from Firestore without authentication
-          const testQuery = await db.collection("Book").limit(1).get();
-
-          console.log("Firebase access successful without authentication");
-          proceedToGallery();
-        } catch (firestoreError) {
-          console.error("Direct Firestore access failed:", firestoreError);
-
-          // Try anonymous authentication as fallback
-          try {
-            console.log("Attempting anonymous authentication...");
-            const auth = firebase.auth();
-            await auth.signInAnonymously();
-
-            console.log("Firebase authentication successful");
-            proceedToGallery();
-          } catch (authError) {
-            console.error("Firebase authentication failed:", authError);
-
-            // Show instructions for setting up public access
-            showFirebaseSetupInstructions();
-          }
-        }
-      }
-
-      // Show setup instructions
-      function showFirebaseSetupInstructions() {
-        const container = document.getElementById("galleryContainer");
-        if (container) {
-          container.innerHTML = `
-            <div style="text-align: center; padding: 40px; max-width: 700px; margin: 0 auto;">
-              <h3 style="color: #ff6b35; margin-bottom: 20px;">🔧 Firebase Setup Required</h3>
-              <p style="margin-bottom: 20px;"><strong>Error:</strong> Admin-restricted operation or insufficient permissions.</p>
-              
-              <div style="text-align: left; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h4 style="color: #333; margin-bottom: 15px;">Solution 1: Enable Public Read Access</h4>
-                <p style="margin-bottom: 10px;"><strong>Go to Firebase Console → Firestore → Rules and update to:</strong></p>
-                <pre style="background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 5px; overflow-x: auto;">rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /Book/{document} {
-      allow read: if true;  // Allow public read
-      allow write: if false; // Keep write protected
-    }
-  }
-}</pre>
-                <p style="font-size: 12px; color: #666; margin-top: 10px;">This allows reading Book documents without authentication</p>
-              </div>
-
-              <div style="text-align: left; background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h4 style="color: #333; margin-bottom: 15px;">Solution 2: Enable Anonymous Authentication</h4>
-                <p>Go to Firebase Console → Authentication → Sign-in method → Anonymous → Enable</p>
-              </div>
-
-              <div style="text-align: left; background: #e6fffa; padding: 20px; border-radius: 8px; margin: 20px 0;">
-                <h4 style="color: #333; margin-bottom: 15px;">Why This Happens</h4>
-                <p>Your <code>FRB.py</code> uses Firebase Admin SDK (server-side) with full privileges.</p>
-                <p>Web browsers use Firebase Client SDK which requires proper authentication setup.</p>
-              </div>
-
-              <button onclick="location.reload()" style="background: #4299e1; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin-top: 20px;">
-                Refresh After Setup
-              </button>
-            </div>
-          `;
-        }
-      }
-
-      function setupGallery() {
-        console.log("Setting up gallery...");
-
-        // Set up back button
-        const backUrl = githubToken
-          ? `index.html?token=${encodeURIComponent(
-              githubToken
-            )}&type=${tokenType}`
-          : "index.html";
-        document.getElementById("backButton").href = backUrl;
-
-        // Show loading message
-        const loadingElement = document.getElementById("loadingMessage");
-        if (loadingElement) {
-          loadingElement.style.display = "block";
-          loadingElement.textContent = "Loading gallery from Firebase...";
-        }
-
-        // Load thumbnails from Firebase
-        console.log("Calling loadThumbnailsFromFirebase...");
-        loadThumbnailsFromFirebase();
-      }
-
-      // XOR Decryption function (same as your Python implementation)
-      function decryptXOR(encryptedData, key) {
-        console.log("Decrypting with key:", key);
-        console.log("Encrypted data length:", encryptedData.length);
-
-        if (typeof key === "string") {
-          key = new TextEncoder().encode(key);
-        }
-
-        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
-        key = key.slice(0, 16);
-        console.log("Key bytes (truncated to 16):", Array.from(key));
-
-        // Reverse the key (same as Python key[::-1])
-        key = Array.from(key).reverse();
-        console.log("Reversed key bytes:", key);
-
-        const decryptedData = new Uint8Array(encryptedData.length);
-        const keyLen = key.length;
-
-        for (let i = 0; i < encryptedData.length; i++) {
-          decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
-        }
-
-        console.log(
-          "Decrypted data first 20 bytes:",
-          Array.from(decryptedData.slice(0, 20))
-        );
-        return decryptedData;
-      }
-
-      // Get token from URL parameters
-      function getTokenFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        token = urlParams.get("token");
-        tokenType = urlParams.get("type") || "firebase";
-
-        if (!token) {
-          alert("No token found. Redirecting to main page.");
-          window.location.href = "index.html";
-          return;
-        }
-
-        // Set back button link
-        document.getElementById(
-          "backButton"
-        ).href = `index.html?token=${encodeURIComponent(
-          token
-        )}&type=${tokenType}`;
-
-        // Load thumbnails from Firebase
-        loadThumbnailsFromFirebase();
-      }
-
-      // Load thumbnails from Firebase collection
-      async function loadThumbnailsFromFirebase() {
-        try {
-          console.log("Attempting to load books from Firebase...");
-
-          if (!db) {
-            throw new Error("Firebase not initialized");
-          }
-
-          // Try to access the Book collection
-          const booksSnapshot = await db.collection("Book").get();
-
-          if (booksSnapshot.empty) {
-            console.log("No books found in Firebase collection");
-            displayThumbnails([]); // Show empty gallery
-            return;
-          }
-
-          // Process Firebase documents into thumbnails data
-          thumbnailsData = [];
-          booksSnapshot.forEach((doc) => {
-            const data = doc.data();
-            const bookNumber = doc.id; // Document ID is the book number
-
-            // Create thumbnail data object
-            const thumbnailData = {
-              bookNumber: bookNumber,
-              title: data.title || "Unknown Title",
-              uploadTime: data.upload_time || data.uploadTime || "Unknown",
-              downloadTime:
-                data.download_time || data.downloadTime || "Unknown",
-              tags: data.tags || {},
-              thumbnailUrl: data.thumbnail_url || data.thumbnailUrl || null,
-              videoIds: data.video_ids || data.videoIds || [],
-              encrypted: data.encrypted || false,
-              filePath: data.file_path || data.filePath || "",
-            };
-
-            thumbnailsData.push(thumbnailData);
-          });
-
-          // Sort by book number
-          thumbnailsData.sort(
-            (a, b) => parseInt(a.bookNumber) - parseInt(b.bookNumber)
-          );
-
-          console.log(`Loaded ${thumbnailsData.length} books from Firebase`);
-          displayThumbnails(thumbnailsData);
-        } catch (error) {
-          console.error("Error loading books from Firebase:", error);
-
-          // Show enhanced error message to user
-          const container = document.getElementById("galleryContainer");
-          if (container) {
-            let errorTitle = "Firebase Connection Error";
-            let errorDetails = "";
-            let troubleshooting = "";
-
-            if (
-              error.message.includes("insufficient permissions") ||
-              error.message.includes("Missing or insufficient permissions")
-            ) {
-              errorTitle = "🔒 Firebase Permission Denied";
-              errorDetails =
-                "Your authentication doesn't have permission to access the Firebase database.";
-              troubleshooting = `
-                <div style="text-align: left; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #ffc107;">
-                  <strong>🔧 Possible solutions:</strong>
-                  <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>Check Firebase security rules in Firebase Console</li>
-                    <li>Ensure service account has Firestore permissions</li>
-                    <li>Verify project ID matches your Firebase project</li>
-                    <li>Contact administrator for database access</li>
-                  </ul>
-                </div>
-              `;
-            } else {
-              errorTitle = "⚠️ Firebase Connection Failed";
-              errorDetails = `Unable to connect to Firebase: ${error.message}`;
-              troubleshooting = `
-                <div style="text-align: left; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #17a2b8;">
-                  <strong>🔧 Try these steps:</strong>
-                  <ul style="margin: 10px 0; padding-left: 20px;">
-                    <li>Check your internet connection</li>
-                    <li>Verify Firebase configuration is correct</li>
-                    <li>Try refreshing the page</li>
-                    <li>Check browser console for more details</li>
-                  </ul>
-                </div>
-              `;
+            // Search in tags
+            let tagsText = "";
+            if (book.tags && typeof book.tags === "object") {
+              tagsText = JSON.stringify(book.tags).toLowerCase();
             }
 
-            container.innerHTML = `
-              <div style="text-align: center; padding: 40px; max-width: 600px; margin: 0 auto;">
-                <div style="color: #dc3545; margin-bottom: 20px;">
-                  <h3 style="margin-bottom: 15px;">${errorTitle}</h3>
-                  <p style="margin: 15px 0; font-size: 16px;">${errorDetails}</p>
-                </div>
-                ${troubleshooting}
-              </div>
-            `;
-          }
-        }
-      }
-
-      // Load and decrypt thumbnail from Firebase URL
-      async function loadAndDecryptThumbnail(imgElement, thumbnail) {
-        try {
-          if (!thumbnail.thumbnailUrl) {
-            console.log(
-              "No thumbnail URL found for book:",
-              thumbnail.bookNumber
+            return (
+              title.includes(query) ||
+              bookId.includes(query) ||
+              artist.includes(query) ||
+              tagsText.includes(query)
             );
-            imgElement.src = `data:image/svg+xml;base64,${btoa(`
-              <svg width="200" height="250" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
-                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">
-                  No Thumbnail
-                </text>
-              </svg>
-            `)}`;
-            return;
-          }
-
-          console.log("Loading thumbnail from URL:", thumbnail.thumbnailUrl);
-
-          // Fetch encrypted thumbnail from the URL stored in Firebase
-          const response = await fetch(thumbnail.thumbnailUrl);
-
-          if (!response.ok) {
-            throw new Error(`Failed to load thumbnail: ${response.status}`);
-          }
-
-          const encryptedData = new Uint8Array(await response.arrayBuffer());
-          console.log(
-            "Downloaded encrypted data length:",
-            encryptedData.length
-          );
-          console.log(
-            "First 20 bytes of encrypted data:",
-            Array.from(encryptedData.slice(0, 20))
-          );
-
-          const decryptedData = decryptXOR(encryptedData, encryptionKey);
-
-          // Try to detect if it's a valid image by checking magic bytes
-          const magicBytes = Array.from(decryptedData.slice(0, 4));
-          console.log("Decrypted magic bytes:", magicBytes);
-
-          const blob = new Blob([decryptedData]);
-          const objectUrl = URL.createObjectURL(blob);
-
-          imgElement.onload = () => URL.revokeObjectURL(objectUrl);
-          imgElement.onerror = () => {
-            URL.revokeObjectURL(objectUrl);
-            imgElement.src = `data:image/svg+xml;base64,${btoa(`
-              <svg width="200" height="250" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
-                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">
-                  Decrypt Failed
-                </text>
-              </svg>
-            `)}`;
-          };
-
-          imgElement.src = objectUrl;
-        } catch (error) {
-          console.error("Error decrypting thumbnail:", error);
-          imgElement.src =
-            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+TG9hZCBFcnJvcjwvdGV4dD48L3N2Zz4=";
+          });
         }
+
+        displayBooks();
       }
 
       // Decrypt all thumbnails
-      function decryptThumbnails() {
-        encryptionKey = document.getElementById("encryptionKey").value.trim();
-        if (!encryptionKey) {
-          alert("Please enter an encryption key.");
+      async function decryptThumbnails() {
+        const decryptKey = document.getElementById("decryptKey").value.trim();
+
+        if (!decryptKey) {
+          alert("Please enter a decrypt key.");
           return;
         }
 
-        // Re-display thumbnails with decryption
-        displayThumbnails(thumbnailsData);
-      }
+        const images = document.querySelectorAll(".thumbnail-image");
 
-      // Filter thumbnails by search (searches title, tags, and book number)
-      // Show thumbnail details with Firebase data
-      function showThumbnailDetails(thumbnail) {
-        const title = thumbnail.title || thumbnail.Title || "Unknown Title";
-        const artist = thumbnail.artist || thumbnail.Artist || "Unknown Artist";
-        const tags = thumbnail.tags || thumbnail.Tags || {};
-        const tagsText =
-          typeof tags === "object" ? JSON.stringify(tags, null, 2) : tags;
+        for (const img of images) {
+          const thumbnailUrl = img.dataset.thumbnailUrl;
+          const bookId = img.dataset.bookId;
 
-        alert(`Book Number: ${thumbnail.id || thumbnail.BookNumber}
-Title: ${title}
-Artist: ${artist}
-Tags: ${tagsText}
-Encrypted: ${thumbnail.encrypted ? "Yes" : "No"}
-Has Thumbnail: ${thumbnail.thumbnailUrl ? "Yes" : "No"}`);
-      }
-
-      // Check if GitHub token is provided via URL (from index.html)
-      function getTokensFromUrl() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const urlToken = urlParams.get("token") || "";
-        const urlTokenType = urlParams.get("type") || "";
-
-        if (urlToken && urlTokenType === "github") {
-          // GitHub token from index.html
-          githubToken = urlToken;
-          tokenType = urlTokenType;
-          console.log(
-            `Received GitHub token from URL: ${urlToken.substring(0, 10)}...`
-          );
-
-          // Since Firebase has public read access, go straight to gallery
-          setupGallery();
-          // } else if (urlToken && urlTokenType === "firebase") {
-          //   // Legacy support for Firebase tokens
-          //   firebaseToken = urlToken;
-          //   tokenType = urlTokenType;
-          //   console.log("Received Firebase token from URL");
-          //   setupGallery();
-          // } else {
-          //   console.log(
-          //     "No tokens found in URL, proceeding with public Firebase access"
-          //   );
-          // No token provided, but Firebase has public read access
-          setupGallery();
+          try {
+            await loadThumbnail(img, thumbnailUrl, true);
+            console.log(`Decrypted thumbnail for book ${bookId}`);
+          } catch (error) {
+            console.error(
+              `Failed to decrypt thumbnail for book ${bookId}:`,
+              error
+            );
+          }
         }
       }
 
-      // Initialize page
+      // Initialize
       window.onload = function () {
-        // Get GitHub token from URL if available and set up gallery
-        getTokensFromUrl();
+        getTokenFromUrl();
+        loadBooks();
       };
     </script>
   </body>
