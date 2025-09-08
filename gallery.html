@@ -379,7 +379,19 @@
 
         console.log("Using thumbnail URL from Firebase:", thumbnailUrl);
 
-        const response = await fetch(thumbnailUrl, {
+        // Convert raw GitHub URLs to API URLs to avoid CORS issues
+        let apiUrl;
+        const urlParts = thumbnailUrl
+        .replace("https://raw.githubusercontent.com/", "")
+        .split("/");
+        const user = urlParts[0];
+        const repo = urlParts[1];
+        const branch = urlParts[2]; // We'll ignore this as API uses default branch
+        const filePath = urlParts.slice(3).join("/");
+        apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
+        console.log("Converted to API URL:", apiUrl);
+
+        const response = await fetch(apiUrl, {
           headers: {
             Authorization: `token ${githubToken}`,
             Accept: "application/vnd.github.v3+json",
@@ -398,18 +410,12 @@
 
         let bytes;
 
-        // Check if this is a GitHub API URL or direct file URL
-        if (thumbnailUrl.includes("api.github.com")) {
-          // GitHub API response - need to decode base64
-          const data = await response.json();
-          const binaryString = atob(data.content.replace(/\s/g, ""));
-          bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-        } else {
-          // Direct file URL - get as binary data
-          bytes = new Uint8Array(await response.arrayBuffer());
+        // Always use GitHub API response format (since we converted raw URLs to API URLs)
+        const data = await response.json();
+        const binaryString = atob(data.content.replace(/\s/g, ""));
+        bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
 
         if (decrypt) {
