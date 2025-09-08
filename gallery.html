@@ -241,18 +241,21 @@
         console.error("Firebase initialization failed:", error);
       }
 
-      // XOR Decryption function (testing without key reversal)
+      // XOR Decryption function (matching Python simple_decrypt_image exactly)
       function decryptXOR(encryptedData, key) {
         console.log("Decrypting with key:", key);
         console.log("Encrypted data length:", encryptedData.length);
 
-        // Try without key reversal first to test
+        // Match Python simple_decrypt_image logic exactly:
+        // key = key[::-1]  (reverse the string first)
         if (typeof key === "string") {
+          key = key.split("").reverse().join("");
+          console.log("Reversed key string:", key);
+          // key = key.encode('utf-8')  (then encode to bytes)
           key = new TextEncoder().encode(key);
         }
-        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
-        key = key.slice(0, 16);
-        console.log("Key bytes (truncated to 16):", Array.from(key));
+
+        console.log("Final key bytes:", Array.from(key));
 
         const decryptedData = new Uint8Array(encryptedData.length);
         const keyLen = key.length;
