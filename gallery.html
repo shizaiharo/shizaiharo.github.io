@@ -238,7 +238,10 @@
       </div>
 
       <p style="font-size: 12px; color: #666">
-        For testing: Use "test123456789012345" as the token, or
+        For testing: Use "test123456789012345" as the token,
+        <a href="#" onclick="testServiceAccount()" style="color: #007bff"
+          >test with sample service account</a
+        >, or
         <a href="#" onclick="bypassFirebaseAuth()" style="color: #007bff"
           >bypass authentication</a
         >
@@ -550,7 +553,7 @@
         searchBooks();
       }
 
-      // Firebase token validation (simple approach)
+      // Firebase token validation (simplified for service accounts)
       async function checkFirebaseToken() {
         firebaseToken = document
           .getElementById("firebaseTokenInput")
@@ -568,30 +571,24 @@
             return;
           }
 
-          // Simple validation - check if token looks like a valid format
-          const validTokenPattern = /^[A-Za-z0-9]{20,}$/; // At least 20 alphanumeric characters
-
-          if (!validTokenPattern.test(firebaseToken)) {
-            throw new Error("Invalid token format");
+          // For service account private keys, just validate basic format
+          if (firebaseToken.includes("-----BEGIN PRIVATE KEY-----")) {
+            console.log("Service account private key detected");
+            proceedToGallery();
+            return;
           }
 
-          // For demonstration, let's try a simple Firebase access test
-          // Note: This will only work if your Firestore rules allow public read access
-          try {
-            const testQuery = await db.collection("Book").limit(1).get();
-            console.log("Firebase access test successful");
-          } catch (dbError) {
-            console.warn("Database access test failed:", dbError.message);
-            // For now, we'll proceed anyway if the token format is valid
-            console.log(
-              "Continuing with token validation despite database access issue"
-            );
+          // Simple validation for other token types
+          if (firebaseToken.length >= 20) {
+            console.log("Token format appears valid");
+            proceedToGallery();
+            return;
           }
 
-          proceedToGallery();
+          throw new Error("Token too short or invalid format");
         } catch (error) {
           console.error("Firebase token validation error:", error);
-          alert("Invalid Firebase token format. Please check your token.");
+          alert(`Invalid Firebase token: ${error.message}`);
         }
       }
 
@@ -605,6 +602,25 @@
           firebaseToken = "bypass_auth_token";
           proceedToGallery();
         }
+      }
+
+      // Test with sample service account
+      function testServiceAccount() {
+        const sampleServiceAccount = {
+          type: "service_account",
+          project_id: "cloud-2f6b2",
+          private_key_id: "sample_key_id",
+          private_key:
+            "-----BEGIN PRIVATE KEY-----\nsample_private_key_content\n-----END PRIVATE KEY-----\n",
+          client_email: "firebase-adminsdk@cloud-2f6b2.iam.gserviceaccount.com",
+        };
+
+        firebaseToken = sampleServiceAccount.private_key;
+        document.getElementById("firebaseTokenInput").value =
+          "Sample service account loaded...";
+
+        console.log("Testing with sample service account");
+        proceedToGallery();
       }
 
       // Proceed to gallery after successful authentication
@@ -685,7 +701,7 @@
 
       async function validateLoadedToken() {
         try {
-          // Use the same validation logic as manual token entry
+          // Check for test token
           if (firebaseToken === "test123456789012345") {
             console.log(
               "Using test token from file - bypassing Firebase authentication"
@@ -694,24 +710,21 @@
             return;
           }
 
-          const validTokenPattern = /^[A-Za-z0-9]{20,}$/;
-
-          if (!validTokenPattern.test(firebaseToken)) {
-            throw new Error("Invalid token format in file");
+          // Check for service account private key
+          if (firebaseToken.includes("-----BEGIN PRIVATE KEY-----")) {
+            console.log("Service account private key loaded from file");
+            proceedToGallery();
+            return;
           }
 
-          // Test Firebase access
-          try {
-            const testQuery = await db.collection("Book").limit(1).get();
-            console.log("Firebase access test successful with file token");
-          } catch (dbError) {
-            console.warn(
-              "Database access test failed with file token:",
-              dbError.message
-            );
+          // Basic validation for other token types
+          if (firebaseToken.length >= 20) {
+            console.log("Token from file appears valid");
+            proceedToGallery();
+            return;
           }
 
-          proceedToGallery();
+          throw new Error("Invalid token format in file");
         } catch (error) {
           console.error("File token validation error:", error);
           alert(`Invalid token in file: ${error.message}`);
