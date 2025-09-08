@@ -525,115 +525,6 @@
           const magicBytes = Array.from(decryptedData.slice(0, 4));
           console.log("Decrypted magic bytes:", magicBytes);
 
-          // Check for common image format magic bytes
-          let isValidImage = false;
-          let imageType = "unknown";
-
-          // JPEG: FF D8 FF
-          if (
-            magicBytes[0] === 0xff &&
-            magicBytes[1] === 0xd8 &&
-            magicBytes[2] === 0xff
-          ) {
-            isValidImage = true;
-            imageType = "jpeg";
-          }
-          // PNG: 89 50 4E 47
-          else if (
-            magicBytes[0] === 0x89 &&
-            magicBytes[1] === 0x50 &&
-            magicBytes[2] === 0x4e &&
-            magicBytes[3] === 0x47
-          ) {
-            isValidImage = true;
-            imageType = "png";
-          }
-          // GIF: 47 49 46
-          else if (
-            magicBytes[0] === 0x47 &&
-            magicBytes[1] === 0x49 &&
-            magicBytes[2] === 0x46
-          ) {
-            isValidImage = true;
-            imageType = "gif";
-          }
-          // WebP: starts with "RIFF" then "WEBP"
-          else if (
-            magicBytes[0] === 0x52 &&
-            magicBytes[1] === 0x49 &&
-            magicBytes[2] === 0x46 &&
-            magicBytes[3] === 0x46
-          ) {
-            const webpCheck = Array.from(decryptedData.slice(8, 12));
-            if (
-              webpCheck[0] === 0x57 &&
-              webpCheck[1] === 0x45 &&
-              webpCheck[2] === 0x42 &&
-              webpCheck[3] === 0x50
-            ) {
-              isValidImage = true;
-              imageType = "webp";
-            }
-          }
-
-          console.log(
-            `Image format detected: ${imageType}, valid: ${isValidImage}`
-          );
-
-          if (!isValidImage) {
-            console.warn(
-              "Decrypted data doesn't appear to be a valid image format"
-            );
-            // Try to see if it's text (might be incorrectly encrypted JSON)
-            const textPreview = new TextDecoder("utf-8", {
-              fatal: false,
-            }).decode(decryptedData.slice(0, 200));
-            console.log("Decrypted data as text preview:", textPreview);
-
-            // Check if it's JSON
-            try {
-              const fullText = new TextDecoder("utf-8", {
-                fatal: false,
-              }).decode(decryptedData);
-              const jsonData = JSON.parse(fullText);
-              console.log("Decrypted data is JSON:", jsonData);
-
-              // If it's JSON with image data, try to extract the image
-              if (jsonData.image_data || jsonData.thumbnail || jsonData.data) {
-                console.log("JSON contains image data field");
-                // Handle base64 encoded image data if present
-                let imageData =
-                  jsonData.image_data || jsonData.thumbnail || jsonData.data;
-                if (
-                  typeof imageData === "string" &&
-                  imageData.startsWith("data:image")
-                ) {
-                  // Direct data URL
-                  imgElement.src = imageData;
-                  return;
-                } else if (typeof imageData === "string") {
-                  // Try as base64
-                  try {
-                    const binaryData = atob(imageData);
-                    const bytes = new Uint8Array(binaryData.length);
-                    for (let i = 0; i < binaryData.length; i++) {
-                      bytes[i] = binaryData.charCodeAt(i);
-                    }
-                    const imageBlob = new Blob([bytes]);
-                    const imageUrl = URL.createObjectURL(imageBlob);
-                    imgElement.onload = () => URL.revokeObjectURL(imageUrl);
-                    imgElement.src = imageUrl;
-                    return;
-                  } catch (base64Error) {
-                    console.log("Not valid base64 image data");
-                  }
-                }
-              }
-            } catch (jsonError) {
-              console.log("Decrypted data is not JSON:", jsonError.message);
-            }
-          }
-
           const blob = new Blob([decryptedData]);
           const objectUrl = URL.createObjectURL(blob);
 
@@ -684,8 +575,18 @@
         }
 
         const filteredThumbnails = thumbnailsData.filter((thumbnail) => {
-          // Search in book number
-          if (thumbnail.bookNumber.toLowerCase().includes(searchTerm)) {
+          // Enhanced book number search (exact match and partial match)
+          const bookNumberStr = thumbnail.bookNumber.toString().toLowerCase();
+          if (
+            bookNumberStr.includes(searchTerm) ||
+            bookNumberStr === searchTerm
+          ) {
+            return true;
+          }
+
+          // Also search with "Book #" prefix
+          const bookLabel = `book #${thumbnail.bookNumber}`.toLowerCase();
+          if (bookLabel.includes(searchTerm)) {
             return true;
           }
 
