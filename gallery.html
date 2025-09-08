@@ -241,22 +241,25 @@
         console.error("Firebase initialization failed:", error);
       }
 
-      // XOR Decryption function (same as your Python implementation)
+      // XOR Decryption function (matching Python GHB.py implementation exactly)
       function decryptXOR(encryptedData, key) {
         console.log("Decrypting with key:", key);
         console.log("Encrypted data length:", encryptedData.length);
 
+        // Match Python logic exactly:
+        // key = key[::-1]  (reverse the string first)
+        // key = key.encode('utf-8')  (then encode to bytes)
+
         if (typeof key === "string") {
+          // Step 1: Reverse the string (same as Python key[::-1])
+          key = key.split("").reverse().join("");
+          console.log("Reversed key string:", key);
+
+          // Step 2: Encode to UTF-8 bytes (same as Python key.encode('utf-8'))
           key = new TextEncoder().encode(key);
         }
 
-        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
-        key = key.slice(0, 16);
-        console.log("Key bytes (truncated to 16):", Array.from(key));
-
-        // Reverse the key (same as Python key[::-1])
-        key = Array.from(key).reverse();
-        console.log("Reversed key bytes:", key);
+        console.log("Key bytes after reversal and encoding:", Array.from(key));
 
         const decryptedData = new Uint8Array(encryptedData.length);
         const keyLen = key.length;
@@ -519,15 +522,89 @@
 
           const decryptedData = decryptXOR(encryptedData, encryptionKey);
 
-          // Try to detect if it's a valid image by checking magic bytes
+          // Check if it's a valid image by magic bytes
           const magicBytes = Array.from(decryptedData.slice(0, 4));
           console.log("Decrypted magic bytes:", magicBytes);
+
+          // Check for common image format magic bytes
+          let isValidImage = false;
+          let imageType = "unknown";
+
+          // JPEG: FF D8 FF
+          if (
+            magicBytes[0] === 0xff &&
+            magicBytes[1] === 0xd8 &&
+            magicBytes[2] === 0xff
+          ) {
+            isValidImage = true;
+            imageType = "jpeg";
+          }
+          // PNG: 89 50 4E 47
+          else if (
+            magicBytes[0] === 0x89 &&
+            magicBytes[1] === 0x50 &&
+            magicBytes[2] === 0x4e &&
+            magicBytes[3] === 0x47
+          ) {
+            isValidImage = true;
+            imageType = "png";
+          }
+          // GIF: 47 49 46
+          else if (
+            magicBytes[0] === 0x47 &&
+            magicBytes[1] === 0x49 &&
+            magicBytes[2] === 0x46
+          ) {
+            isValidImage = true;
+            imageType = "gif";
+          }
+          // WebP: starts with "RIFF" then "WEBP"
+          else if (
+            magicBytes[0] === 0x52 &&
+            magicBytes[1] === 0x49 &&
+            magicBytes[2] === 0x46 &&
+            magicBytes[3] === 0x46
+          ) {
+            const webpCheck = Array.from(decryptedData.slice(8, 12));
+            if (
+              webpCheck[0] === 0x57 &&
+              webpCheck[1] === 0x45 &&
+              webpCheck[2] === 0x42 &&
+              webpCheck[3] === 0x50
+            ) {
+              isValidImage = true;
+              imageType = "webp";
+            }
+          }
+
+          console.log(
+            `Image format detected: ${imageType}, valid: ${isValidImage}`
+          );
+
+          if (!isValidImage) {
+            console.warn(
+              "Decrypted data doesn't appear to be a valid image format"
+            );
+            // Try to see if it's text (might be incorrectly encrypted JSON)
+            const textPreview = new TextDecoder("utf-8", {
+              fatal: false,
+            }).decode(decryptedData.slice(0, 100));
+            console.log("Decrypted data as text preview:", textPreview);
+          }
 
           const blob = new Blob([decryptedData]);
           const objectUrl = URL.createObjectURL(blob);
 
-          imgElement.onload = () => URL.revokeObjectURL(objectUrl);
+          imgElement.onload = () => {
+            console.log(
+              `Successfully loaded ${imageType} image for ${thumbnail.filename}`
+            );
+            URL.revokeObjectURL(objectUrl);
+          };
           imgElement.onerror = () => {
+            console.error(
+              `Failed to load decrypted image for ${thumbnail.filename}`
+            );
             URL.revokeObjectURL(objectUrl);
             imgElement.src =
               "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+RGVjcnlwdCBGYWlsZWQ8L3RleHQ+PC9zdmc+";
