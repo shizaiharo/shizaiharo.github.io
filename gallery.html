@@ -461,35 +461,37 @@
         }
       }
 
-      // XOR decryption (matching Python implementation)
-      function decryptXOR(encryptedData, key) {
+      // XOR decryption (matching Python GHB.py encrypt_XOR function)
+      function decryptXOR(data, key) {
         console.log("Decrypting with key:", key);
-        console.log("Encrypted data length:", encryptedData.length);
+        console.log("Encrypted data length:", data.length);
 
-        if (typeof key === "string") {
-          key = new TextEncoder().encode(key);
-        }
+        // Match Python logic exactly:
+        // key = key[::-1]  (reverse the key)
+        // key = key.encode('utf-8')  (encode to UTF-8)
 
-        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
-        key = key.slice(0, 16);
-        console.log("Key bytes (truncated to 16):", Array.from(key));
+        // Step 1: Reverse the key (same as Python key[::-1])
+        const reversedKey = key.split("").reverse().join("");
+        console.log("Reversed key:", reversedKey);
 
-        // Reverse the key (same as Python key[::-1])
-        key = Array.from(key).reverse();
-        console.log("Reversed key bytes:", key);
+        // Step 2: Encode to UTF-8 bytes (same as Python key.encode('utf-8'))
+        const keyBytes = new TextEncoder().encode(reversedKey);
+        console.log("Key bytes after encoding:", Array.from(keyBytes));
+        console.log("Key length:", keyBytes.length);
 
-        const decryptedData = new Uint8Array(encryptedData.length);
-        const keyLen = key.length;
+        // Step 3: XOR decryption (same as Python logic)
+        const result = new Uint8Array(data.length);
+        const keyLen = keyBytes.length;
 
-        for (let i = 0; i < encryptedData.length; i++) {
-          decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
+        for (let i = 0; i < data.length; i++) {
+          result[i] = data[i] ^ keyBytes[i % keyLen];
         }
 
         console.log(
           "Decrypted data first 20 bytes:",
-          Array.from(decryptedData.slice(0, 20))
+          Array.from(result.slice(0, 20))
         );
-        return decryptedData;
+        return result;
       }
 
       // Search books
