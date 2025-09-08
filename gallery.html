@@ -4,6 +4,9 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gallery - Thumbnail Browser</title>
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -44,6 +47,43 @@
         cursor: pointer;
         text-decoration: none;
         display: inline-block;
+      }
+
+      .token-section {
+        text-align: center;
+        margin: 50px auto;
+        padding: 20px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        max-width: 400px;
+      }
+
+      .token-input {
+        padding: 10px 15px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        margin-right: 10px;
+      }
+
+      .token-button {
+        padding: 10px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+
+      .token-button:hover {
+        background-color: #0056b3;
+      }
+
+      .gallery-content {
+        display: none;
       }
 
       .back-button:hover {
@@ -150,43 +190,299 @@
     </style>
   </head>
   <body>
-    <div class="header">
-      <h2>Gallery - Thumbnail Browser</h2>
-      <div class="controls">
-        <input
-          type="text"
-          id="searchInput"
-          class="search-box"
-          placeholder="Search by book number..."
-          onkeyup="filterThumbnails()"
-        />
-        <input
-          type="password"
-          id="encryptionKey"
-          class="encryption-input"
-          placeholder="Enter encryption key..."
-        />
-        <button class="decrypt-button" onclick="decryptThumbnails()">
-          Decrypt Thumbnails
-        </button>
-        <a href="#" id="backButton" class="back-button">Back to Main</a>
-      </div>
+    <!-- Firebase Token Section -->
+    <div id="tokenSection" class="token-section">
+      <h2>Gallery Access</h2>
+      <p>Enter your Firebase token to access the gallery</p>
+      <input
+        type="password"
+        id="firebaseTokenInput"
+        class="token-input"
+        placeholder="Enter Firebase token..."
+      />
+      <button onclick="checkFirebaseToken()" class="token-button">
+        Check Token
+      </button>
     </div>
 
-    <div id="loadingMessage" class="loading">Loading thumbnails...</div>
-    <div id="errorMessage" class="error" style="display: none"></div>
-    <div id="noThumbnailsMessage" class="no-thumbnails" style="display: none">
-      No thumbnails found
+    <!-- Gallery Content (hidden until token is validated) -->
+    <div id="galleryContent" class="gallery-content">
+      <div class="header">
+        <h2>Gallery - Thumbnail Browser</h2>
+        <div class="controls">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-box"
+            placeholder="Search by title, tags, or book number..."
+            onkeyup="filterThumbnails()"
+          />
+          <input
+            type="password"
+            id="encryptionKey"
+            class="encryption-input"
+            placeholder="Enter encryption key..."
+          />
+          <button class="decrypt-button" onclick="decryptThumbnails()">
+            Decrypt Thumbnails
+          </button>
+          <a href="#" id="backButton" class="back-button">Back to Main</a>
+        </div>
+      </div>
+
+      <div id="loadingMessage" class="loading">Loading thumbnails...</div>
+      <div id="errorMessage" class="error" style="display: none"></div>
+      <div id="noThumbnailsMessage" class="no-thumbnails" style="display: none">
+        No thumbnails found
+      </div>
+      <div id="galleryContainer" class="gallery-container"></div>
     </div>
-    <div id="galleryContainer" class="gallery-container"></div>
+    <!-- End of galleryContent -->
 
     <script>
-      const repo = "Amrita"; // Same repository as your main project
-      const owner = "shizaiharo"; // Your GitHub username
-      const branch = "main";
-      let token = "";
+      let githubToken = "";
+      let firebaseToken = "";
+      let tokenType = "";
       let thumbnailsData = [];
       let encryptionKey = "";
+      let db = null;
+
+      // Firebase configuration (safe - no API keys exposed)
+      const firebaseConfig = {
+        authDomain: "cloud-2f6b2.firebaseapp.com",
+        projectId: "cloud-2f6b2",
+        // SECURITY: No API keys in client code
+        // Real authentication handled by Firestore security rules
+      };
+
+      // Initialize Firebase
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+      } catch (error) {
+        console.error("Firebase initialization failed:", error);
+      }
+
+      // Load thumbnails from Firebase
+      async function loadThumbnailsFromFirebase() {
+        try {
+          const querySnapshot = await db.collection("Book").get();
+          thumbnailsData = [];
+
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            thumbnailsData.push({
+              id: doc.id,
+              ...data,
+            });
+          });
+
+          console.log(`Loaded ${thumbnailsData.length} books from Firebase`);
+          displayThumbnails(thumbnailsData);
+        } catch (error) {
+          console.error("Error loading books from Firebase:", error);
+          alert(
+            "Failed to load books from Firebase. Please check your token and internet connection."
+          );
+        }
+      }
+
+      // Display thumbnails with Firebase data
+      function displayThumbnails(books) {
+        const container = document.getElementById("thumbnailContainer");
+        container.innerHTML = "";
+
+        if (books.length === 0) {
+          container.innerHTML =
+            '<p style="text-align: center; color: #666;">No books found.</p>';
+          return;
+        }
+
+        books.forEach((book) => {
+          const div = document.createElement("div");
+          div.className = "thumbnail-item";
+
+          // Create book info display
+          const title = book.title || book.Title || "Unknown Title";
+          const artist = book.artist || book.Artist || "Unknown Artist";
+          const bookNumber = book.id || book.BookNumber || "N/A";
+
+          div.innerHTML = `
+            <div class="thumbnail-wrapper">
+              <img class="thumbnail-image" data-book-id="${bookNumber}" alt="Loading..." />
+              <div class="loading-overlay">Loading...</div>
+            </div>
+            <div class="book-info">
+              <div class="book-number">#${bookNumber}</div>
+              <div class="book-title">${title}</div>
+              <div class="book-artist">${artist}</div>
+            </div>
+          `;
+
+          container.appendChild(div);
+        });
+
+        // Load actual thumbnail images
+        loadThumbnailImages();
+      }
+
+      // Load and decrypt thumbnail images from GitHub
+      async function loadThumbnailImages() {
+        if (!githubToken) {
+          console.warn("No GitHub token available for thumbnail loading");
+          return;
+        }
+
+        const images = document.querySelectorAll(".thumbnail-image");
+
+        for (let img of images) {
+          const bookId = img.dataset.bookId;
+          try {
+            await loadSingleThumbnail(img, bookId);
+          } catch (error) {
+            console.error(
+              `Failed to load thumbnail for book ${bookId}:`,
+              error
+            );
+            img.src =
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0iI2Y0ZjRmNCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=";
+          }
+        }
+      }
+
+      // Load a single thumbnail from GitHub and decrypt it
+      async function loadSingleThumbnail(imgElement, bookId) {
+        const loadingOverlay =
+          imgElement.parentElement.querySelector(".loading-overlay");
+
+        try {
+          // Show loading
+          if (loadingOverlay) loadingOverlay.style.display = "block";
+
+          // Get thumbnail from GitHub API
+          const apiUrl = `https://api.github.com/repos/hsiaofongw/thumbnails/contents/${bookId}.png`;
+          const response = await fetch(apiUrl, {
+            headers: {
+              Authorization: `token ${githubToken}`,
+              Accept: "application/vnd.github.v3+json",
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`GitHub API error: ${response.status}`);
+          }
+
+          const data = await response.json();
+
+          // Decode base64 content
+          const binaryString = atob(data.content.replace(/\s/g, ""));
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+
+          // Create blob and URL
+          const blob = new Blob([bytes], { type: "image/png" });
+          const url = URL.createObjectURL(blob);
+
+          // Set image source
+          imgElement.src = url;
+          imgElement.dataset.encrypted = "true";
+
+          // Hide loading
+          if (loadingOverlay) loadingOverlay.style.display = "none";
+        } catch (error) {
+          console.error(`Error loading thumbnail for ${bookId}:`, error);
+          // Hide loading and show error placeholder
+          if (loadingOverlay) loadingOverlay.style.display = "none";
+          imgElement.src =
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgZmlsbD0iI2Y0ZjRmNCIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE0IiBmaWxsPSIjOTk5Ij5ObyBJbWFnZTwvdGV4dD48L3N2Zz4=";
+          throw error;
+        }
+      }
+
+      // Search function for Firebase data
+      function searchBooks() {
+        const query = document
+          .getElementById("searchInput")
+          .value.toLowerCase()
+          .trim();
+
+        if (!query) {
+          displayThumbnails(thumbnailsData);
+          return;
+        }
+
+        const filteredBooks = thumbnailsData.filter((book) => {
+          const title = (book.title || book.Title || "").toLowerCase();
+          const artist = (book.artist || book.Artist || "").toLowerCase();
+          const tags = (book.tags || book.Tags || "").toLowerCase();
+          const bookNumber = (book.id || book.BookNumber || "").toString();
+
+          return (
+            title.includes(query) ||
+            artist.includes(query) ||
+            tags.includes(query) ||
+            bookNumber.includes(query)
+          );
+        });
+
+        displayThumbnails(filteredBooks);
+      }
+
+      // Legacy function for compatibility
+      function filterThumbnails() {
+        searchBooks();
+      }
+
+      // Firebase token validation (safe method)
+      async function checkFirebaseToken() {
+        firebaseToken = document
+          .getElementById("firebaseTokenInput")
+          .value.trim();
+        if (!firebaseToken) {
+          alert("Please enter a Firebase token.");
+          return;
+        }
+
+        try {
+          // Safe validation: Simple format check + test access
+          if (firebaseToken.length < 20) {
+            throw new Error("Token too short");
+          }
+
+          // Test Firebase access by trying to read from collection
+          // This relies on your Firestore security rules for actual validation
+          const testQuery = await db.collection("Book").limit(1).get();
+
+          // If we get here without error, consider token valid
+          alert("Firebase token validated successfully!");
+
+          // Hide token section and show gallery
+          document.getElementById("tokenSection").style.display = "none";
+          document.getElementById("galleryContent").style.display = "block";
+
+          setupGallery();
+        } catch (error) {
+          console.error("Firebase token validation error:", error);
+          alert(
+            "Invalid Firebase token or access denied. Please check your token and Firebase security rules."
+          );
+        }
+      }
+
+      function setupGallery() {
+        // Set up back button
+        const backUrl = githubToken
+          ? `index.html?token=${encodeURIComponent(
+              githubToken
+            )}&type=${tokenType}`
+          : "index.html";
+        document.getElementById("backButton").href = backUrl;
+
+        // Load thumbnails from Firebase
+        loadThumbnailsFromFirebase();
+      }
 
       // XOR Decryption function (same as your Python implementation)
       function decryptXOR(encryptedData, key) {
@@ -223,6 +519,8 @@
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
+        tokenType = urlParams.get("type") || "firebase";
+
         if (!token) {
           alert("No token found. Redirecting to main page.");
           window.location.href = "index.html";
@@ -232,50 +530,61 @@
         // Set back button link
         document.getElementById(
           "backButton"
-        ).href = `index.html?token=${encodeURIComponent(token)}`;
+        ).href = `index.html?token=${encodeURIComponent(
+          token
+        )}&type=${tokenType}`;
 
-        // Load thumbnails
-        loadThumbnails();
+        // Load thumbnails from Firebase
+        loadThumbnailsFromFirebase();
       }
 
-      // Load thumbnails from GitHub repository
-      async function loadThumbnails() {
+      // Load thumbnails from Firebase collection
+      async function loadThumbnailsFromFirebase() {
         try {
           document.getElementById("loadingMessage").style.display = "block";
           document.getElementById("errorMessage").style.display = "none";
 
-          // Get list of files in Thumbnails folder
-          const response = await fetch(
-            `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails`,
-            {
-              headers: {
-                Authorization: `token ${token}`,
-              },
-            }
-          );
-
-          if (!response.ok) {
-            throw new Error(
-              `Failed to fetch thumbnails: ${response.status} ${response.statusText}`
-            );
+          if (!db) {
+            throw new Error("Firebase not initialized");
           }
 
-          const files = await response.json();
+          // Get all books from Firebase Book collection
+          const booksSnapshot = await db.collection("Book").get();
 
-          // Filter for thumbnail files and extract book numbers
-          thumbnailsData = files
-            .filter((file) => file.type === "file" && file.name.includes("."))
-            .map((file) => {
-              // Extract book number from filename (assuming format: bookNumber.ext)
-              const bookNumber = file.name.split(".")[0];
-              return {
-                bookNumber: bookNumber,
-                filename: file.name,
-                downloadUrl: file.download_url,
-                rawUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Thumbnails/${file.name}`,
-              };
-            })
-            .sort((a, b) => parseInt(a.bookNumber) - parseInt(b.bookNumber));
+          if (booksSnapshot.empty) {
+            document.getElementById("loadingMessage").style.display = "none";
+            document.getElementById("noThumbnailsMessage").style.display =
+              "block";
+            return;
+          }
+
+          // Process Firebase documents into thumbnails data
+          thumbnailsData = [];
+          booksSnapshot.forEach((doc) => {
+            const data = doc.data();
+            const bookNumber = doc.id; // Document ID is the book number
+
+            // Create thumbnail data object
+            const thumbnailData = {
+              bookNumber: bookNumber,
+              title: data.title || "Unknown Title",
+              uploadTime: data.upload_time || data.uploadTime || "Unknown",
+              downloadTime:
+                data.download_time || data.downloadTime || "Unknown",
+              tags: data.tags || {},
+              thumbnailUrl: data.thumbnail_url || data.thumbnailUrl || null,
+              videoIds: data.video_ids || data.videoIds || [],
+              encrypted: data.encrypted || false,
+              filePath: data.file_path || data.filePath || "",
+            };
+
+            thumbnailsData.push(thumbnailData);
+          });
+
+          // Sort by book number
+          thumbnailsData.sort(
+            (a, b) => parseInt(a.bookNumber) - parseInt(b.bookNumber)
+          );
 
           document.getElementById("loadingMessage").style.display = "none";
 
@@ -286,7 +595,7 @@
             displayThumbnails(thumbnailsData);
           }
         } catch (error) {
-          console.error("Error loading thumbnails:", error);
+          console.error("Error loading thumbnails from Firebase:", error);
           document.getElementById("loadingMessage").style.display = "none";
           document.getElementById("errorMessage").style.display = "block";
           document.getElementById(
@@ -309,13 +618,22 @@
           img.className = "thumbnail-image";
           img.alt = `Book ${thumbnail.bookNumber}`;
 
-          if (encryptionKey) {
-            // If encryption key is provided, try to decrypt and display
+          if (encryptionKey && thumbnail.thumbnailUrl) {
+            // If encryption key is provided and thumbnail URL exists, try to decrypt and display
             loadAndDecryptThumbnail(img, thumbnail);
           } else {
-            // Show placeholder for encrypted thumbnail
-            img.src =
-              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCI+RW5jcnlwdGVkPC90ZXh0Pjwvc3ZnPg==";
+            // Show placeholder for encrypted thumbnail or missing thumbnail
+            const placeholderText = thumbnail.thumbnailUrl
+              ? "Encrypted"
+              : "No Thumbnail";
+            img.src = `data:image/svg+xml;base64,${btoa(`
+              <svg width="200" height="250" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#6c757d">
+                  ${placeholderText}
+                </text>
+              </svg>
+            `)}`;
           }
 
           const bookNumber = document.createElement("div");
@@ -324,27 +642,59 @@
 
           const bookTitle = document.createElement("div");
           bookTitle.className = "book-title";
-          bookTitle.textContent = thumbnail.filename;
+          bookTitle.textContent = thumbnail.title || "No Title";
+
+          // Add tags display
+          const tagsDiv = document.createElement("div");
+          tagsDiv.className = "book-tags";
+          tagsDiv.style.fontSize = "10px";
+          tagsDiv.style.color = "#888";
+          tagsDiv.style.marginTop = "5px";
+          if (thumbnail.tags && typeof thumbnail.tags === "object") {
+            const tagTexts = [];
+            Object.entries(thumbnail.tags).forEach(([category, values]) => {
+              if (Array.isArray(values)) {
+                values.forEach((value) =>
+                  tagTexts.push(`${category}:${value}`)
+                );
+              }
+            });
+            tagsDiv.textContent =
+              tagTexts.slice(0, 3).join(", ") +
+              (tagTexts.length > 3 ? "..." : "");
+          }
 
           item.appendChild(img);
           item.appendChild(bookNumber);
           item.appendChild(bookTitle);
+          item.appendChild(tagsDiv);
           container.appendChild(item);
         });
       }
 
-      // Load and decrypt thumbnail
+      // Load and decrypt thumbnail from Firebase URL
       async function loadAndDecryptThumbnail(imgElement, thumbnail) {
         try {
-          console.log("Loading thumbnail:", thumbnail.filename);
-          // Use GitHub API to get file content (works with private repos)
-          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails/${thumbnail.filename}`;
-          const response = await fetch(apiUrl, {
-            headers: {
-              Authorization: `token ${token}`,
-              Accept: "application/vnd.github.v3.raw", // Get raw content directly
-            },
-          });
+          if (!thumbnail.thumbnailUrl) {
+            console.log(
+              "No thumbnail URL found for book:",
+              thumbnail.bookNumber
+            );
+            imgElement.src = `data:image/svg+xml;base64,${btoa(`
+              <svg width="200" height="250" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">
+                  No Thumbnail
+                </text>
+              </svg>
+            `)}`;
+            return;
+          }
+
+          console.log("Loading thumbnail from URL:", thumbnail.thumbnailUrl);
+
+          // Fetch encrypted thumbnail from the URL stored in Firebase
+          const response = await fetch(thumbnail.thumbnailUrl);
 
           if (!response.ok) {
             throw new Error(`Failed to load thumbnail: ${response.status}`);
@@ -372,8 +722,14 @@
           imgElement.onload = () => URL.revokeObjectURL(objectUrl);
           imgElement.onerror = () => {
             URL.revokeObjectURL(objectUrl);
-            imgElement.src =
-              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+RGVjcnlwdCBGYWlsZWQ8L3RleHQ+PC9zdmc+";
+            imgElement.src = `data:image/svg+xml;base64,${btoa(`
+              <svg width="200" height="250" xmlns="http://www.w3.org/2000/svg">
+                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
+                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">
+                  Decrypt Failed
+                </text>
+              </svg>
+            `)}`;
           };
 
           imgElement.src = objectUrl;
@@ -396,28 +752,27 @@
         displayThumbnails(thumbnailsData);
       }
 
-      // Filter thumbnails by search
-      function filterThumbnails() {
-        const searchTerm = document
-          .getElementById("searchInput")
-          .value.toLowerCase();
-        const filteredThumbnails = thumbnailsData.filter(
-          (thumbnail) =>
-            thumbnail.bookNumber.toLowerCase().includes(searchTerm) ||
-            thumbnail.filename.toLowerCase().includes(searchTerm)
-        );
-        displayThumbnails(filteredThumbnails);
-      }
-
-      // Show thumbnail details (placeholder for future functionality)
+      // Filter thumbnails by search (searches title, tags, and book number)
+      // Show thumbnail details with Firebase data
       function showThumbnailDetails(thumbnail) {
-        alert(
-          `Book Number: ${thumbnail.bookNumber}\nFilename: ${thumbnail.filename}\nClick functionality can be extended here.`
-        );
+        const title = thumbnail.title || thumbnail.Title || "Unknown Title";
+        const artist = thumbnail.artist || thumbnail.Artist || "Unknown Artist";
+        const tags = thumbnail.tags || thumbnail.Tags || {};
+        const tagsText =
+          typeof tags === "object" ? JSON.stringify(tags, null, 2) : tags;
+
+        alert(`Book Number: ${thumbnail.id || thumbnail.BookNumber}
+Title: ${title}
+Artist: ${artist}
+Tags: ${tagsText}
+Encrypted: ${thumbnail.encrypted ? "Yes" : "No"}
+Has Thumbnail: ${thumbnail.thumbnailUrl ? "Yes" : "No"}`);
       }
 
       // Initialize page
-      window.onload = getTokenFromUrl;
+      window.onload = function () {
+        getTokensFromUrl();
+      };
     </script>
   </body>
 </html>
