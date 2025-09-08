@@ -371,11 +371,15 @@
         }
 
         const bookId = img.dataset.bookId;
-        const apiUrl = `https://api.github.com/repos/hsiaofongw/thumbnails/contents/${bookId}.png`;
 
-        console.log("Fetching from:", apiUrl);
+        // Use the thumbnail URL from Firebase instead of constructing GitHub API URL
+        if (!thumbnailUrl) {
+          throw new Error(`No thumbnail URL found for book ${bookId}`);
+        }
 
-        const response = await fetch(apiUrl, {
+        console.log("Using thumbnail URL from Firebase:", thumbnailUrl);
+
+        const response = await fetch(thumbnailUrl, {
           headers: {
             Authorization: `token ${githubToken}`,
             Accept: "application/vnd.github.v3+json",
@@ -392,13 +396,20 @@
           );
         }
 
-        const data = await response.json();
+        let bytes;
 
-        // Decode base64 content from GitHub API
-        const binaryString = atob(data.content.replace(/\s/g, ""));
-        const bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
+        // Check if this is a GitHub API URL or direct file URL
+        if (thumbnailUrl.includes("api.github.com")) {
+          // GitHub API response - need to decode base64
+          const data = await response.json();
+          const binaryString = atob(data.content.replace(/\s/g, ""));
+          bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+        } else {
+          // Direct file URL - get as binary data
+          bytes = new Uint8Array(await response.arrayBuffer());
         }
 
         if (decrypt) {
