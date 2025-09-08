@@ -190,11 +190,20 @@
 
       // XOR Decryption function (same as your Python implementation)
       function decryptXOR(encryptedData, key) {
+        console.log("Decrypting with key:", key);
+        console.log("Encrypted data length:", encryptedData.length);
+
         if (typeof key === "string") {
           key = new TextEncoder().encode(key);
         }
+
+        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
+        key = key.slice(0, 16);
+        console.log("Key bytes (truncated to 16):", Array.from(key));
+
         // Reverse the key (same as Python key[::-1])
         key = Array.from(key).reverse();
+        console.log("Reversed key bytes:", key);
 
         const decryptedData = new Uint8Array(encryptedData.length);
         const keyLen = key.length;
@@ -203,6 +212,10 @@
           decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
         }
 
+        console.log(
+          "Decrypted data first 20 bytes:",
+          Array.from(decryptedData.slice(0, 20))
+        );
         return decryptedData;
       }
 
@@ -323,6 +336,7 @@
       // Load and decrypt thumbnail
       async function loadAndDecryptThumbnail(imgElement, thumbnail) {
         try {
+          console.log("Loading thumbnail:", thumbnail.filename);
           // Use GitHub API to get file content (works with private repos)
           const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails/${thumbnail.filename}`;
           const response = await fetch(apiUrl, {
@@ -337,7 +351,20 @@
           }
 
           const encryptedData = new Uint8Array(await response.arrayBuffer());
+          console.log(
+            "Downloaded encrypted data length:",
+            encryptedData.length
+          );
+          console.log(
+            "First 20 bytes of encrypted data:",
+            Array.from(encryptedData.slice(0, 20))
+          );
+
           const decryptedData = decryptXOR(encryptedData, encryptionKey);
+
+          // Try to detect if it's a valid image by checking magic bytes
+          const magicBytes = Array.from(decryptedData.slice(0, 4));
+          console.log("Decrypted magic bytes:", magicBytes);
 
           const blob = new Blob([decryptedData]);
           const objectUrl = URL.createObjectURL(blob);
