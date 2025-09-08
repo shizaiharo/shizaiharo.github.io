@@ -588,8 +588,51 @@
             // Try to see if it's text (might be incorrectly encrypted JSON)
             const textPreview = new TextDecoder("utf-8", {
               fatal: false,
-            }).decode(decryptedData.slice(0, 100));
+            }).decode(decryptedData.slice(0, 200));
             console.log("Decrypted data as text preview:", textPreview);
+
+            // Check if it's JSON
+            try {
+              const fullText = new TextDecoder("utf-8", {
+                fatal: false,
+              }).decode(decryptedData);
+              const jsonData = JSON.parse(fullText);
+              console.log("Decrypted data is JSON:", jsonData);
+
+              // If it's JSON with image data, try to extract the image
+              if (jsonData.image_data || jsonData.thumbnail || jsonData.data) {
+                console.log("JSON contains image data field");
+                // Handle base64 encoded image data if present
+                let imageData =
+                  jsonData.image_data || jsonData.thumbnail || jsonData.data;
+                if (
+                  typeof imageData === "string" &&
+                  imageData.startsWith("data:image")
+                ) {
+                  // Direct data URL
+                  imgElement.src = imageData;
+                  return;
+                } else if (typeof imageData === "string") {
+                  // Try as base64
+                  try {
+                    const binaryData = atob(imageData);
+                    const bytes = new Uint8Array(binaryData.length);
+                    for (let i = 0; i < binaryData.length; i++) {
+                      bytes[i] = binaryData.charCodeAt(i);
+                    }
+                    const imageBlob = new Blob([bytes]);
+                    const imageUrl = URL.createObjectURL(imageBlob);
+                    imgElement.onload = () => URL.revokeObjectURL(imageUrl);
+                    imgElement.src = imageUrl;
+                    return;
+                  } catch (base64Error) {
+                    console.log("Not valid base64 image data");
+                  }
+                }
+              }
+            } catch (jsonError) {
+              console.log("Decrypted data is not JSON:", jsonError.message);
+            }
           }
 
           const blob = new Blob([decryptedData]);
