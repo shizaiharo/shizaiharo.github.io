@@ -345,30 +345,49 @@
         }
       }
 
-      // Load single thumbnail
+      // Load single thumbnail from private GitHub repository
       async function loadThumbnail(img, thumbnailUrl, decrypt = false) {
-        const headers = githubToken
-          ? { Authorization: `token ${githubToken}` }
-          : {};
-        const response = await fetch(thumbnailUrl, { headers });
+        if (!githubToken) {
+          throw new Error(
+            "GitHub token required for private repository access"
+          );
+        }
+
+        const bookId = img.dataset.bookId;
+        const apiUrl = `https://api.github.com/repos/hsiaofongw/thumbnails/contents/${bookId}.png`;
+        const response = await fetch(apiUrl, {
+          headers: {
+            Authorization: `token ${githubToken}`,
+            Accept: "application/vnd.github.v3+json",
+          },
+        });
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          throw new Error(`GitHub API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Decode base64 content from GitHub API
+        const binaryString = atob(data.content.replace(/\s/g, ""));
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
         }
 
         if (decrypt) {
-          const encryptedData = new Uint8Array(await response.arrayBuffer());
           const decryptKey = document.getElementById("decryptKey").value.trim();
 
           if (!decryptKey) {
             throw new Error("Decrypt key required");
           }
 
-          const decryptedData = decryptXOR(encryptedData, decryptKey);
+          const decryptedData = decryptXOR(bytes, decryptKey);
           const blob = new Blob([decryptedData], { type: "image/png" });
           img.src = URL.createObjectURL(blob);
         } else {
-          const blob = await response.blob();
+          // Create blob from encrypted/raw data
+          const blob = new Blob([bytes], { type: "image/png" });
           img.src = URL.createObjectURL(blob);
         }
       }
