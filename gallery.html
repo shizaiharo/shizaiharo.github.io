@@ -213,7 +213,11 @@
 
         if (token && type === "github") {
           githubToken = token;
-          console.log("GitHub token received");
+          console.log("GitHub token received:", token.substring(0, 10) + "...");
+        } else if (token) {
+          console.log("Token received but not GitHub type:", type);
+        } else {
+          console.log("No token found in URL");
         }
 
         // Set back button URL
@@ -347,6 +351,13 @@
 
       // Load single thumbnail from private GitHub repository
       async function loadThumbnail(img, thumbnailUrl, decrypt = false) {
+        console.log("Loading thumbnail for book:", img.dataset.bookId);
+        console.log("GitHub token available:", githubToken ? "Yes" : "No");
+        console.log(
+          "GitHub token length:",
+          githubToken ? githubToken.length : 0
+        );
+
         if (!githubToken) {
           throw new Error(
             "GitHub token required for private repository access"
@@ -355,6 +366,9 @@
 
         const bookId = img.dataset.bookId;
         const apiUrl = `https://api.github.com/repos/hsiaofongw/thumbnails/contents/${bookId}.png`;
+
+        console.log("Fetching from:", apiUrl);
+
         const response = await fetch(apiUrl, {
           headers: {
             Authorization: `token ${githubToken}`,
@@ -362,8 +376,14 @@
           },
         });
 
+        console.log("Response status:", response.status);
+
         if (!response.ok) {
-          throw new Error(`GitHub API error: ${response.status}`);
+          const errorText = await response.text();
+          console.error("GitHub API error response:", errorText);
+          throw new Error(
+            `GitHub API error: ${response.status} - ${errorText}`
+          );
         }
 
         const data = await response.json();
