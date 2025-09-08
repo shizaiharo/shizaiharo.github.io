@@ -342,6 +342,11 @@
 
           if (querySnapshot.empty) {
             console.log("No books found in Firebase collection");
+
+            // Hide loading message
+            const loadingElement = document.getElementById("loadingMessage");
+            if (loadingElement) loadingElement.style.display = "none";
+
             displayThumbnails([]); // Show empty gallery
             return;
           }
@@ -355,9 +360,18 @@
           });
 
           console.log(`Loaded ${thumbnailsData.length} books from Firebase`);
+
+          // Hide loading message
+          const loadingElement = document.getElementById("loadingMessage");
+          if (loadingElement) loadingElement.style.display = "none";
+
           displayThumbnails(thumbnailsData);
         } catch (error) {
           console.error("Error loading books from Firebase:", error);
+
+          // Hide loading message
+          const loadingElement = document.getElementById("loadingMessage");
+          if (loadingElement) loadingElement.style.display = "none";
 
           // Show error message to user
           const container = document.getElementById("galleryContainer");
@@ -725,6 +739,8 @@ service cloud.firestore {
       }
 
       function setupGallery() {
+        console.log("Setting up gallery...");
+
         // Set up back button
         const backUrl = githubToken
           ? `index.html?token=${encodeURIComponent(
@@ -733,7 +749,15 @@ service cloud.firestore {
           : "index.html";
         document.getElementById("backButton").href = backUrl;
 
+        // Show loading message
+        const loadingElement = document.getElementById("loadingMessage");
+        if (loadingElement) {
+          loadingElement.style.display = "block";
+          loadingElement.textContent = "Loading gallery from Firebase...";
+        }
+
         // Load thumbnails from Firebase
+        console.log("Calling loadThumbnailsFromFirebase...");
         loadThumbnailsFromFirebase();
       }
 
@@ -894,74 +918,6 @@ service cloud.firestore {
             `;
           }
         }
-      }
-
-      // Display thumbnails in the gallery
-      function displayThumbnails(thumbnails) {
-        const container = document.getElementById("galleryContainer");
-        container.innerHTML = "";
-
-        thumbnails.forEach((thumbnail) => {
-          const item = document.createElement("div");
-          item.className = "thumbnail-item";
-          item.onclick = () => showThumbnailDetails(thumbnail);
-
-          const img = document.createElement("img");
-          img.className = "thumbnail-image";
-          img.alt = `Book ${thumbnail.bookNumber}`;
-
-          if (encryptionKey && thumbnail.thumbnailUrl) {
-            // If encryption key is provided and thumbnail URL exists, try to decrypt and display
-            loadAndDecryptThumbnail(img, thumbnail);
-          } else {
-            // Show placeholder for encrypted thumbnail or missing thumbnail
-            const placeholderText = thumbnail.thumbnailUrl
-              ? "Encrypted"
-              : "No Thumbnail";
-            img.src = `data:image/svg+xml;base64,${btoa(`
-              <svg width="200" height="250" xmlns="http://www.w3.org/2000/svg">
-                <rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/>
-                <text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#6c757d">
-                  ${placeholderText}
-                </text>
-              </svg>
-            `)}`;
-          }
-
-          const bookNumber = document.createElement("div");
-          bookNumber.className = "book-number";
-          bookNumber.textContent = `Book #${thumbnail.bookNumber}`;
-
-          const bookTitle = document.createElement("div");
-          bookTitle.className = "book-title";
-          bookTitle.textContent = thumbnail.title || "No Title";
-
-          // Add tags display
-          const tagsDiv = document.createElement("div");
-          tagsDiv.className = "book-tags";
-          tagsDiv.style.fontSize = "10px";
-          tagsDiv.style.color = "#888";
-          tagsDiv.style.marginTop = "5px";
-          if (thumbnail.tags && typeof thumbnail.tags === "object") {
-            const tagTexts = [];
-            Object.entries(thumbnail.tags).forEach(([category, values]) => {
-              if (Array.isArray(values)) {
-                values.forEach((value) =>
-                  tagTexts.push(`${category}:${value}`)
-                );
-              }
-            });
-            tagsDiv.textContent =
-              tagTexts.slice(0, 3).join(", ") +
-              (tagTexts.length > 3 ? "..." : "");
-          }
-
-          item.appendChild(img);
-          item.appendChild(bookNumber);
-          item.appendChild(bookTitle);
-          item.appendChild(tagsDiv);
-          container.appendChild(item);
-        });
       }
 
       // Load and decrypt thumbnail from Firebase URL
