@@ -382,8 +382,8 @@
         // Convert raw GitHub URLs to API URLs to avoid CORS issues
         let apiUrl;
         const urlParts = thumbnailUrl
-        .replace("https://raw.githubusercontent.com/", "")
-        .split("/");
+          .replace("https://raw.githubusercontent.com/", "")
+          .split("/");
         const user = urlParts[0];
         const repo = urlParts[1];
         const branch = urlParts[2]; // We'll ignore this as API uses default branch
@@ -425,9 +425,35 @@
             throw new Error("Decrypt key required");
           }
 
+          console.log("Decrypting thumbnail for book:", bookId);
           const decryptedData = decryptXOR(bytes, decryptKey);
+
+          // Try to detect if it's a valid image by checking magic bytes
+          const magicBytes = Array.from(decryptedData.slice(0, 4));
+          console.log("Decrypted magic bytes:", magicBytes);
+
           const blob = new Blob([decryptedData], { type: "image/png" });
-          img.src = URL.createObjectURL(blob);
+          const objectUrl = URL.createObjectURL(blob);
+
+          // Add error handling for image loading
+          img.onload = () => {
+            console.log(
+              "Decrypted image loaded successfully for book:",
+              bookId
+            );
+            URL.revokeObjectURL(objectUrl);
+          };
+
+          img.onerror = () => {
+            console.error("Failed to load decrypted image for book:", bookId);
+            URL.revokeObjectURL(objectUrl);
+            // Show error placeholder
+            img.src = `data:image/svg+xml;base64,${btoa(
+              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">Decrypt Failed</text></svg>'
+            )}`;
+          };
+
+          img.src = objectUrl;
         } else {
           // Create blob from encrypted/raw data
           const blob = new Blob([bytes], { type: "image/png" });
@@ -435,16 +461,35 @@
         }
       }
 
-      // XOR decryption
-      function decryptXOR(data, key) {
-        const keyBytes = new TextEncoder().encode(key).slice(0, 16);
-        const result = new Uint8Array(data.length);
+      // XOR decryption (matching Python implementation)
+      function decryptXOR(encryptedData, key) {
+        console.log("Decrypting with key:", key);
+        console.log("Encrypted data length:", encryptedData.length);
 
-        for (let i = 0; i < data.length; i++) {
-          result[i] = data[i] ^ keyBytes[i % keyBytes.length];
+        if (typeof key === "string") {
+          key = new TextEncoder().encode(key);
         }
 
-        return result;
+        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
+        key = key.slice(0, 16);
+        console.log("Key bytes (truncated to 16):", Array.from(key));
+
+        // Reverse the key (same as Python key[::-1])
+        key = Array.from(key).reverse();
+        console.log("Reversed key bytes:", key);
+
+        const decryptedData = new Uint8Array(encryptedData.length);
+        const keyLen = key.length;
+
+        for (let i = 0; i < encryptedData.length; i++) {
+          decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
+        }
+
+        console.log(
+          "Decrypted data first 20 bytes:",
+          Array.from(decryptedData.slice(0, 20))
+        );
+        return decryptedData;
       }
 
       // Search books
