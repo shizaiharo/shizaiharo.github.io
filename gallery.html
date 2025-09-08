@@ -384,11 +384,30 @@
         const urlParts = thumbnailUrl
           .replace("https://raw.githubusercontent.com/", "")
           .split("/");
+
+        console.log("URL parts:", urlParts);
+
+        if (urlParts.length < 4) {
+          throw new Error(`Invalid GitHub raw URL format: ${thumbnailUrl}`);
+        }
+
         const user = urlParts[0];
         const repo = urlParts[1];
-        const branch = urlParts[2]; // We'll ignore this as API uses default branch
+        const branch = urlParts[2];
         const filePath = urlParts.slice(3).join("/");
-        apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
+
+        console.log("Parsed URL components:");
+        console.log("- User:", user);
+        console.log("- Repo:", repo);
+        console.log("- Branch:", branch);
+        console.log("- File path:", filePath);
+
+        // Include branch in API URL if it's not the default branch
+        if (branch && branch !== "main" && branch !== "master") {
+          apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}?ref=${branch}`;
+        } else {
+          apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
+        }
         console.log("Converted to API URL:", apiUrl);
 
         const response = await fetch(apiUrl, {
@@ -399,10 +418,22 @@
         });
 
         console.log("Response status:", response.status);
+        console.log(
+          "Response headers:",
+          Object.fromEntries(response.headers.entries())
+        );
 
         if (!response.ok) {
           const errorText = await response.text();
           console.error("GitHub API error response:", errorText);
+          if (response.status === 404) {
+            throw new Error(`File not found: ${apiUrl}`);
+          }
+          if (response.status === 403) {
+            throw new Error(
+              `Access denied. Check GitHub token permissions for: ${apiUrl}`
+            );
+          }
           throw new Error(
             `GitHub API error: ${response.status} - ${errorText}`
           );
@@ -412,7 +443,47 @@
 
         // Always use GitHub API response format (since we converted raw URLs to API URLs)
         const data = await response.json();
+        console.log("GitHub API response keys:", Object.keys(data));
+        console.log("File size from API:", data.size || "N/A");
+        console.log("File encoding:", data.encoding || "N/A");
+        console.log("File type:", data.type || "N/A");
+        console.log("File name:", data.name || "N/A");
+        console.log("File path:", data.path || "N/A");
+        console.log("Content length:", data.content ? data.content.length : 0);
+
+        // Check if file is too large for GitHub API (>1MB)
+        if (data.size && data.size > 1048576) {
+          throw new Error(
+            `File too large for GitHub API (${data.size} bytes > 1MB limit). Use Git LFS or direct download for book ${bookId}.`
+          );
+        }
+
+        // Check if this is actually a directory
+        if (data.type === "dir") {
+          throw new Error(`Path points to a directory, not a file: ${apiUrl}`);
+        }
+
+        // Additional debugging for empty content
+        if (!data.content) {
+          console.error("Full GitHub API response for debugging:", data);
+          throw new Error(
+            `No content field in GitHub API response for book ${bookId}. File might not exist or be accessible at: ${apiUrl}`
+          );
+        }
+
+        if (data.content.trim().length === 0) {
+          console.error("GitHub API returned empty content (after trim)");
+          console.error("Raw content value:", JSON.stringify(data.content));
+          console.error("File size from API:", data.size);
+          console.error("File encoding:", data.encoding);
+          throw new Error(
+            `Empty content in GitHub API response for book ${bookId}. File size: ${data.size}, Type: ${data.type}, Encoding: ${data.encoding}`
+          );
+        }
+
         const binaryString = atob(data.content.replace(/\s/g, ""));
+        console.log("Decoded binary length:", binaryString.length);
+
         bytes = new Uint8Array(binaryString.length);
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i);
@@ -465,6 +536,11 @@
       function decryptXOR(data, key) {
         console.log("Decrypting with key:", key);
         console.log("Encrypted data length:", data.length);
+
+        // Check for empty data
+        if (data.length === 0) {
+          throw new Error("Cannot decrypt: encrypted data is empty");
+        }
 
         // Match Python logic exactly:
         // key = key[::-1]  (reverse the key)
