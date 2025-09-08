@@ -7,6 +7,7 @@
     <!-- Firebase SDK -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -50,13 +51,7 @@
       }
 
       .token-section {
-        text-align: center;
-        margin: 50px auto;
-        padding: 20px;
-        background-color: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        max-width: 400px;
+        display: none; /* Hidden since Firebase has public read access */
       }
 
       .token-input {
@@ -327,6 +322,11 @@
       try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
+
+        // Initialize Firebase Auth
+        const auth = firebase.auth();
+
+        console.log("Firebase initialized successfully");
       } catch (error) {
         console.error("Firebase initialization failed:", error);
       }
@@ -376,7 +376,7 @@
 
       // Display thumbnails with Firebase data
       function displayThumbnails(books) {
-        const container = document.getElementById("thumbnailContainer");
+        const container = document.getElementById("galleryContainer");
         container.innerHTML = "";
 
         if (books.length === 0) {
@@ -550,14 +550,8 @@
         proceedToGallery();
       }
 
-      // Proceed to gallery after successful authentication
+      // Proceed to gallery (simplified since no authentication needed)
       function proceedToGallery() {
-        alert("Firebase token validated successfully!");
-
-        // Hide token section and show gallery
-        document.getElementById("tokenSection").style.display = "none";
-        document.getElementById("galleryContent").style.display = "block";
-
         setupGallery();
       }
 
@@ -635,14 +629,17 @@
           // Check for service account private key
           if (firebaseToken.includes("-----BEGIN PRIVATE KEY-----")) {
             console.log("Service account private key loaded from file");
-            proceedToGallery();
+
+            // For client-side, we can't use service account directly
+            // Instead, we'll try anonymous auth or show instructions
+            await tryFirebaseAuth();
             return;
           }
 
           // Basic validation for other token types
           if (firebaseToken.length >= 20) {
             console.log("Token from file appears valid");
-            proceedToGallery();
+            await tryFirebaseAuth();
             return;
           }
 
@@ -650,6 +647,80 @@
         } catch (error) {
           console.error("File token validation error:", error);
           alert(`Invalid token in file: ${error.message}`);
+        }
+      }
+
+      // Try Firebase authentication
+      async function tryFirebaseAuth() {
+        try {
+          // Skip authentication and try direct Firestore access
+          console.log("Attempting direct Firestore access...");
+
+          // Test if we can read from Firestore without authentication
+          const testQuery = await db.collection("Book").limit(1).get();
+
+          console.log("Firebase access successful without authentication");
+          proceedToGallery();
+        } catch (firestoreError) {
+          console.error("Direct Firestore access failed:", firestoreError);
+
+          // Try anonymous authentication as fallback
+          try {
+            console.log("Attempting anonymous authentication...");
+            const auth = firebase.auth();
+            await auth.signInAnonymously();
+
+            console.log("Firebase authentication successful");
+            proceedToGallery();
+          } catch (authError) {
+            console.error("Firebase authentication failed:", authError);
+
+            // Show instructions for setting up public access
+            showFirebaseSetupInstructions();
+          }
+        }
+      }
+
+      // Show setup instructions
+      function showFirebaseSetupInstructions() {
+        const container = document.getElementById("galleryContainer");
+        if (container) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 40px; max-width: 700px; margin: 0 auto;">
+              <h3 style="color: #ff6b35; margin-bottom: 20px;">🔧 Firebase Setup Required</h3>
+              <p style="margin-bottom: 20px;"><strong>Error:</strong> Admin-restricted operation or insufficient permissions.</p>
+              
+              <div style="text-align: left; background: #f8f9fa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4 style="color: #333; margin-bottom: 15px;">Solution 1: Enable Public Read Access</h4>
+                <p style="margin-bottom: 10px;"><strong>Go to Firebase Console → Firestore → Rules and update to:</strong></p>
+                <pre style="background: #2d3748; color: #e2e8f0; padding: 15px; border-radius: 5px; overflow-x: auto;">rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /Book/{document} {
+      allow read: if true;  // Allow public read
+      allow write: if false; // Keep write protected
+    }
+  }
+}</pre>
+                <p style="font-size: 12px; color: #666; margin-top: 10px;">This allows reading Book documents without authentication</p>
+              </div>
+
+              <div style="text-align: left; background: #fff3cd; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4 style="color: #333; margin-bottom: 15px;">Solution 2: Enable Anonymous Authentication</h4>
+                <p>Go to Firebase Console → Authentication → Sign-in method → Anonymous → Enable</p>
+              </div>
+
+              <div style="text-align: left; background: #e6fffa; padding: 20px; border-radius: 8px; margin: 20px 0;">
+                <h4 style="color: #333; margin-bottom: 15px;">Why This Happens</h4>
+                <p>Your <code>FRB.py</code> uses Firebase Admin SDK (server-side) with full privileges.</p>
+                <p>Web browsers use Firebase Client SDK which requires proper authentication setup.</p>
+              </div>
+
+              <button onclick="location.reload()" style="background: #4299e1; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; margin-top: 20px;">
+                Refresh After Setup
+              </button>
+            </div>
+          `;
         }
       }
 
@@ -771,15 +842,54 @@
         } catch (error) {
           console.error("Error loading books from Firebase:", error);
 
-          // Show error message to user
+          // Show enhanced error message to user
           const container = document.getElementById("galleryContainer");
           if (container) {
+            let errorTitle = "Firebase Connection Error";
+            let errorDetails = "";
+            let troubleshooting = "";
+
+            if (
+              error.message.includes("insufficient permissions") ||
+              error.message.includes("Missing or insufficient permissions")
+            ) {
+              errorTitle = "🔒 Firebase Permission Denied";
+              errorDetails =
+                "Your authentication doesn't have permission to access the Firebase database.";
+              troubleshooting = `
+                <div style="text-align: left; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #ffc107;">
+                  <strong>🔧 Possible solutions:</strong>
+                  <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Check Firebase security rules in Firebase Console</li>
+                    <li>Ensure service account has Firestore permissions</li>
+                    <li>Verify project ID matches your Firebase project</li>
+                    <li>Contact administrator for database access</li>
+                  </ul>
+                </div>
+              `;
+            } else {
+              errorTitle = "⚠️ Firebase Connection Failed";
+              errorDetails = `Unable to connect to Firebase: ${error.message}`;
+              troubleshooting = `
+                <div style="text-align: left; margin-top: 20px; padding: 15px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #17a2b8;">
+                  <strong>🔧 Try these steps:</strong>
+                  <ul style="margin: 10px 0; padding-left: 20px;">
+                    <li>Check your internet connection</li>
+                    <li>Verify Firebase configuration is correct</li>
+                    <li>Try refreshing the page</li>
+                    <li>Check browser console for more details</li>
+                  </ul>
+                </div>
+              `;
+            }
+
             container.innerHTML = `
-              <div style="text-align: center; color: #dc3545; padding: 40px;">
-                <h3>Error Loading Gallery</h3>
-                <p>Failed to load books from Firebase.</p>
-                <p><small>Error: ${error.message}</small></p>
-                <p>Please check your Firebase authentication and try again.</p>
+              <div style="text-align: center; padding: 40px; max-width: 600px; margin: 0 auto;">
+                <div style="color: #dc3545; margin-bottom: 20px;">
+                  <h3 style="margin-bottom: 15px;">${errorTitle}</h3>
+                  <p style="margin: 15px 0; font-size: 16px;">${errorDetails}</p>
+                </div>
+                ${troubleshooting}
               </div>
             `;
           }
@@ -979,7 +1089,11 @@ Has Thumbnail: ${thumbnail.thumbnailUrl ? "Yes" : "No"}`);
 
       // Initialize page
       window.onload = function () {
+        // Get GitHub token from URL if available
         getTokensFromUrl();
+
+        // Since Firebase has public read access, go straight to gallery
+        setupGallery();
       };
     </script>
   </body>
