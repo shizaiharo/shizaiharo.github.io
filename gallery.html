@@ -353,10 +353,18 @@
 
           querySnapshot.forEach((doc) => {
             const data = doc.data();
-            thumbnailsData.push({
+            const bookData = {
               id: doc.id,
               ...data,
-            });
+            };
+
+            // Debug: Log the first book's data structure
+            if (thumbnailsData.length === 0) {
+              console.log("First book data structure:", bookData);
+              console.log("Available fields:", Object.keys(bookData));
+            }
+
+            thumbnailsData.push(bookData);
           });
 
           console.log(`Loaded ${thumbnailsData.length} books from Firebase`);
@@ -399,14 +407,32 @@
           return;
         }
 
-        books.forEach((book) => {
+        books.forEach((book, index) => {
           const div = document.createElement("div");
           div.className = "thumbnail-item";
 
-          // Create book info display
-          const title = book.title || book.Title || "Unknown Title";
-          const artist = book.artist || book.Artist || "Unknown Artist";
-          const bookNumber = book.id || book.BookNumber || "N/A";
+          // Debug: Log the first few books' data
+          if (index < 3) {
+            console.log(`Book ${index + 1} data:`, book);
+          }
+
+          // Get title (Firebase stores as 'title')
+          const title = book.title || "Unknown Title";
+
+          // Get artist from tags (look for 'artist' category)
+          let artist = "Unknown Artist";
+          if (book.tags && typeof book.tags === "object") {
+            if (book.tags.artist && Array.isArray(book.tags.artist)) {
+              artist = book.tags.artist.join(", ");
+            } else if (book.tags.creator && Array.isArray(book.tags.creator)) {
+              artist = book.tags.creator.join(", ");
+            } else if (book.tags.author && Array.isArray(book.tags.author)) {
+              artist = book.tags.author.join(", ");
+            }
+          }
+
+          // Get book number (Firebase uses document ID)
+          const bookNumber = book.id || "N/A";
 
           div.innerHTML = `
             <div class="thumbnail-wrapper">
@@ -515,15 +541,31 @@
         }
 
         const filteredBooks = thumbnailsData.filter((book) => {
-          const title = (book.title || book.Title || "").toLowerCase();
-          const artist = (book.artist || book.Artist || "").toLowerCase();
-          const tags = (book.tags || book.Tags || "").toLowerCase();
-          const bookNumber = (book.id || book.BookNumber || "").toString();
+          const title = (book.title || "").toLowerCase();
+          const bookNumber = (book.id || "").toString();
+
+          // Extract artist from tags structure
+          let artist = "";
+          if (book.tags && typeof book.tags === "object") {
+            if (book.tags.artist && Array.isArray(book.tags.artist)) {
+              artist = book.tags.artist.join(" ").toLowerCase();
+            } else if (book.tags.creator && Array.isArray(book.tags.creator)) {
+              artist = book.tags.creator.join(" ").toLowerCase();
+            } else if (book.tags.author && Array.isArray(book.tags.author)) {
+              artist = book.tags.author.join(" ").toLowerCase();
+            }
+          }
+
+          // Search in all tag categories
+          let allTags = "";
+          if (book.tags && typeof book.tags === "object") {
+            allTags = JSON.stringify(book.tags).toLowerCase();
+          }
 
           return (
             title.includes(query) ||
             artist.includes(query) ||
-            tags.includes(query) ||
+            allTags.includes(query) ||
             bookNumber.includes(query)
           );
         });
@@ -1033,16 +1075,16 @@ Has Thumbnail: ${thumbnail.thumbnailUrl ? "Yes" : "No"}`);
 
           // Since Firebase has public read access, go straight to gallery
           setupGallery();
-        } else if (urlToken && urlTokenType === "firebase") {
-          // Legacy support for Firebase tokens
-          firebaseToken = urlToken;
-          tokenType = urlTokenType;
-          console.log("Received Firebase token from URL");
-          setupGallery();
-        } else {
-          console.log(
-            "No tokens found in URL, proceeding with public Firebase access"
-          );
+          // } else if (urlToken && urlTokenType === "firebase") {
+          //   // Legacy support for Firebase tokens
+          //   firebaseToken = urlToken;
+          //   tokenType = urlTokenType;
+          //   console.log("Received Firebase token from URL");
+          //   setupGallery();
+          // } else {
+          //   console.log(
+          //     "No tokens found in URL, proceeding with public Firebase access"
+          //   );
           // No token provided, but Firebase has public read access
           setupGallery();
         }
