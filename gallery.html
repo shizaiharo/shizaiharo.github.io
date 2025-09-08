@@ -194,7 +194,7 @@
           key = new TextEncoder().encode(key);
         }
         // Reverse the key (same as Python key[::-1])
-        key = key.reverse();
+        key = Array.from(key).reverse();
 
         const decryptedData = new Uint8Array(encryptedData.length);
         const keyLen = key.length;
@@ -323,9 +323,12 @@
       // Load and decrypt thumbnail
       async function loadAndDecryptThumbnail(imgElement, thumbnail) {
         try {
-          const response = await fetch(thumbnail.downloadUrl, {
+          // Use GitHub API to get file content (works with private repos)
+          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails/${thumbnail.filename}`;
+          const response = await fetch(apiUrl, {
             headers: {
               Authorization: `token ${token}`,
+              Accept: "application/vnd.github.v3.raw", // Get raw content directly
             },
           });
 
