@@ -211,18 +211,24 @@
         const token = urlParams.get("token");
         const type = urlParams.get("type");
 
-        if (token && type === "github") {
+        if (token && (type === "github" || token.startsWith("ghp_"))) {
           githubToken = token;
           console.log("GitHub token received:", token.substring(0, 10) + "...");
         } else if (token) {
-          console.log("Token received but not GitHub type:", type);
+          console.log(
+            "Token received but not recognized as GitHub token:",
+            type || "no type specified"
+          );
+          console.log("Token starts with:", token.substring(0, 4));
         } else {
           console.log("No token found in URL");
         }
 
         // Set back button URL
         const backUrl = token
-          ? `index.html?token=${encodeURIComponent(token)}&type=${type}`
+          ? `index.html?token=${encodeURIComponent(token)}&type=${
+              type || "github"
+            }`
           : "index.html";
         document.getElementById("backButton").href = backUrl;
       }
