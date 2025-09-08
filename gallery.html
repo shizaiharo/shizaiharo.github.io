@@ -4,11 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Gallery - Thumbnail Browser</title>
-
-    <!-- Firebase SDK -->
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -17,180 +12,215 @@
       }
 
       .header {
-        background: white;
-        padding: 20px;
-        border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
         display: flex;
         justify-content: space-between;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 15px;
-      }
-
-      .header h1 {
-        margin: 0;
-        color: #333;
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
 
       .controls {
         display: flex;
         gap: 10px;
         align-items: center;
-        flex-wrap: wrap;
       }
 
-      .search-input,
-      .decrypt-input {
+      .search-box {
         padding: 8px 12px;
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 14px;
       }
 
-      .search-input {
-        width: 250px;
-      }
-
-      .decrypt-input {
-        width: 150px;
-      }
-
-      .btn {
+      .back-button {
         padding: 8px 16px;
+        background-color: #6c757d;
+        color: white;
         border: none;
         border-radius: 4px;
         cursor: pointer;
-        font-size: 14px;
         text-decoration: none;
         display: inline-block;
       }
 
-      .btn-primary {
-        background: #007bff;
-        color: white;
+      .back-button:hover {
+        background-color: #5a6268;
       }
 
-      .btn-secondary {
-        background: #6c757d;
-        color: white;
-      }
-
-      .btn:hover {
-        opacity: 0.9;
-      }
-
-      .gallery {
+      .gallery-container {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
         gap: 20px;
+        margin-top: 20px;
       }
 
-      .book-item {
+      .thumbnail-item {
         background: white;
         border-radius: 8px;
-        overflow: hidden;
+        padding: 15px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s;
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
       }
 
-      .book-item:hover {
-        transform: translateY(-5px);
-      }
-
-      .thumbnail-wrapper {
-        position: relative;
-        aspect-ratio: 3/4;
-        overflow: hidden;
+      .thumbnail-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
 
       .thumbnail-image {
         width: 100%;
-        height: 100%;
+        height: 250px;
         object-fit: cover;
-        background: #f8f9fa;
-      }
-
-      .loading {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        color: #666;
-        font-size: 12px;
-      }
-
-      .book-info {
-        padding: 12px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
       }
 
       .book-number {
         font-weight: bold;
-        color: #007bff;
-        font-size: 12px;
+        font-size: 16px;
+        color: #333;
+        margin-bottom: 5px;
       }
 
       .book-title {
-        font-size: 14px;
-        margin: 5px 0;
-        font-weight: 500;
-        line-height: 1.3;
+        font-size: 12px;
+        color: #333;
+        font-weight: bold;
+        margin-top: 5px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.2;
+        height: 2.4em;
       }
 
       .book-artist {
-        font-size: 12px;
+        font-size: 11px;
         color: #666;
+        margin-top: 3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
 
-      .status {
+      .book-categories {
+        font-size: 10px;
+        color: #888;
+        margin-top: 3px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .loading {
         text-align: center;
         padding: 40px;
+        font-size: 16px;
         color: #666;
       }
 
       .error {
+        text-align: center;
+        padding: 40px;
         color: #dc3545;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        margin: 20px 0;
+      }
+
+      .no-thumbnails {
+        text-align: center;
+        padding: 40px;
+        color: #6c757d;
+        font-size: 16px;
+      }
+
+      .encryption-input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 200px;
+      }
+
+      .decrypt-button {
+        padding: 8px 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+
+      .decrypt-button:hover {
+        background-color: #0056b3;
+      }
+
+      .decrypt-button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
       }
     </style>
   </head>
   <body>
     <div class="header">
-      <h1>Gallery</h1>
+      <h2>Gallery - Thumbnail Browser</h2>
       <div class="controls">
         <input
           type="text"
           id="searchInput"
-          class="search-input"
-          placeholder="Search by title, book number, or tags..."
-          onkeyup="searchBooks()"
+          class="search-box"
+          placeholder="Search by title, artist, category, or book number..."
+          onkeyup="filterThumbnails()"
         />
         <input
           type="password"
-          id="decryptKey"
-          class="decrypt-input"
-          placeholder="Decrypt key..."
+          id="encryptionKey"
+          class="encryption-input"
+          placeholder="Enter encryption key..."
         />
-        <button class="btn btn-primary" onclick="decryptThumbnails()">
-          Decrypt
+        <button class="decrypt-button" onclick="decryptThumbnails()">
+          Decrypt Thumbnails
         </button>
-        <a href="#" id="backButton" class="btn btn-secondary">Back</a>
+        <a href="#" id="backButton" class="back-button">Back to Main</a>
       </div>
     </div>
 
-    <div id="status" class="status">Loading...</div>
-    <div id="gallery" class="gallery"></div>
+    <div id="loadingMessage" class="loading">Loading thumbnails...</div>
+    <div id="errorMessage" class="error" style="display: none"></div>
+    <div id="noThumbnailsMessage" class="no-thumbnails" style="display: none">
+      No thumbnails found
+    </div>
+    <div id="galleryContainer" class="gallery-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
-      // Global variables
-      let githubToken = "";
+      const repo = "Amrita"; // Same repository as your main project
+      const owner = "shizaiharo"; // Your GitHub username
+      const branch = "main";
+      let token = "";
+      let thumbnailsData = [];
       let booksData = [];
-      let filteredBooks = [];
-      let db = null;
+      let encryptionKey = "";
 
-      // Firebase config
+      // Firebase configuration
       const firebaseConfig = {
-        apiKey: "AIzaSyBgHpfJmeGjIS51nXKzFey5jI5LlkWwULc",
+        apiKey: "AIzaSyD6Q4U9EqUuMKKJLt_GBGgOVCJdjWY6bNw",
         authDomain: "cloud-2f6b2.firebaseapp.com",
         databaseURL:
           "https://cloud-2f6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -202,534 +232,409 @@
       };
 
       // Initialize Firebase
-      firebase.initializeApp(firebaseConfig);
-      db = firebase.firestore();
+      let db;
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        console.log("Firebase initialized successfully");
+      } catch (error) {
+        console.error("Firebase initialization failed:", error);
+      }
 
-      // Get GitHub token from URL
+      // XOR Decryption function (same as your Python implementation)
+      function decryptXOR(encryptedData, key) {
+        console.log("Decrypting with key:", key);
+        console.log("Encrypted data length:", encryptedData.length);
+
+        if (typeof key === "string") {
+          key = new TextEncoder().encode(key);
+        }
+
+        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
+        key = key.slice(0, 16);
+        console.log("Key bytes (truncated to 16):", Array.from(key));
+
+        // Reverse the key (same as Python key[::-1])
+        key = Array.from(key).reverse();
+        console.log("Reversed key bytes:", key);
+
+        const decryptedData = new Uint8Array(encryptedData.length);
+        const keyLen = key.length;
+
+        for (let i = 0; i < encryptedData.length; i++) {
+          decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
+        }
+
+        console.log(
+          "Decrypted data first 20 bytes:",
+          Array.from(decryptedData.slice(0, 20))
+        );
+        return decryptedData;
+      }
+
+      // Get token from URL parameters
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get("token");
-        const type = urlParams.get("type");
-
-        if (token && (type === "github" || token.startsWith("ghp_"))) {
-          githubToken = token;
-          console.log("GitHub token received:", token.substring(0, 10) + "...");
-        } else if (token) {
-          console.log(
-            "Token received but not recognized as GitHub token:",
-            type || "no type specified"
-          );
-          console.log("Token starts with:", token.substring(0, 4));
-        } else {
-          console.log("No token found in URL");
-        }
-
-        // Set back button URL
-        const backUrl = token
-          ? `index.html?token=${encodeURIComponent(token)}&type=${
-              type || "github"
-            }`
-          : "index.html";
-        document.getElementById("backButton").href = backUrl;
-      }
-
-      // Load books from Firebase
-      async function loadBooks() {
-        try {
-          console.log("Loading books from Firebase...");
-          const querySnapshot = await db.collection("Book").get();
-
-          booksData = [];
-          querySnapshot.forEach((doc) => {
-            const data = doc.data();
-            // Only include books that have thumbnail_url and it's a valid GitHub URL
-            if (
-              data.thumbnail_url &&
-              typeof data.thumbnail_url === "string" &&
-              data.thumbnail_url.includes("raw.githubusercontent.com")
-            ) {
-              booksData.push({
-                id: doc.id,
-                ...data,
-              });
-              console.log(
-                `Book ${doc.id}: thumbnail_url = ${data.thumbnail_url}`
-              );
-            } else if (data.thumbnail_url) {
-              console.log(
-                `Book ${doc.id}: has thumbnail_url but not a valid GitHub URL: ${data.thumbnail_url}`
-              );
-            }
-          });
-
-          console.log(
-            `Loaded ${booksData.length} books with valid GitHub thumbnail URLs`
-          );
-
-          // Count encrypted vs non-encrypted books
-          const encryptedCount = booksData.filter(
-            (book) => book.encrypted
-          ).length;
-          const nonEncryptedCount = booksData.length - encryptedCount;
-          console.log(
-            `📊 Books summary: ${encryptedCount} encrypted, ${nonEncryptedCount} non-encrypted`
-          );
-
-          filteredBooks = [...booksData];
-          displayBooks();
-        } catch (error) {
-          console.error("Error loading books:", error);
-          document.getElementById("status").innerHTML =
-            '<div class="error">Error loading books from Firebase</div>';
-        }
-      }
-
-      // Display books in gallery
-      function displayBooks() {
-        const gallery = document.getElementById("gallery");
-        const status = document.getElementById("status");
-
-        if (filteredBooks.length === 0) {
-          status.innerHTML = `
-            <div>No books found with valid GitHub thumbnail URLs.</div>
-            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
-              Books must have a 'thumbnail_url' field with a GitHub raw URL format.
-            </div>
-          `;
-          gallery.innerHTML = "";
+        token = urlParams.get("token");
+        if (!token) {
+          alert("No token found. Redirecting to main page.");
+          window.location.href = "index.html";
           return;
         }
 
-        // Show summary of encrypted vs non-encrypted books
-        const encryptedCount = filteredBooks.filter(
-          (book) => book.encrypted
-        ).length;
-        const nonEncryptedCount = filteredBooks.length - encryptedCount;
-
-        status.innerHTML = `
-          <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #007bff;">
-            📚 Found ${filteredBooks.length} books with thumbnails: 
-            <span style="color: #ff6b35; font-weight: bold;">🔒 ${encryptedCount} encrypted</span>, 
-            <span style="color: #28a745; font-weight: bold;">📷 ${nonEncryptedCount} direct</span>
-            ${
-              encryptedCount > 0
-                ? '<br><small style="color: #666;">💡 Enter decryption key above to view encrypted thumbnails</small>'
-                : ""
-            }
-          </div>
-        `;
-        status.style.display = "block";
-
-        gallery.innerHTML = filteredBooks
-          .map((book) => {
-            const title = book.title || "Unknown Title";
-            const artist = getArtist(book.tags);
-
-            return `
-                    <div class="book-item">
-                        <div class="thumbnail-wrapper">
-                            <img class="thumbnail-image" 
-                                 src="data:image/svg+xml;base64,${btoa(
-                                   '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#666">Loading...</text></svg>'
-                                 )}"
-                                 data-thumbnail-url="${book.thumbnail_url}"
-                                 data-book-id="${book.id}"
-                                 alt="Book ${book.id}">
-                            <div class="loading">Loading...</div>
-                        </div>
-                        <div class="book-info">
-                            <div class="book-number">#${book.id}</div>
-                            <div class="book-title">${escapeHtml(title)}</div>
-                            <div class="book-artist">${escapeHtml(artist)}</div>
-                            ${
-                              book.encrypted
-                                ? '<div style="font-size: 0.8em; color: #ff6b35; font-weight: bold;">🔒 Encrypted</div>'
-                                : '<div style="font-size: 0.8em; color: #28a745;">📷 Direct</div>'
-                            }
-                        </div>
-                    </div>
-                `;
-          })
-          .join("");
+        // Set back button link
+        document.getElementById(
+          "backButton"
+        ).href = `index.html?token=${encodeURIComponent(token)}`;
 
         // Load thumbnails
         loadThumbnails();
       }
 
-      // Extract artist from tags
-      function getArtist(tags) {
+      // Load book information from Firebase
+      async function loadBooksFromFirebase() {
+        try {
+          console.log("Loading books from Firebase...");
+          const querySnapshot = await db.collection("Book").get();
+
+          if (querySnapshot.empty) {
+            console.log("No books found in Firebase collection");
+            return [];
+          }
+
+          const books = [];
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            // Only include books that have a title
+            if (data.title) {
+              books.push({
+                id: doc.id,
+                bookNumber: doc.id,
+                title: data.title || "Unknown Title",
+                artist: extractArtist(data.tags),
+                categories: extractCategories(data.tags),
+                tags: data.tags || {},
+                thumbnail_url: data.thumbnail_url || null,
+                video_ids: data.video_ids || [],
+                folder_name: data.folder_name || "",
+                ...data,
+              });
+            }
+          });
+
+          console.log(`Loaded ${books.length} books with titles from Firebase`);
+          return books;
+        } catch (error) {
+          console.error("Error loading books from Firebase:", error);
+          return [];
+        }
+      }
+
+      // Extract artist from tags (based on CBZ.py structure)
+      function extractArtist(tags) {
         if (!tags || typeof tags !== "object") return "Unknown Artist";
 
-        const artistFields = ["artist", "creator", "author"];
-        for (const field of artistFields) {
-          if (
-            tags[field] &&
-            Array.isArray(tags[field]) &&
-            tags[field].length > 0
-          ) {
-            return tags[field].join(", ");
-          }
+        // Look for artist, creator, or author categories
+        if (tags.artist && Array.isArray(tags.artist)) {
+          return tags.artist.join(", ");
+        } else if (tags.creator && Array.isArray(tags.creator)) {
+          return tags.creator.join(", ");
+        } else if (tags.author && Array.isArray(tags.author)) {
+          return tags.author.join(", ");
         }
+
         return "Unknown Artist";
       }
 
-      // Escape HTML
-      function escapeHtml(text) {
-        const div = document.createElement("div");
-        div.textContent = text;
-        return div.innerHTML;
+      // Extract categories from tags (based on CBZ.py structure)
+      function extractCategories(tags) {
+        if (!tags || typeof tags !== "object") return [];
+
+        const categories = [];
+        for (const [key, values] of Object.entries(tags)) {
+          if (Array.isArray(values) && key !== "general") {
+            categories.push(...values.map((v) => `${key}:${v}`));
+          } else if (key === "general" && Array.isArray(values)) {
+            categories.push(...values);
+          }
+        }
+
+        return categories;
       }
 
-      // Load thumbnails
+      // Load thumbnails from GitHub repository and match with Firebase data
       async function loadThumbnails() {
-        const images = document.querySelectorAll(".thumbnail-image");
-        console.log(`Starting to load ${images.length} thumbnails...`);
+        try {
+          document.getElementById("loadingMessage").style.display = "block";
+          document.getElementById("errorMessage").style.display = "none";
 
-        for (const img of images) {
-          const thumbnailUrl = img.dataset.thumbnailUrl;
-          const bookId = img.dataset.bookId;
+          // Load book data from Firebase first
+          booksData = await loadBooksFromFirebase();
+          console.log("Books data loaded:", booksData.length);
 
-          console.log(`Processing thumbnail for book ${bookId}...`);
+          // Get list of files in Thumbnails folder
+          const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails`,
+            {
+              headers: {
+                Authorization: `token ${token}`,
+              },
+            }
+          );
 
-          try {
-            // Check if book data indicates encryption
-            const bookData = booksData.find((book) => book.id === bookId);
-            const isEncrypted = bookData && bookData.encrypted;
-
-            console.log(`Book ${bookId} encrypted: ${isEncrypted}`);
-
-            // Try to load thumbnail with decryption if encrypted
-            await loadThumbnail(img, thumbnailUrl, isEncrypted);
-          } catch (error) {
-            console.error(
-              `Failed to load thumbnail for book ${bookId}:`,
-              error
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch thumbnails: ${response.status} ${response.statusText}`
             );
-            img.src = `data:image/svg+xml;base64,${btoa(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#dc3545">Failed to Load</text><text x="50%" y="65%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" fill="#dc3545">' +
-                error.message.substring(0, 30) +
-                "</text></svg>"
-            )}`;
           }
 
-          // Hide loading indicator
-          const loading = img.parentElement.querySelector(".loading");
-          if (loading) loading.style.display = "none";
+          const files = await response.json();
+
+          // Filter for thumbnail files and match with book data
+          thumbnailsData = files
+            .filter((file) => file.type === "file" && file.name.includes("."))
+            .map((file) => {
+              // Extract book number from filename (assuming format: bookNumber.ext)
+              const bookNumber = file.name.split(".")[0];
+
+              // Find matching book data from Firebase
+              const bookData = booksData.find(
+                (book) => book.bookNumber === bookNumber
+              );
+
+              return {
+                bookNumber: bookNumber,
+                filename: file.name,
+                downloadUrl: file.download_url,
+                rawUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Thumbnails/${file.name}`,
+                // Include book data if found
+                title: bookData ? bookData.title : `Book #${bookNumber}`,
+                artist: bookData ? bookData.artist : "Unknown Artist",
+                categories: bookData ? bookData.categories : [],
+                tags: bookData ? bookData.tags : {},
+                hasBookData: !!bookData,
+              };
+            })
+            .filter((item) => item.hasBookData) // Only show items that have book data with title
+            .sort((a, b) => parseInt(a.bookNumber) - parseInt(b.bookNumber));
+
+          document.getElementById("loadingMessage").style.display = "none";
+
+          if (thumbnailsData.length === 0) {
+            document.getElementById("noThumbnailsMessage").style.display =
+              "block";
+          } else {
+            displayThumbnails(thumbnailsData);
+          }
+        } catch (error) {
+          console.error("Error loading thumbnails:", error);
+          document.getElementById("loadingMessage").style.display = "none";
+          document.getElementById("errorMessage").style.display = "block";
+          document.getElementById(
+            "errorMessage"
+          ).textContent = `Error: ${error.message}`;
         }
       }
 
-      // Load single thumbnail from private GitHub repository
-      async function loadThumbnail(img, thumbnailUrl, decrypt = false) {
-        console.log("Loading thumbnail for book:", img.dataset.bookId);
-        console.log("GitHub token available:", githubToken ? "Yes" : "No");
-        console.log(
-          "GitHub token length:",
-          githubToken ? githubToken.length : 0
-        );
+      // Display thumbnails in the gallery
+      function displayThumbnails(thumbnails) {
+        const container = document.getElementById("galleryContainer");
+        container.innerHTML = "";
 
-        if (!githubToken) {
-          throw new Error(
-            "GitHub token required for private repository access"
-          );
-        }
+        thumbnails.forEach((thumbnail) => {
+          const item = document.createElement("div");
+          item.className = "thumbnail-item";
+          item.onclick = () => showThumbnailDetails(thumbnail);
 
-        const bookId = img.dataset.bookId;
+          const img = document.createElement("img");
+          img.className = "thumbnail-image";
+          img.alt = `Book ${thumbnail.bookNumber}`;
 
-        // Use the thumbnail URL from Firebase instead of constructing GitHub API URL
-        if (!thumbnailUrl) {
-          throw new Error(`No thumbnail URL found for book ${bookId}`);
-        }
+          if (encryptionKey) {
+            // If encryption key is provided, try to decrypt and display
+            loadAndDecryptThumbnail(img, thumbnail);
+          } else {
+            // Show placeholder for encrypted thumbnail
+            img.src =
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCI+RW5jcnlwdGVkPC90ZXh0Pjwvc3ZnPg==";
+          }
 
-        console.log("Using thumbnail URL from Firebase:", thumbnailUrl);
+          const bookNumber = document.createElement("div");
+          bookNumber.className = "book-number";
+          bookNumber.textContent = `Book #${thumbnail.bookNumber}`;
 
-        // Convert raw GitHub URLs to API URLs to avoid CORS issues
-        const urlParts = thumbnailUrl
-          .replace("https://raw.githubusercontent.com/", "")
-          .split("/");
+          const bookTitle = document.createElement("div");
+          bookTitle.className = "book-title";
+          bookTitle.textContent = thumbnail.title;
+          bookTitle.title = thumbnail.title; // Show full title on hover
 
-        console.log("URL parts:", urlParts);
+          const bookArtist = document.createElement("div");
+          bookArtist.className = "book-artist";
+          bookArtist.textContent = `Artist: ${thumbnail.artist}`;
+          bookArtist.title = thumbnail.artist; // Show full artist on hover
 
-        if (urlParts.length < 4) {
-          throw new Error(`Invalid GitHub raw URL format: ${thumbnailUrl}`);
-        }
+          const bookCategories = document.createElement("div");
+          bookCategories.className = "book-categories";
+          const categoriesText = thumbnail.categories.slice(0, 3).join(", ");
+          bookCategories.textContent = categoriesText
+            ? `Tags: ${categoriesText}`
+            : "";
+          bookCategories.title = thumbnail.categories.join(", "); // Show all categories on hover
 
-        const user = urlParts[0];
-        const repo = urlParts[1];
-        const branch = urlParts[2];
-        const filePath = urlParts.slice(3).join("/");
-
-        console.log("Parsed URL components:");
-        console.log("- User:", user);
-        console.log("- Repo:", repo);
-        console.log("- Branch:", branch);
-        console.log("- File path:", filePath);
-
-        // Include branch in API URL (always include branch for consistency)
-        const apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}?ref=${branch}`;
-        console.log("GitHub API URL:", apiUrl);
-
-        const response = await fetch(apiUrl, {
-          headers: {
-            Authorization: `token ${githubToken}`,
-            Accept: "application/vnd.github.v3+json",
-          },
+          item.appendChild(img);
+          item.appendChild(bookNumber);
+          item.appendChild(bookTitle);
+          item.appendChild(bookArtist);
+          item.appendChild(bookCategories);
+          container.appendChild(item);
         });
+      }
 
-        console.log("Response status:", response.status);
-        console.log(
-          "Response headers:",
-          Object.fromEntries(response.headers.entries())
-        );
+      // Load and decrypt thumbnail
+      async function loadAndDecryptThumbnail(imgElement, thumbnail) {
+        try {
+          console.log("Loading thumbnail:", thumbnail.filename);
+          // Use GitHub API to get file content (works with private repos)
+          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails/${thumbnail.filename}`;
+          const response = await fetch(apiUrl, {
+            headers: {
+              Authorization: `token ${token}`,
+              Accept: "application/vnd.github.v3.raw", // Get raw content directly
+            },
+          });
 
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error("GitHub API error response:", errorText);
-          if (response.status === 404) {
-            throw new Error(`File not found: ${apiUrl}`);
-          }
-          if (response.status === 403) {
-            throw new Error(
-              `Access denied. Check GitHub token permissions for: ${apiUrl}`
-            );
-          }
-          throw new Error(
-            `GitHub API error: ${response.status} - ${errorText}`
-          );
-        }
-
-        let bytes;
-
-        // Always use GitHub API response format (since we converted raw URLs to API URLs)
-        const data = await response.json();
-        console.log("GitHub API response keys:", Object.keys(data));
-        console.log("File size from API:", data.size || "N/A");
-        console.log("File encoding:", data.encoding || "N/A");
-        console.log("File type:", data.type || "N/A");
-        console.log("File name:", data.name || "N/A");
-        console.log("File path:", data.path || "N/A");
-        console.log("Content length:", data.content ? data.content.length : 0);
-
-        // Check if file is too large for GitHub API (>1MB)
-        if (data.size && data.size > 1048576) {
-          throw new Error(
-            `File too large for GitHub API (${data.size} bytes > 1MB limit). Use Git LFS or direct download for book ${bookId}.`
-          );
-        }
-
-        // Check if this is actually a directory
-        if (data.type === "dir") {
-          throw new Error(`Path points to a directory, not a file: ${apiUrl}`);
-        }
-
-        // Additional debugging for empty content
-        if (!data.content) {
-          console.error("Full GitHub API response for debugging:", data);
-          throw new Error(
-            `No content field in GitHub API response for book ${bookId}. File might not exist or be accessible at: ${apiUrl}`
-          );
-        }
-
-        if (data.content.trim().length === 0) {
-          console.error("GitHub API returned empty content (after trim)");
-          console.error("Raw content value:", JSON.stringify(data.content));
-          console.error("File size from API:", data.size);
-          console.error("File encoding:", data.encoding);
-          throw new Error(
-            `Empty content in GitHub API response for book ${bookId}. File size: ${data.size}, Type: ${data.type}, Encoding: ${data.encoding}`
-          );
-        }
-
-        const binaryString = atob(data.content.replace(/\s/g, ""));
-        console.log("Decoded binary length:", binaryString.length);
-
-        bytes = new Uint8Array(binaryString.length);
-        for (let i = 0; i < binaryString.length; i++) {
-          bytes[i] = binaryString.charCodeAt(i);
-        }
-
-        if (decrypt) {
-          const decryptKey = document.getElementById("decryptKey").value.trim();
-
-          if (!decryptKey) {
-            throw new Error(
-              `Decryption key required for encrypted book ${bookId}. Please enter key in the input field above.`
-            );
+          if (!response.ok) {
+            throw new Error(`Failed to load thumbnail: ${response.status}`);
           }
 
+          const encryptedData = new Uint8Array(await response.arrayBuffer());
           console.log(
-            `Decrypting thumbnail for book ${bookId} with key length: ${decryptKey.length}`
+            "Downloaded encrypted data length:",
+            encryptedData.length
+          );
+          console.log(
+            "First 20 bytes of encrypted data:",
+            Array.from(encryptedData.slice(0, 20))
           );
 
-          try {
-            const decryptedData = decryptXOR(bytes, decryptKey);
+          const decryptedData = decryptXOR(encryptedData, encryptionKey);
 
-            // Try to detect if it's a valid image by checking magic bytes
-            const magicBytes = Array.from(decryptedData.slice(0, 4));
-            console.log("Decrypted magic bytes:", magicBytes);
+          // Try to detect if it's a valid image by checking magic bytes
+          const magicBytes = Array.from(decryptedData.slice(0, 4));
+          console.log("Decrypted magic bytes:", magicBytes);
 
-            const blob = new Blob([decryptedData], { type: "image/png" });
-            const objectUrl = URL.createObjectURL(blob);
-
-            // Add error handling for image loading
-            img.onload = () => {
-              console.log(
-                `✅ Decrypted thumbnail loaded successfully for book ${bookId}`
-              );
-              URL.revokeObjectURL(objectUrl);
-            };
-
-            img.onerror = () => {
-              console.error(
-                `❌ Failed to load decrypted image for book ${bookId}`
-              );
-              URL.revokeObjectURL(objectUrl);
-              // Show error placeholder
-              img.src = `data:image/svg+xml;base64,${btoa(
-                '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="45%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#dc3545">Decrypt Failed</text><text x="50%" y="60%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" fill="#666">Check decrypt key</text></svg>'
-              )}`;
-            };
-
-            img.src = objectUrl;
-          } catch (decryptError) {
-            console.error(
-              `❌ Decryption error for book ${bookId}:`,
-              decryptError
-            );
-            throw new Error(
-              `Decryption failed for book ${bookId}: ${decryptError.message}`
-            );
-          }
-        } else {
-          // Non-encrypted image - display directly
-          console.log(`📷 Loading non-encrypted thumbnail for book ${bookId}`);
-          const blob = new Blob([bytes], { type: "image/png" });
+          const blob = new Blob([decryptedData]);
           const objectUrl = URL.createObjectURL(blob);
 
-          img.onload = () => {
-            console.log(
-              `✅ Non-encrypted thumbnail loaded successfully for book ${bookId}`
-            );
+          imgElement.onload = () => URL.revokeObjectURL(objectUrl);
+          imgElement.onerror = () => {
             URL.revokeObjectURL(objectUrl);
+            imgElement.src =
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+RGVjcnlwdCBGYWlsZWQ8L3RleHQ+PC9zdmc+";
           };
 
-          img.onerror = () => {
-            console.error(
-              `❌ Failed to load non-encrypted image for book ${bookId}`
-            );
-            URL.revokeObjectURL(objectUrl);
-            // Show error placeholder
-            img.src = `data:image/svg+xml;base64,${btoa(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="45%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#dc3545">Image Load Failed</text><text x="50%" y="60%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" fill="#666">Invalid image data</text></svg>'
-            )}`;
-          };
-
-          img.src = objectUrl;
+          imgElement.src = objectUrl;
+        } catch (error) {
+          console.error("Error decrypting thumbnail:", error);
+          imgElement.src =
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+TG9hZCBFcnJvcjwvdGV4dD48L3N2Zz4=";
         }
-      }
-
-      // XOR decryption (matching Python GHB.py encrypt_XOR function)
-      function decryptXOR(data, key) {
-        console.log("Decrypting with key:", key);
-        console.log("Encrypted data length:", data.length);
-
-        // Check for empty data
-        if (data.length === 0) {
-          throw new Error("Cannot decrypt: encrypted data is empty");
-        }
-
-        // Match Python logic exactly:
-        // key = key[::-1]  (reverse the key)
-        // key = key.encode('utf-8')  (encode to UTF-8)
-
-        // Step 1: Reverse the key (same as Python key[::-1])
-        const reversedKey = key.split("").reverse().join("");
-        console.log("Reversed key:", reversedKey);
-
-        // Step 2: Encode to UTF-8 bytes (same as Python key.encode('utf-8'))
-        const keyBytes = new TextEncoder().encode(reversedKey);
-        console.log("Key bytes after encoding:", Array.from(keyBytes));
-        console.log("Key length:", keyBytes.length);
-
-        // Step 3: XOR decryption (same as Python logic)
-        const result = new Uint8Array(data.length);
-        const keyLen = keyBytes.length;
-
-        for (let i = 0; i < data.length; i++) {
-          result[i] = data[i] ^ keyBytes[i % keyLen];
-        }
-
-        console.log(
-          "Decrypted data first 20 bytes:",
-          Array.from(result.slice(0, 20))
-        );
-        return result;
-      }
-
-      // Search books
-      function searchBooks() {
-        const query = document
-          .getElementById("searchInput")
-          .value.toLowerCase()
-          .trim();
-
-        if (!query) {
-          filteredBooks = [...booksData];
-        } else {
-          filteredBooks = booksData.filter((book) => {
-            const title = (book.title || "").toLowerCase();
-            const bookId = book.id.toLowerCase();
-            const artist = getArtist(book.tags).toLowerCase();
-
-            // Search in tags
-            let tagsText = "";
-            if (book.tags && typeof book.tags === "object") {
-              tagsText = JSON.stringify(book.tags).toLowerCase();
-            }
-
-            return (
-              title.includes(query) ||
-              bookId.includes(query) ||
-              artist.includes(query) ||
-              tagsText.includes(query)
-            );
-          });
-        }
-
-        displayBooks();
       }
 
       // Decrypt all thumbnails
-      async function decryptThumbnails() {
-        const decryptKey = document.getElementById("decryptKey").value.trim();
-
-        if (!decryptKey) {
-          alert("Please enter a decrypt key.");
+      function decryptThumbnails() {
+        encryptionKey = document.getElementById("encryptionKey").value.trim();
+        if (!encryptionKey) {
+          alert("Please enter an encryption key.");
           return;
         }
 
-        const images = document.querySelectorAll(".thumbnail-image");
-
-        for (const img of images) {
-          const thumbnailUrl = img.dataset.thumbnailUrl;
-          const bookId = img.dataset.bookId;
-
-          try {
-            await loadThumbnail(img, thumbnailUrl, true);
-            console.log(`Decrypted thumbnail for book ${bookId}`);
-          } catch (error) {
-            console.error(
-              `Failed to decrypt thumbnail for book ${bookId}:`,
-              error
-            );
-          }
-        }
+        // Re-display thumbnails with decryption
+        displayThumbnails(thumbnailsData);
       }
 
-      // Initialize
-      window.onload = function () {
-        getTokenFromUrl();
-        loadBooks();
-      };
+      // Filter thumbnails by search
+      function filterThumbnails() {
+        const searchTerm = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+
+        if (!searchTerm.trim()) {
+          displayThumbnails(thumbnailsData);
+          return;
+        }
+
+        const filteredThumbnails = thumbnailsData.filter((thumbnail) => {
+          // Search in book number
+          if (thumbnail.bookNumber.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          // Search in title
+          if (thumbnail.title.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          // Search in artist
+          if (thumbnail.artist.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          // Search in categories/tags
+          if (
+            thumbnail.categories.some((category) =>
+              category.toLowerCase().includes(searchTerm)
+            )
+          ) {
+            return true;
+          }
+
+          // Search in all tag values (deep search)
+          if (thumbnail.tags && typeof thumbnail.tags === "object") {
+            const allTagsText = JSON.stringify(thumbnail.tags).toLowerCase();
+            if (allTagsText.includes(searchTerm)) {
+              return true;
+            }
+          }
+
+          // Search in filename
+          if (thumbnail.filename.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          return false;
+        });
+
+        displayThumbnails(filteredThumbnails);
+      }
+
+      // Show thumbnail details (enhanced with Firebase data)
+      function showThumbnailDetails(thumbnail) {
+        const categoriesText =
+          thumbnail.categories.length > 0
+            ? thumbnail.categories.join(", ")
+            : "No categories";
+
+        const videoIdsText =
+          thumbnail.tags &&
+          thumbnail.tags.video_ids &&
+          thumbnail.tags.video_ids.length > 0
+            ? thumbnail.tags.video_ids.join(", ")
+            : "No video IDs";
+
+        alert(
+          `Book Number: ${thumbnail.bookNumber}\n` +
+            `Title: ${thumbnail.title}\n` +
+            `Artist: ${thumbnail.artist}\n` +
+            `Categories: ${categoriesText}\n` +
+            `Video IDs: ${videoIdsText}\n` +
+            `Filename: ${thumbnail.filename}\n\n` +
+            `Click functionality can be extended here.`
+        );
+      }
+
+      // Initialize page
+      window.onload = getTokenFromUrl;
     </script>
   </body>
 </html>
