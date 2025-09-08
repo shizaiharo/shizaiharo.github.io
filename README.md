@@ -4,3 +4,4 @@ v1.x    Basically work.<br/>
 v2.x    Split zip work.<br/>
 v3.x    Concurrent fetch work.<br/>
 v4.x    Large file split work.<br/>
+v5.x    Add Gallery from YTD.<br/>
