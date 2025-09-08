@@ -78,7 +78,7 @@
       }
 
       .gallery-content {
-        display: none;
+        display: block; /* Always visible since Firebase has public read access */
       }
 
       .back-button:hover {
@@ -1023,33 +1023,35 @@ Has Thumbnail: ${thumbnail.thumbnailUrl ? "Yes" : "No"}`);
         const urlToken = urlParams.get("token") || "";
         const urlTokenType = urlParams.get("type") || "";
 
-        if (
-          urlToken &&
-          (urlTokenType === "github" || urlTokenType === "firebase")
-        ) {
+        if (urlToken && urlTokenType === "github") {
           // GitHub token from index.html
           githubToken = urlToken;
           tokenType = urlTokenType;
-          console.log(`Received ${urlTokenType} token from URL`);
+          console.log(
+            `Received GitHub token from URL: ${urlToken.substring(0, 10)}...`
+          );
 
-          if (urlTokenType === "firebase") {
-            // If Firebase token was passed, auto-fill and validate
-            firebaseToken = urlToken;
-            document.getElementById("tokenSection").style.display = "none";
-            document.getElementById("galleryContent").style.display = "block";
-            setupGallery();
-          }
-          // If GitHub token, still need Firebase authentication
+          // Since Firebase has public read access, go straight to gallery
+          setupGallery();
+        } else if (urlToken && urlTokenType === "firebase") {
+          // Legacy support for Firebase tokens
+          firebaseToken = urlToken;
+          tokenType = urlTokenType;
+          console.log("Received Firebase token from URL");
+          setupGallery();
+        } else {
+          console.log(
+            "No tokens found in URL, proceeding with public Firebase access"
+          );
+          // No token provided, but Firebase has public read access
+          setupGallery();
         }
       }
 
       // Initialize page
       window.onload = function () {
-        // Get GitHub token from URL if available
+        // Get GitHub token from URL if available and set up gallery
         getTokensFromUrl();
-
-        // Since Firebase has public read access, go straight to gallery
-        setupGallery();
       };
     </script>
   </body>
