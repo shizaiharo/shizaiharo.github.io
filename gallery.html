@@ -241,18 +241,23 @@
         console.error("Firebase initialization failed:", error);
       }
 
-      // XOR Decryption function (matching Python simple_decrypt_image exactly)
+      // XOR Decryption function (matching working thumbnail_decrypt.html version)
       function decryptXOR(encryptedData, key) {
         console.log("Decrypting with key:", key);
         console.log("Encrypted data length:", encryptedData.length);
 
-        // Match Python simple_decrypt_image logic exactly:
-        // key = key[::-1]  (reverse the string first)
+        // Match Python upload_thumbnail logic exactly:
+        // key = key.encode('utf-8')[:16]  (encode first, then truncate to 16 bytes)
         if (typeof key === "string") {
-          key = key.split("").reverse().join("");
-          console.log("Reversed key string:", key);
-          // key = key.encode('utf-8')  (then encode to bytes)
-          key = new TextEncoder().encode(key);
+          key = new TextEncoder().encode(key).slice(0, 16);
+          console.log(
+            "Key after encoding and truncating to 16 bytes:",
+            Array.from(key)
+          );
+
+          // key = key[::-1]  (then reverse the bytes)
+          key = Array.from(key).reverse();
+          console.log("Key after reversing bytes:", key);
         }
 
         console.log("Final key bytes:", Array.from(key));
@@ -269,9 +274,7 @@
           Array.from(decryptedData.slice(0, 20))
         );
         return decryptedData;
-      }
-
-      // Get token from URL parameters
+      } // Get token from URL parameters
       function getTokenFromUrl() {
         const urlParams = new URLSearchParams(window.location.search);
         token = urlParams.get("token");
