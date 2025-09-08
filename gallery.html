@@ -242,16 +242,39 @@
           booksData = [];
           querySnapshot.forEach((doc) => {
             const data = doc.data();
-            // Only include books that have thumbnail_url
-            if (data.thumbnail_url) {
+            // Only include books that have thumbnail_url and it's a valid GitHub URL
+            if (
+              data.thumbnail_url &&
+              typeof data.thumbnail_url === "string" &&
+              data.thumbnail_url.includes("raw.githubusercontent.com")
+            ) {
               booksData.push({
                 id: doc.id,
                 ...data,
               });
+              console.log(
+                `Book ${doc.id}: thumbnail_url = ${data.thumbnail_url}`
+              );
+            } else if (data.thumbnail_url) {
+              console.log(
+                `Book ${doc.id}: has thumbnail_url but not a valid GitHub URL: ${data.thumbnail_url}`
+              );
             }
           });
 
-          console.log(`Loaded ${booksData.length} books with thumbnails`);
+          console.log(
+            `Loaded ${booksData.length} books with valid GitHub thumbnail URLs`
+          );
+
+          // Count encrypted vs non-encrypted books
+          const encryptedCount = booksData.filter(
+            (book) => book.encrypted
+          ).length;
+          const nonEncryptedCount = booksData.length - encryptedCount;
+          console.log(
+            `📊 Books summary: ${encryptedCount} encrypted, ${nonEncryptedCount} non-encrypted`
+          );
+
           filteredBooks = [...booksData];
           displayBooks();
         } catch (error) {
@@ -267,12 +290,35 @@
         const status = document.getElementById("status");
 
         if (filteredBooks.length === 0) {
-          status.textContent = "No books found with thumbnails.";
+          status.innerHTML = `
+            <div>No books found with valid GitHub thumbnail URLs.</div>
+            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+              Books must have a 'thumbnail_url' field with a GitHub raw URL format.
+            </div>
+          `;
           gallery.innerHTML = "";
           return;
         }
 
-        status.style.display = "none";
+        // Show summary of encrypted vs non-encrypted books
+        const encryptedCount = filteredBooks.filter(
+          (book) => book.encrypted
+        ).length;
+        const nonEncryptedCount = filteredBooks.length - encryptedCount;
+
+        status.innerHTML = `
+          <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 5px; border-left: 4px solid #007bff;">
+            📚 Found ${filteredBooks.length} books with thumbnails: 
+            <span style="color: #ff6b35; font-weight: bold;">🔒 ${encryptedCount} encrypted</span>, 
+            <span style="color: #28a745; font-weight: bold;">📷 ${nonEncryptedCount} direct</span>
+            ${
+              encryptedCount > 0
+                ? '<br><small style="color: #666;">💡 Enter decryption key above to view encrypted thumbnails</small>'
+                : ""
+            }
+          </div>
+        `;
+        status.style.display = "block";
 
         gallery.innerHTML = filteredBooks
           .map((book) => {
@@ -295,6 +341,11 @@
                             <div class="book-number">#${book.id}</div>
                             <div class="book-title">${escapeHtml(title)}</div>
                             <div class="book-artist">${escapeHtml(artist)}</div>
+                            ${
+                              book.encrypted
+                                ? '<div style="font-size: 0.8em; color: #ff6b35; font-weight: bold;">🔒 Encrypted</div>'
+                                : '<div style="font-size: 0.8em; color: #28a745;">📷 Direct</div>'
+                            }
                         </div>
                     </div>
                 `;
@@ -332,20 +383,32 @@
       // Load thumbnails
       async function loadThumbnails() {
         const images = document.querySelectorAll(".thumbnail-image");
+        console.log(`Starting to load ${images.length} thumbnails...`);
 
         for (const img of images) {
           const thumbnailUrl = img.dataset.thumbnailUrl;
           const bookId = img.dataset.bookId;
 
+          console.log(`Processing thumbnail for book ${bookId}...`);
+
           try {
-            await loadThumbnail(img, thumbnailUrl);
+            // Check if book data indicates encryption
+            const bookData = booksData.find((book) => book.id === bookId);
+            const isEncrypted = bookData && bookData.encrypted;
+
+            console.log(`Book ${bookId} encrypted: ${isEncrypted}`);
+
+            // Try to load thumbnail with decryption if encrypted
+            await loadThumbnail(img, thumbnailUrl, isEncrypted);
           } catch (error) {
             console.error(
               `Failed to load thumbnail for book ${bookId}:`,
               error
             );
             img.src = `data:image/svg+xml;base64,${btoa(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">Load Error</text></svg>'
+              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#dc3545">Failed to Load</text><text x="50%" y="65%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" fill="#dc3545">' +
+                error.message.substring(0, 30) +
+                "</text></svg>"
             )}`;
           }
 
@@ -380,7 +443,6 @@
         console.log("Using thumbnail URL from Firebase:", thumbnailUrl);
 
         // Convert raw GitHub URLs to API URLs to avoid CORS issues
-        let apiUrl;
         const urlParts = thumbnailUrl
           .replace("https://raw.githubusercontent.com/", "")
           .split("/");
@@ -402,13 +464,9 @@
         console.log("- Branch:", branch);
         console.log("- File path:", filePath);
 
-        // Include branch in API URL if it's not the default branch
-        if (branch && branch !== "main" && branch !== "master") {
-          apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}?ref=${branch}`;
-        } else {
-          apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}`;
-        }
-        console.log("Converted to API URL:", apiUrl);
+        // Include branch in API URL (always include branch for consistency)
+        const apiUrl = `https://api.github.com/repos/${user}/${repo}/contents/${filePath}?ref=${branch}`;
+        console.log("GitHub API URL:", apiUrl);
 
         const response = await fetch(apiUrl, {
           headers: {
@@ -493,46 +551,83 @@
           const decryptKey = document.getElementById("decryptKey").value.trim();
 
           if (!decryptKey) {
-            throw new Error("Decrypt key required");
+            throw new Error(
+              `Decryption key required for encrypted book ${bookId}. Please enter key in the input field above.`
+            );
           }
 
-          console.log("Decrypting thumbnail for book:", bookId);
-          const decryptedData = decryptXOR(bytes, decryptKey);
+          console.log(
+            `Decrypting thumbnail for book ${bookId} with key length: ${decryptKey.length}`
+          );
 
-          // Try to detect if it's a valid image by checking magic bytes
-          const magicBytes = Array.from(decryptedData.slice(0, 4));
-          console.log("Decrypted magic bytes:", magicBytes);
+          try {
+            const decryptedData = decryptXOR(bytes, decryptKey);
 
-          const blob = new Blob([decryptedData], { type: "image/png" });
+            // Try to detect if it's a valid image by checking magic bytes
+            const magicBytes = Array.from(decryptedData.slice(0, 4));
+            console.log("Decrypted magic bytes:", magicBytes);
+
+            const blob = new Blob([decryptedData], { type: "image/png" });
+            const objectUrl = URL.createObjectURL(blob);
+
+            // Add error handling for image loading
+            img.onload = () => {
+              console.log(
+                `✅ Decrypted thumbnail loaded successfully for book ${bookId}`
+              );
+              URL.revokeObjectURL(objectUrl);
+            };
+
+            img.onerror = () => {
+              console.error(
+                `❌ Failed to load decrypted image for book ${bookId}`
+              );
+              URL.revokeObjectURL(objectUrl);
+              // Show error placeholder
+              img.src = `data:image/svg+xml;base64,${btoa(
+                '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="45%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#dc3545">Decrypt Failed</text><text x="50%" y="60%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" fill="#666">Check decrypt key</text></svg>'
+              )}`;
+            };
+
+            img.src = objectUrl;
+          } catch (decryptError) {
+            console.error(
+              `❌ Decryption error for book ${bookId}:`,
+              decryptError
+            );
+            throw new Error(
+              `Decryption failed for book ${bookId}: ${decryptError.message}`
+            );
+          }
+        } else {
+          // Non-encrypted image - display directly
+          console.log(`📷 Loading non-encrypted thumbnail for book ${bookId}`);
+          const blob = new Blob([bytes], { type: "image/png" });
           const objectUrl = URL.createObjectURL(blob);
 
-          // Add error handling for image loading
           img.onload = () => {
             console.log(
-              "Decrypted image loaded successfully for book:",
-              bookId
+              `✅ Non-encrypted thumbnail loaded successfully for book ${bookId}`
             );
             URL.revokeObjectURL(objectUrl);
           };
 
           img.onerror = () => {
-            console.error("Failed to load decrypted image for book:", bookId);
+            console.error(
+              `❌ Failed to load non-encrypted image for book ${bookId}`
+            );
             URL.revokeObjectURL(objectUrl);
             // Show error placeholder
             img.src = `data:image/svg+xml;base64,${btoa(
-              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="50%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="14" fill="#dc3545">Decrypt Failed</text></svg>'
+              '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="250"><rect width="100%" height="100%" fill="#f8f9fa" stroke="#dee2e6"/><text x="50%" y="45%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="12" fill="#dc3545">Image Load Failed</text><text x="50%" y="60%" text-anchor="middle" dy=".3em" font-family="Arial" font-size="10" fill="#666">Invalid image data</text></svg>'
             )}`;
           };
 
           img.src = objectUrl;
-        } else {
-          // Create blob from encrypted/raw data
-          const blob = new Blob([bytes], { type: "image/png" });
-          img.src = URL.createObjectURL(blob);
         }
       }
 
-      // XOR decryption (matching the working may_work version)
+      // XOR decryption (matching Python GHB.py encrypt_XOR function)
       function decryptXOR(data, key) {
         console.log("Decrypting with key:", key);
         console.log("Encrypted data length:", data.length);
@@ -542,31 +637,32 @@
           throw new Error("Cannot decrypt: encrypted data is empty");
         }
 
-        // Convert key to bytes if it's a string
-        if (typeof key === "string") {
-          key = new TextEncoder().encode(key);
-        }
+        // Match Python logic exactly:
+        // key = key[::-1]  (reverse the key)
+        // key = key.encode('utf-8')  (encode to UTF-8)
 
-        // Truncate key to 16 bytes (same as Python key.encode('utf-8')[:16])
-        key = key.slice(0, 16);
-        console.log("Key bytes (truncated to 16):", Array.from(key));
+        // Step 1: Reverse the key (same as Python key[::-1])
+        const reversedKey = key.split("").reverse().join("");
+        console.log("Reversed key:", reversedKey);
 
-        // Reverse the key (same as Python key[::-1])
-        key = Array.from(key).reverse();
-        console.log("Reversed key bytes:", key);
+        // Step 2: Encode to UTF-8 bytes (same as Python key.encode('utf-8'))
+        const keyBytes = new TextEncoder().encode(reversedKey);
+        console.log("Key bytes after encoding:", Array.from(keyBytes));
+        console.log("Key length:", keyBytes.length);
 
-        const decryptedData = new Uint8Array(data.length);
-        const keyLen = key.length;
+        // Step 3: XOR decryption (same as Python logic)
+        const result = new Uint8Array(data.length);
+        const keyLen = keyBytes.length;
 
         for (let i = 0; i < data.length; i++) {
-          decryptedData[i] = data[i] ^ key[i % keyLen];
+          result[i] = data[i] ^ keyBytes[i % keyLen];
         }
 
         console.log(
           "Decrypted data first 20 bytes:",
-          Array.from(decryptedData.slice(0, 20))
+          Array.from(result.slice(0, 20))
         );
-        return decryptedData;
+        return result;
       }
 
       // Search books
