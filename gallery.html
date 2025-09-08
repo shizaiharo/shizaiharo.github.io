@@ -342,7 +342,7 @@
 
           if (querySnapshot.empty) {
             console.log("No books found in Firebase collection");
-            loadSampleData(); // Load sample data if Firebase is empty
+            displayThumbnails([]); // Show empty gallery
             return;
           }
 
@@ -359,41 +359,19 @@
         } catch (error) {
           console.error("Error loading books from Firebase:", error);
 
-          // Load sample data if Firebase access fails
-          console.log("Loading sample data due to Firebase access issue");
-          loadSampleData();
+          // Show error message to user
+          const container = document.getElementById("galleryContainer");
+          if (container) {
+            container.innerHTML = `
+              <div style="text-align: center; color: #dc3545; padding: 40px;">
+                <h3>Error Loading Gallery</h3>
+                <p>Failed to load books from Firebase.</p>
+                <p><small>Error: ${error.message}</small></p>
+                <p>Please check your Firebase authentication and try again.</p>
+              </div>
+            `;
+          }
         }
-      }
-
-      // Load sample data for testing when Firebase is not available
-      function loadSampleData() {
-        console.log("Loading sample data for testing");
-        thumbnailsData = [
-          {
-            id: "1963638",
-            title: "Katei Kyoushi no Onii-san to Koumon de Car SEX",
-            artist: "Mankai Kaika",
-            tags: ["Chinese", "Adult"],
-            BookNumber: "1963638",
-          },
-          {
-            id: "2973547",
-            title: "Hatsu Seishori Touban no Tachibana-san",
-            artist: "Hoshicha",
-            tags: ["Chinese", "THE IDOLM@STER"],
-            BookNumber: "2973547",
-          },
-          {
-            id: "3283375",
-            title: "Pixiv & Fanbox Collection",
-            artist: "ふらっしゃー flasher",
-            tags: ["Pixiv", "Fanbox"],
-            BookNumber: "3283375",
-          },
-        ];
-
-        console.log(`Loaded ${thumbnailsData.length} sample books`);
-        displayThumbnails(thumbnailsData);
       }
 
       // Display thumbnails with Firebase data
@@ -633,12 +611,7 @@
             );
           }
 
-          // Auto-fill the input field for user verification (show truncated version)
-          const displayToken =
-            firebaseToken.length > 50
-              ? firebaseToken.substring(0, 30) + "..."
-              : firebaseToken.substring(0, 20) + "...";
-          document.getElementById("firebaseTokenInput").value = displayToken;
+          console.log("Firebase token loaded from file successfully");
 
           // Automatically validate the token
           await validateLoadedToken();
@@ -761,7 +734,7 @@
 
           if (booksSnapshot.empty) {
             console.log("No books found in Firebase collection");
-            loadSampleData(); // Load sample data if Firebase is empty
+            displayThumbnails([]); // Show empty gallery
             return;
           }
 
@@ -798,63 +771,19 @@
         } catch (error) {
           console.error("Error loading books from Firebase:", error);
 
-          // Load sample data if Firebase access fails
-          console.log("Loading sample data due to Firebase access issue");
-          loadSampleData();
+          // Show error message to user
+          const container = document.getElementById("galleryContainer");
+          if (container) {
+            container.innerHTML = `
+              <div style="text-align: center; color: #dc3545; padding: 40px;">
+                <h3>Error Loading Gallery</h3>
+                <p>Failed to load books from Firebase.</p>
+                <p><small>Error: ${error.message}</small></p>
+                <p>Please check your Firebase authentication and try again.</p>
+              </div>
+            `;
+          }
         }
-      }
-
-      // Load sample data for testing when Firebase is not available
-      function loadSampleData() {
-        console.log("Loading sample data for testing");
-        thumbnailsData = [
-          {
-            bookNumber: "1963638",
-            title: "Katei Kyoushi no Onii-san to Koumon de Car SEX",
-            uploadTime: "2024-01-01",
-            downloadTime: "2024-01-01",
-            tags: { category: ["Chinese"], series: ["Adult"] },
-            encrypted: true,
-            thumbnailUrl: null,
-            videoIds: [],
-            filePath: "",
-          },
-          {
-            bookNumber: "2973547",
-            title: "Hatsu Seishori Touban no Tachibana-san",
-            uploadTime: "2024-01-02",
-            downloadTime: "2024-01-02",
-            tags: { category: ["Chinese"], series: ["THE IDOLM@STER"] },
-            encrypted: true,
-            thumbnailUrl: null,
-            videoIds: [],
-            filePath: "",
-          },
-          {
-            bookNumber: "3283375",
-            title: "Pixiv & Fanbox Collection",
-            uploadTime: "2024-01-03",
-            downloadTime: "2024-01-03",
-            tags: { platform: ["Pixiv", "Fanbox"] },
-            encrypted: true,
-            thumbnailUrl: null,
-            videoIds: [],
-            filePath: "",
-          },
-        ];
-
-        console.log(`Loaded ${thumbnailsData.length} sample books`);
-
-        // Hide loading messages and show content
-        const loadingMsg = document.getElementById("loadingMessage");
-        const errorMsg = document.getElementById("errorMessage");
-        const noThumbnailsMsg = document.getElementById("noThumbnailsMessage");
-
-        if (loadingMsg) loadingMsg.style.display = "none";
-        if (errorMsg) errorMsg.style.display = "none";
-        if (noThumbnailsMsg) noThumbnailsMsg.style.display = "none";
-
-        displayThumbnails(thumbnailsData);
       }
 
       // Display thumbnails in the gallery
