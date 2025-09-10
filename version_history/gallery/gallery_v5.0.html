@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gallery - Thumbnail Browser</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background-color: #f5f5f5;
+      }
+
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding: 10px;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .search-box {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+      }
+
+      .back-button {
+        padding: 8px 16px;
+        background-color: #6c757d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-block;
+      }
+
+      .back-button:hover {
+        background-color: #5a6268;
+      }
+
+      .gallery-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 15px;
+        margin-top: 20px;
+      }
+
+      .thumbnail-item {
+        background: white;
+        border-radius: 8px;
+        padding: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        text-align: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .thumbnail-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .thumbnail-image {
+        width: 100%;
+        height: auto;
+        max-height: 280px;
+        object-fit: contain;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        cursor: pointer;
+        flex-grow: 1;
+      }
+
+      .thumbnail-image:hover {
+        opacity: 0.9;
+        border-color: #007bff;
+      }
+
+      .book-title {
+        font-size: 16px;
+        color: #333;
+        font-weight: bold;
+        margin-bottom: 8px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        line-clamp: 2;
+        -webkit-box-orient: vertical;
+        line-height: 1.2;
+        height: 2.4em;
+      }
+
+      .book-artist {
+        font-size: 13px;
+        color: #555;
+        margin-bottom: 6px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .book-number {
+        font-weight: normal;
+        font-size: 11px;
+        color: #888;
+        margin-bottom: 0;
+      }
+
+      .loading {
+        text-align: center;
+        padding: 40px;
+        font-size: 16px;
+        color: #666;
+      }
+
+      .error {
+        text-align: center;
+        padding: 40px;
+        color: #dc3545;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        border-radius: 4px;
+        margin: 20px 0;
+      }
+
+      .no-thumbnails {
+        text-align: center;
+        padding: 40px;
+        color: #666;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Modal styles for full-size thumbnail view */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        animation: fadeIn 0.3s;
+      }
+
+      .modal-content {
+        position: relative;
+        margin: auto;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        max-width: 95%;
+        max-height: 95%;
+        top: 50%;
+        transform: translateY(-50%);
+        animation: zoomIn 0.3s;
+        gap: 30px;
+      }
+
+      .modal-image {
+        max-width: 60%;
+        max-height: 85vh;
+        width: auto;
+        height: auto;
+        object-fit: contain;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        flex-shrink: 0;
+      }
+
+      .close {
+        position: absolute;
+        top: 15px;
+        right: 35px;
+        color: #f1f1f1;
+        font-size: 40px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 1001;
+      }
+
+      .close:hover,
+      .close:focus {
+        color: #bbb;
+        text-decoration: none;
+      }
+
+      .modal-info {
+        position: relative;
+        color: white;
+        background-color: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border-radius: 12px;
+        max-width: 300px;
+        min-width: 250px;
+        backdrop-filter: blur(5px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        align-self: flex-start;
+        margin-top: 20px;
+      }
+
+      .modal-title {
+        font-size: 18px;
+        font-weight: bold;
+        margin-bottom: 15px;
+        line-height: 1.3;
+        word-wrap: break-word;
+      }
+
+      .modal-details {
+        font-size: 14px;
+        opacity: 0.9;
+        line-height: 1.6;
+        word-wrap: break-word;
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+        }
+        to {
+          opacity: 1;
+        }
+      }
+
+      @keyframes zoomIn {
+        from {
+          transform: translateY(-50%) scale(0.7);
+        }
+        to {
+          transform: translateY(-50%) scale(1);
+        }
+      }
+
+      /* Responsive design for smaller screens */
+      @media (max-width: 768px) {
+        .modal-content {
+          flex-direction: column;
+          gap: 20px;
+          max-height: 95vh;
+          overflow-y: auto;
+        }
+
+        .modal-image {
+          max-width: 90%;
+          max-height: 50vh;
+        }
+
+        .modal-info {
+          max-width: 90%;
+          min-width: auto;
+          align-self: center;
+          margin-top: 0;
+        }
+      }
+
+      .encryption-input {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 200px;
+      }
+
+      .decrypt-button {
+        padding: 8px 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-left: 10px;
+      }
+
+      .decrypt-button:hover {
+        background-color: #0056b3;
+      }
+
+      .decrypt-button:disabled {
+        background-color: #6c757d;
+        cursor: not-allowed;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Modal for full-size thumbnail view -->
+    <div id="thumbnailModal" class="modal" onclick="closeModal()">
+      <span class="close" onclick="closeModal()">&times;</span>
+      <div class="modal-content" onclick="event.stopPropagation()">
+        <img
+          id="modalImage"
+          class="modal-image"
+          src=""
+          alt="Full size thumbnail"
+        />
+        <div id="modalInfo" class="modal-info">
+          <div id="modalTitle" class="modal-title"></div>
+          <div id="modalDetails" class="modal-details"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="header">
+      <h2>Gallery - Thumbnail Browser</h2>
+      <div class="controls">
+        <input
+          type="text"
+          id="searchInput"
+          class="search-box"
+          placeholder="Search by title, artist, category, or book number..."
+          onkeyup="filterThumbnails()"
+        />
+        <input
+          type="password"
+          id="encryptionKey"
+          class="encryption-input"
+          placeholder="Enter encryption key..."
+        />
+        <button class="decrypt-button" onclick="decryptThumbnails()">
+          Decrypt Thumbnails
+        </button>
+        <a href="#" id="backButton" class="back-button">Back to Main</a>
+      </div>
+    </div>
+
+    <div id="loadingMessage" class="loading">Loading thumbnails...</div>
+    <div id="errorMessage" class="error" style="display: none"></div>
+    <div id="noThumbnailsMessage" class="no-thumbnails" style="display: none">
+      No thumbnails found
+    </div>
+    <div id="galleryContainer" class="gallery-container"></div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+
+    <script>
+      const repo = "Amrita"; // Same repository as your main project
+      const owner = "shizaiharo"; // Your GitHub username
+      const branch = "main";
+      let token = "";
+      let thumbnailsData = [];
+      let booksData = [];
+      let encryptionKey = "";
+
+      // Firebase configuration
+      const firebaseConfig = {
+        apiKey: "AIzaSyD6Q4U9EqUuMKKJLt_GBGgOVCJdjWY6bNw",
+        authDomain: "cloud-2f6b2.firebaseapp.com",
+        databaseURL:
+          "https://cloud-2f6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
+        projectId: "cloud-2f6b2",
+        storageBucket: "cloud-2f6b2.firebasestorage.app",
+        messagingSenderId: "686332242533",
+        appId: "1:686332242533:web:c23058e3ebc7ecd241f48c",
+        measurementId: "G-FGFG1K9Q1E",
+      };
+
+      // Initialize Firebase
+      let db;
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        console.log("Firebase initialized successfully");
+      } catch (error) {
+        console.error("Firebase initialization failed:", error);
+      }
+
+      // XOR Decryption function (matching working thumbnail_decrypt.html version)
+      function decryptXOR(encryptedData, key) {
+        console.log("Decrypting with key:", key);
+        console.log("Encrypted data length:", encryptedData.length);
+
+        // Match Python upload_thumbnail logic exactly:
+        // key = key.encode('utf-8')[:16]  (encode first, then truncate to 16 bytes)
+        if (typeof key === "string") {
+          key = new TextEncoder().encode(key).slice(0, 16);
+          console.log(
+            "Key after encoding and truncating to 16 bytes:",
+            Array.from(key)
+          );
+
+          // key = key[::-1]  (then reverse the bytes)
+          key = Array.from(key).reverse();
+          console.log("Key after reversing bytes:", key);
+        }
+
+        console.log("Final key bytes:", Array.from(key));
+
+        const decryptedData = new Uint8Array(encryptedData.length);
+        const keyLen = key.length;
+
+        for (let i = 0; i < encryptedData.length; i++) {
+          decryptedData[i] = encryptedData[i] ^ key[i % keyLen];
+        }
+
+        console.log(
+          "Decrypted data first 20 bytes:",
+          Array.from(decryptedData.slice(0, 20))
+        );
+        return decryptedData;
+      } // Get token from URL parameters
+      function getTokenFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        token = urlParams.get("token");
+        if (!token) {
+          alert("No token found. Redirecting to main page.");
+          window.location.href = "index.html";
+          return;
+        }
+
+        // Set back button link
+        document.getElementById(
+          "backButton"
+        ).href = `index.html?token=${encodeURIComponent(token)}`;
+
+        // Load thumbnails
+        loadThumbnails();
+      }
+
+      // Load book information from Firebase
+      async function loadBooksFromFirebase() {
+        try {
+          console.log("Loading books from Firebase...");
+          const querySnapshot = await db.collection("Book").get();
+
+          if (querySnapshot.empty) {
+            console.log("No books found in Firebase collection");
+            return [];
+          }
+
+          const books = [];
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            // Only include books that have a title
+            if (data.title) {
+              books.push({
+                id: doc.id,
+                bookNumber: doc.id,
+                title: data.title || "Unknown Title",
+                artist: extractArtist(data.tags),
+                categories: extractCategories(data.tags),
+                tags: data.tags || {},
+                thumbnail_url: data.thumbnail_url || null,
+                video_ids: data.video_ids || [],
+                folder_name: data.folder_name || "",
+                ...data,
+              });
+            }
+          });
+
+          console.log(`Loaded ${books.length} books with titles from Firebase`);
+          return books;
+        } catch (error) {
+          console.error("Error loading books from Firebase:", error);
+          return [];
+        }
+      }
+
+      // Extract artist from tags (based on CBZ.py structure)
+      function extractArtist(tags) {
+        if (!tags || typeof tags !== "object") return "Unknown Artist";
+
+        // Look for artist, creator, or author categories
+        if (tags.artist && Array.isArray(tags.artist)) {
+          return tags.artist.join(", ");
+        } else if (tags.creator && Array.isArray(tags.creator)) {
+          return tags.creator.join(", ");
+        } else if (tags.author && Array.isArray(tags.author)) {
+          return tags.author.join(", ");
+        }
+
+        return "Unknown Artist";
+      }
+
+      // Extract categories from tags (based on CBZ.py structure)
+      function extractCategories(tags) {
+        if (!tags || typeof tags !== "object") return [];
+
+        const categories = [];
+        for (const [key, values] of Object.entries(tags)) {
+          if (Array.isArray(values) && key !== "general") {
+            categories.push(...values.map((v) => `${key}:${v}`));
+          } else if (key === "general" && Array.isArray(values)) {
+            categories.push(...values);
+          }
+        }
+
+        return categories;
+      }
+
+      // Load thumbnails from GitHub repository and match with Firebase data
+      async function loadThumbnails() {
+        try {
+          document.getElementById("loadingMessage").style.display = "block";
+          document.getElementById("errorMessage").style.display = "none";
+
+          // Load book data from Firebase first
+          booksData = await loadBooksFromFirebase();
+          console.log("Books data loaded:", booksData.length);
+
+          // Get list of files in Thumbnails folder
+          const response = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails`,
+            {
+              headers: {
+                Authorization: `token ${token}`,
+              },
+            }
+          );
+
+          if (!response.ok) {
+            throw new Error(
+              `Failed to fetch thumbnails: ${response.status} ${response.statusText}`
+            );
+          }
+
+          const files = await response.json();
+
+          // Filter for thumbnail files and match with book data
+          thumbnailsData = files
+            .filter((file) => file.type === "file" && file.name.includes("."))
+            .map((file) => {
+              // Extract book number from filename (assuming format: bookNumber.ext)
+              const bookNumber = file.name.split(".")[0];
+
+              // Find matching book data from Firebase
+              const bookData = booksData.find(
+                (book) => book.bookNumber === bookNumber
+              );
+
+              return {
+                bookNumber: bookNumber,
+                filename: file.name,
+                downloadUrl: file.download_url,
+                rawUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Thumbnails/${file.name}`,
+                // Include book data if found
+                title: bookData ? bookData.title : `Book #${bookNumber}`,
+                artist: bookData ? bookData.artist : "Unknown Artist",
+                categories: bookData ? bookData.categories : [],
+                tags: bookData ? bookData.tags : {},
+                video_ids: bookData ? bookData.video_ids : [],
+                hasBookData: !!bookData,
+              };
+            })
+            .filter((item) => item.hasBookData) // Only show items that have book data with title
+            .sort((a, b) => parseInt(a.bookNumber) - parseInt(b.bookNumber));
+
+          document.getElementById("loadingMessage").style.display = "none";
+
+          if (thumbnailsData.length === 0) {
+            document.getElementById("noThumbnailsMessage").style.display =
+              "block";
+          } else {
+            displayThumbnails(thumbnailsData);
+          }
+        } catch (error) {
+          console.error("Error loading thumbnails:", error);
+          document.getElementById("loadingMessage").style.display = "none";
+          document.getElementById("errorMessage").style.display = "block";
+          document.getElementById(
+            "errorMessage"
+          ).textContent = `Error: ${error.message}`;
+        }
+      }
+
+      // Display thumbnails in the gallery
+      function displayThumbnails(thumbnails) {
+        const container = document.getElementById("galleryContainer");
+        container.innerHTML = "";
+
+        thumbnails.forEach((thumbnail) => {
+          const item = document.createElement("div");
+          item.className = "thumbnail-item";
+          item.onclick = () => showThumbnailDetails(thumbnail);
+
+          const img = document.createElement("img");
+          img.className = "thumbnail-image";
+          img.alt = `Book ${thumbnail.bookNumber}`;
+
+          // Add click handler for modal view
+          img.onclick = (e) => {
+            e.stopPropagation(); // Prevent triggering the item's onclick
+            openModal(img.src, thumbnail);
+          };
+
+          if (encryptionKey) {
+            // If encryption key is provided, try to decrypt and display
+            loadAndDecryptThumbnail(img, thumbnail);
+          } else {
+            // Show placeholder for encrypted thumbnail
+            img.src =
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCI+RW5jcnlwdGVkPC90ZXh0Pjwvc3ZnPg==";
+          }
+
+          const bookTitle = document.createElement("div");
+          bookTitle.className = "book-title";
+          bookTitle.textContent = thumbnail.title;
+          bookTitle.title = thumbnail.title; // Show full title on hover
+
+          const bookArtist = document.createElement("div");
+          bookArtist.className = "book-artist";
+          bookArtist.textContent = thumbnail.artist || "Unknown Artist";
+          bookArtist.title = thumbnail.artist; // Show full artist on hover
+
+          const bookNumber = document.createElement("div");
+          bookNumber.className = "book-number";
+          bookNumber.textContent = `Book #${thumbnail.bookNumber}`;
+
+          // Append in new order: image, title (largest), artist (second), number (last)
+          item.appendChild(img);
+          item.appendChild(bookTitle);
+          item.appendChild(bookArtist);
+          item.appendChild(bookNumber);
+          container.appendChild(item);
+        });
+      }
+
+      // Load and decrypt thumbnail
+      async function loadAndDecryptThumbnail(imgElement, thumbnail) {
+        try {
+          console.log("Loading thumbnail:", thumbnail.filename);
+          // Use GitHub API to get file content (works with private repos)
+          const apiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/Thumbnails/${thumbnail.filename}`;
+          const response = await fetch(apiUrl, {
+            headers: {
+              Authorization: `token ${token}`,
+              Accept: "application/vnd.github.v3.raw", // Get raw content directly
+            },
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to load thumbnail: ${response.status}`);
+          }
+
+          const encryptedData = new Uint8Array(await response.arrayBuffer());
+          console.log(
+            "Downloaded encrypted data length:",
+            encryptedData.length
+          );
+          console.log(
+            "First 20 bytes of encrypted data:",
+            Array.from(encryptedData.slice(0, 20))
+          );
+
+          const decryptedData = decryptXOR(encryptedData, encryptionKey);
+
+          // Check if it's a valid image by magic bytes
+          const magicBytes = Array.from(decryptedData.slice(0, 4));
+          console.log("Decrypted magic bytes:", magicBytes);
+
+          const blob = new Blob([decryptedData]);
+          const objectUrl = URL.createObjectURL(blob);
+
+          imgElement.onload = () => {
+            console.log(
+              `Successfully loaded ${imageType} image for ${thumbnail.filename}`
+            );
+            URL.revokeObjectURL(objectUrl);
+          };
+          imgElement.onerror = () => {
+            console.error(
+              `Failed to load decrypted image for ${thumbnail.filename}`
+            );
+            URL.revokeObjectURL(objectUrl);
+            imgElement.src =
+              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+RGVjcnlwdCBGYWlsZWQ8L3RleHQ+PC9zdmc+";
+          };
+
+          imgElement.src = objectUrl;
+        } catch (error) {
+          console.error("Error decrypting thumbnail:", error);
+          imgElement.src =
+            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+TG9hZCBFcnJvcjwvdGV4dD48L3N2Zz4=";
+        }
+      }
+
+      // Decrypt all thumbnails
+      function decryptThumbnails() {
+        encryptionKey = document.getElementById("encryptionKey").value.trim();
+        if (!encryptionKey) {
+          alert("Please enter an encryption key.");
+          return;
+        }
+
+        // Re-display thumbnails with decryption
+        displayThumbnails(thumbnailsData);
+      }
+
+      // Filter thumbnails by search
+      function filterThumbnails() {
+        const searchTerm = document
+          .getElementById("searchInput")
+          .value.toLowerCase();
+
+        if (!searchTerm.trim()) {
+          displayThumbnails(thumbnailsData);
+          return;
+        }
+
+        const filteredThumbnails = thumbnailsData.filter((thumbnail) => {
+          // Enhanced book number search (exact match and partial match)
+          const bookNumberStr = thumbnail.bookNumber.toString().toLowerCase();
+          if (
+            bookNumberStr.includes(searchTerm) ||
+            bookNumberStr === searchTerm
+          ) {
+            return true;
+          }
+
+          // Also search with "Book #" prefix
+          const bookLabel = `book #${thumbnail.bookNumber}`.toLowerCase();
+          if (bookLabel.includes(searchTerm)) {
+            return true;
+          }
+
+          // Search in title
+          if (thumbnail.title.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          // Search in artist
+          if (thumbnail.artist.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          // Search in categories/tags
+          if (
+            thumbnail.categories.some((category) =>
+              category.toLowerCase().includes(searchTerm)
+            )
+          ) {
+            return true;
+          }
+
+          // Search in all tag values (deep search)
+          if (thumbnail.tags && typeof thumbnail.tags === "object") {
+            const allTagsText = JSON.stringify(thumbnail.tags).toLowerCase();
+            if (allTagsText.includes(searchTerm)) {
+              return true;
+            }
+          }
+
+          // Search in filename
+          if (thumbnail.filename.toLowerCase().includes(searchTerm)) {
+            return true;
+          }
+
+          return false;
+        });
+
+        displayThumbnails(filteredThumbnails);
+      }
+
+      // Show thumbnail details (enhanced with Firebase data)
+      function showThumbnailDetails(thumbnail) {
+        const categoriesText =
+          thumbnail.categories.length > 0
+            ? thumbnail.categories.join(", ")
+            : "No categories";
+
+        const videoIdsText =
+          thumbnail.video_ids && thumbnail.video_ids.length > 0
+            ? thumbnail.video_ids.join(", ")
+            : "No video IDs";
+
+        alert(
+          `Book Number: ${thumbnail.bookNumber}\n` +
+            `Title: ${thumbnail.title}\n` +
+            `Artist: ${thumbnail.artist}\n` +
+            `Categories: ${categoriesText}\n` +
+            `Video IDs: ${videoIdsText}\n` +
+            `Filename: ${thumbnail.filename}\n\n` +
+            `Click functionality can be extended here.`
+        );
+      }
+
+      // Modal functions for full-size thumbnail viewing
+      function openModal(imageSrc, thumbnail) {
+        const modal = document.getElementById("thumbnailModal");
+        const modalImage = document.getElementById("modalImage");
+        const modalTitle = document.getElementById("modalTitle");
+        const modalDetails = document.getElementById("modalDetails");
+
+        modalImage.src = imageSrc;
+        modalTitle.textContent =
+          thumbnail.title || `Book #${thumbnail.bookNumber}`;
+
+        const details = [];
+        // Remove the main Artist line - it will show up in tags instead
+        details.push(`Book #${thumbnail.bookNumber}`);
+        if (thumbnail.categories && thumbnail.categories.length > 0) {
+          // Group tags by type - keep all artist tags
+          const tagGroups = {};
+
+          thumbnail.categories.forEach((tag) => {
+            const colonIndex = tag.indexOf(":");
+            if (colonIndex > 0) {
+              const type = tag.substring(0, colonIndex);
+              const value = tag.substring(colonIndex + 1);
+
+              if (!tagGroups[type]) {
+                tagGroups[type] = [];
+              }
+              tagGroups[type].push(value);
+            } else {
+              // Handle tags without type prefix
+              if (!tagGroups["other"]) {
+                tagGroups["other"] = [];
+              }
+              tagGroups["other"].push(tag);
+            }
+          });
+
+          // Format grouped tags
+          const tagTypes = Object.entries(tagGroups).map(
+            ([type, values]) => `${type}: ${values.join(", ")}`
+          );
+
+          // Add each tag type directly to details
+          details.push(...tagTypes);
+        }
+        if (thumbnail.video_ids && thumbnail.video_ids.length > 0) {
+          details.push(`${thumbnail.video_ids.length} video(s)`);
+        }
+        modalDetails.innerHTML = details.join("<br>");
+        modal.style.display = "block";
+        document.body.style.overflow = "hidden"; // Prevent background scrolling
+      }
+
+      function closeModal() {
+        const modal = document.getElementById("thumbnailModal");
+        modal.style.display = "none";
+        document.body.style.overflow = "auto"; // Restore scrolling
+      }
+
+      // Close modal when clicking outside the image
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          closeModal();
+        }
+      });
+
+      // Initialize page
+      window.onload = getTokenFromUrl;
+    </script>
+  </body>
+</html>
