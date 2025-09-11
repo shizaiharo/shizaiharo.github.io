@@ -33,6 +33,75 @@
         border: 1px solid #ddd;
         border-radius: 4px;
         font-size: 14px;
+        position: relative;
+      }
+
+      .search-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+      }
+
+      .suggestion-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 14px;
+      }
+
+      .suggestion-item:hover {
+        background-color: #f8f9fa;
+      }
+
+      .suggestion-item:last-child {
+        border-bottom: none;
+      }
+      .search-container {
+        position: relative;
+        display: inline-block;
+      }
+
+      .search-suggestions {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #ddd;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+        max-height: 200px;
+        overflow-y: auto;
+        z-index: 1000;
+        display: none;
+      }
+
+      .suggestion-item {
+        padding: 8px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+      }
+
+      .suggestion-item:hover {
+        background-color: #f8f9fa;
+      }
+
+      .suggestion-item:last-child {
+        border-bottom: none;
       }
 
       .back-button {
@@ -322,13 +391,18 @@
     <div class="header">
       <h2>Gallery - Thumbnail Browser</h2>
       <div class="controls">
-        <input
-          type="text"
-          id="searchInput"
-          class="search-box"
-          placeholder="Search by title, artist, category, or book number..."
-          onkeyup="filterThumbnails()"
-        />
+        <div class="search-container">
+          <input
+            type="text"
+            id="searchInput"
+            class="search-box"
+            placeholder="Search by title, artist, category, or book number..."
+            onkeyup="handleSearchInput()"
+            onblur="hideSuggestions()"
+            onfocus="showSuggestions()"
+          />
+          <div id="searchSuggestions" class="search-suggestions"></div>
+        </div>
         <input
           type="password"
           id="encryptionKey"
@@ -361,6 +435,160 @@
       let thumbnailsData = [];
       let booksData = [];
       let encryptionKey = "";
+      let allTagSuggestions = new Set();
+
+      // Build tag suggestions from loaded data (updated for new format)
+      function buildTagSuggestions() {
+        allTagSuggestions.clear();
+        booksData.forEach((book) => {
+          // Process the new flattened tags format directly
+          if (book.tags && typeof book.tags === "object") {
+            for (const [tagType, tagString] of Object.entries(book.tags)) {
+              if (typeof tagString === "string" && tagString.trim()) {
+                // Add tag type for type-only searches (e.g., "language:")
+                allTagSuggestions.add(tagType + ":");
+
+                // Split and add individual tag values
+                const tagValues = tagString
+                  .split(",")
+                  .map((v) => v.trim())
+                  .filter((v) => v);
+                tagValues.forEach((value) => {
+                  if (tagType === "other") {
+                    // Add uncategorized tags without prefix
+                    allTagSuggestions.add(value);
+                  } else {
+                    // Add categorized tags with full "type:value" format
+                    allTagSuggestions.add(`${tagType}:${value}`);
+                    // Also add just the value for partial searches
+                    allTagSuggestions.add(value);
+                  }
+                });
+              }
+            }
+          }
+
+          // Fallback: if book still uses old categories format (backward compatibility)
+          if (book.categories && Array.isArray(book.categories)) {
+            book.categories.forEach((tag) => {
+              if (tag.includes(":")) {
+                allTagSuggestions.add(tag);
+                const type = tag.split(":")[0];
+                allTagSuggestions.add(type + ":");
+              } else {
+                allTagSuggestions.add(tag);
+              }
+            });
+          }
+        });
+      }
+
+      // Show search suggestions
+      function showSuggestions() {
+        const input = document.getElementById("searchInput");
+        const query = input.value.toLowerCase();
+        updateSuggestions(query);
+      }
+
+      // Hide search suggestions
+      function hideSuggestions() {
+        setTimeout(() => {
+          document.getElementById("searchSuggestions").style.display = "none";
+        }, 150); // Delay to allow clicking on suggestions
+      }
+
+      // Update suggestions based on input
+      function updateSuggestions(query) {
+        const suggestionsContainer =
+          document.getElementById("searchSuggestions");
+
+        if (!query) {
+          suggestionsContainer.style.display = "none";
+          return;
+        }
+
+        const suggestions = Array.from(allTagSuggestions)
+          .filter((tag) => tag.toLowerCase().includes(query))
+          .slice(0, 10); // Limit to 10 suggestions
+
+        if (suggestions.length === 0) {
+          suggestionsContainer.style.display = "none";
+          return;
+        }
+
+        suggestionsContainer.innerHTML = suggestions
+          .map(
+            (suggestion) =>
+              `<div class="suggestion-item" onclick="selectSuggestion('${suggestion.replace(
+                /'/g,
+                "\\'"
+              )}')">
+              ${suggestion}
+            </div>`
+          )
+          .join("");
+
+        suggestionsContainer.style.display = "block";
+      }
+
+      // Select a suggestion
+      function selectSuggestion(suggestion) {
+        const input = document.getElementById("searchInput");
+        input.value = suggestion;
+        document.getElementById("searchSuggestions").style.display = "none";
+        handleSearchInput(); // Trigger search
+      }
+
+      // Handle search input with suggestions
+      function handleSearchInput() {
+        const input = document.getElementById("searchInput");
+        const suggestions = document.getElementById("searchSuggestions");
+        const query = input.value.toLowerCase();
+
+        if (query.length < 1) {
+          suggestions.style.display = "none";
+          filterThumbnails();
+          return;
+        }
+
+        // Find matching suggestions
+        const matches = Array.from(allTagSuggestions)
+          .filter((tag) => tag.toLowerCase().includes(query))
+          .slice(0, 10); // Limit to 10 suggestions
+
+        if (matches.length > 0) {
+          suggestions.innerHTML = matches
+            .map(
+              (tag) =>
+                `<div class="suggestion-item" onclick="selectSuggestion('${tag}')">${tag}</div>`
+            )
+            .join("");
+          suggestions.style.display = "block";
+        } else {
+          suggestions.style.display = "none";
+        }
+
+        filterThumbnails();
+      }
+
+      function selectSuggestion(tag) {
+        document.getElementById("searchInput").value = tag;
+        hideSuggestions();
+        filterThumbnails();
+      }
+
+      function showSuggestions() {
+        const input = document.getElementById("searchInput");
+        if (input.value.length > 0) {
+          handleSearchInput();
+        }
+      }
+
+      function hideSuggestions() {
+        setTimeout(() => {
+          document.getElementById("searchSuggestions").style.display = "none";
+        }, 200); // Delay to allow clicking on suggestions
+      }
 
       // Firebase configuration
       const firebaseConfig = {
@@ -476,11 +704,32 @@
         }
       }
 
-      // Extract artist from tags (based on CBZ.py structure)
+      // Extract artist from tags (updated for new flattened format)
       function extractArtist(tags) {
         if (!tags || typeof tags !== "object") return "Unknown Artist";
 
-        // Look for artist, creator, or author categories
+        // New flattened format: {"artist": "artist1, artist2"}
+        if (
+          tags.artist &&
+          typeof tags.artist === "string" &&
+          tags.artist.trim()
+        ) {
+          return tags.artist.trim();
+        } else if (
+          tags.creator &&
+          typeof tags.creator === "string" &&
+          tags.creator.trim()
+        ) {
+          return tags.creator.trim();
+        } else if (
+          tags.author &&
+          typeof tags.author === "string" &&
+          tags.author.trim()
+        ) {
+          return tags.author.trim();
+        }
+
+        // Fallback: Check for old array format (backward compatibility)
         if (tags.artist && Array.isArray(tags.artist)) {
           return tags.artist.join(", ");
         } else if (tags.creator && Array.isArray(tags.creator)) {
@@ -492,16 +741,27 @@
         return "Unknown Artist";
       }
 
-      // Extract categories from tags (based on CBZ.py structure)
+      // Extract categories from tags (updated for new flattened format)
       function extractCategories(tags) {
         if (!tags || typeof tags !== "object") return [];
 
         const categories = [];
-        for (const [key, values] of Object.entries(tags)) {
-          if (Array.isArray(values) && key !== "general") {
-            categories.push(...values.map((v) => `${key}:${v}`));
-          } else if (key === "general" && Array.isArray(values)) {
-            categories.push(...values);
+        // New format: {"language": "english, chinese", "artist": "test", "other": "tag1, tag2"}
+        for (const [tagType, tagString] of Object.entries(tags)) {
+          if (typeof tagString === "string" && tagString.trim()) {
+            // Split comma-separated values and create categorized tags
+            const tagValues = tagString
+              .split(",")
+              .map((v) => v.trim())
+              .filter((v) => v);
+
+            if (tagType === "other") {
+              // Uncategorized tags - add without type prefix
+              categories.push(...tagValues);
+            } else {
+              // Categorized tags - add with type prefix
+              categories.push(...tagValues.map((v) => `${tagType}:${v}`));
+            }
           }
         }
 
@@ -517,6 +777,10 @@
           // Load book data from Firebase first
           booksData = await loadBooksFromFirebase();
           console.log("Books data loaded:", booksData.length);
+
+          // Build tag suggestions for search
+          buildTagSuggestions();
+          console.log("Tag suggestions built:", allTagSuggestions.size);
 
           // Get list of files in Thumbnails folder
           const response = await fetch(
