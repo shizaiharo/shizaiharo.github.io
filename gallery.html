@@ -425,6 +425,7 @@
 
     <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
 
     <script>
@@ -590,9 +591,9 @@
         }, 200); // Delay to allow clicking on suggestions
       }
 
-      // Firebase configuration
+      // Firebase configuration (Updated with correct web app config)
       const firebaseConfig = {
-        apiKey: "AIzaSyD6Q4U9EqUuMKKJLt_GBGgOVCJdjWY6bNw",
+        apiKey: "AIzaSyBgHpfJmeGjIS51nXKzFey5jI5LlkWwULc",
         authDomain: "cloud-2f6b2.firebaseapp.com",
         databaseURL:
           "https://cloud-2f6b2-default-rtdb.asia-southeast1.firebasedatabase.app",
@@ -603,14 +604,81 @@
         measurementId: "G-FGFG1K9Q1E",
       };
 
-      // Initialize Firebase
+      // Initialize Firebase (using v8 SDK for compatibility)
       let db;
+      let auth;
+      let isAuthenticated = false;
+
       try {
         firebase.initializeApp(firebaseConfig);
         db = firebase.firestore();
-        console.log("Firebase initialized successfully");
+        auth = firebase.auth();
+        console.log(
+          "Firebase initialized successfully with updated web app config"
+        );
       } catch (error) {
         console.error("Firebase initialization failed:", error);
+      }
+
+      // Authenticate with Firebase (anonymous authentication)
+      async function authenticateFirebase() {
+        try {
+          console.log("Authenticating with Firebase...");
+
+          // Check if Firebase and auth are properly initialized
+          if (!firebase || !auth) {
+            throw new Error("Firebase or auth not initialized");
+          }
+
+          // Check if already authenticated
+          if (auth.currentUser) {
+            console.log("Already authenticated:", auth.currentUser.uid);
+            isAuthenticated = true;
+            return true;
+          }
+
+          // Sign in anonymously
+          console.log("Attempting anonymous sign-in...");
+          const userCredential = await auth.signInAnonymously();
+          console.log(
+            "Anonymous authentication successful:",
+            userCredential.user.uid
+          );
+          isAuthenticated = true;
+          return true;
+        } catch (error) {
+          console.error("Firebase authentication failed:", error);
+          console.error("Error code:", error.code);
+          console.error("Error message:", error.message);
+
+          let errorMessage = "Failed to authenticate with Firebase. ";
+          if (error.code === "auth/operation-not-allowed") {
+            errorMessage +=
+              "Anonymous authentication is not enabled in Firebase console.";
+          } else if (error.code === "auth/network-request-failed") {
+            errorMessage +=
+              "Network error. Please check your internet connection.";
+          } else {
+            errorMessage += `Error: ${error.message}`;
+          }
+
+          alert(errorMessage + " Gallery may not work properly.");
+          return false;
+        }
+      }
+
+      // Wait for authentication state change
+      function waitForAuthentication() {
+        return new Promise((resolve) => {
+          const unsubscribe = auth.onAuthStateChanged((user) => {
+            if (user) {
+              console.log("User authenticated:", user.uid);
+              isAuthenticated = true;
+              unsubscribe();
+              resolve(true);
+            }
+          });
+        });
       }
 
       // XOR Decryption function (matching working thumbnail_decrypt.html version)
@@ -669,6 +737,13 @@
       async function loadBooksFromFirebase() {
         try {
           console.log("Loading books from Firebase...");
+          // Ensure authentication before accessing Firestore
+          const authSuccess = await authenticateFirebase();
+          if (!authSuccess) {
+            console.warn("Authentication failed, returning empty book list");
+            return [];
+          }
+
           const querySnapshot = await db.collection("Book").get();
 
           if (querySnapshot.empty) {
