@@ -143,19 +143,7 @@
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
       }
 
-      .thumbnail-image {
-        width: 100%;
-        height: auto;
-        max-height: 280px;
-        object-fit: contain;
-        border-radius: 4px;
-        margin-bottom: 10px;
-        background-color: #f8f9fa;
-        border: 1px solid #dee2e6;
-        cursor: pointer;
-        flex-grow: 1;
-        transition: filter 0.3s ease, opacity 0.3s ease;
-      }
+      /* thumbnail-image and img-wrapper CSS moved lower to avoid duplication */
 
       .thumbnail-image:hover {
         opacity: 0.9;
@@ -369,6 +357,60 @@
         background-color: #6c757d;
         cursor: not-allowed;
       }
+      /* Fade-in for decrypted image swap */
+      .fade-in {
+        animation: fadeInImage 0.35s ease-in-out;
+      }
+
+      @keyframes fadeInImage {
+        from {
+          opacity: 0;
+          transform: scale(0.995);
+        }
+        to {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      /* Spinner overlay on image while decrypting */
+      .img-wrapper {
+        position: relative;
+        display: block;
+        flex-grow: 1;
+        width: 100%;
+        min-height: 120px;
+      }
+      .thumbnail-image {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        cursor: pointer;
+        transition: filter 0.3s ease, opacity 0.3s ease;
+      }
+      .spinner {
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 18px;
+        height: 18px;
+        border: 2px solid rgba(255, 255, 255, 0.8);
+        border-top-color: rgba(0, 0, 0, 0.6);
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        display: none;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
     </style>
   </head>
   <body>
@@ -448,6 +490,29 @@
       let booksData = [];
       let encryptionKey = "";
       let allTagSuggestions = new Set();
+      // Decryption queue controls
+      const decryptQueue = [];
+      let decryptActive = 0;
+      const DECRYPT_CONCURRENCY = 4; // adjust as needed
+
+      function enqueueDecrypt(task) {
+        decryptQueue.push(task);
+        processDecryptQueue();
+      }
+
+      function processDecryptQueue() {
+        if (decryptActive >= DECRYPT_CONCURRENCY) return;
+        const task = decryptQueue.shift();
+        if (!task) return;
+        decryptActive++;
+        task()
+          .catch((e) => console.error("Decrypt task error:", e))
+          .finally(() => {
+            decryptActive--;
+            // Process next task
+            setTimeout(processDecryptQueue, 0);
+          });
+      }
 
       // Build tag suggestions from loaded data (updated for new format)
       function buildTagSuggestions() {
@@ -763,14 +828,16 @@
             const blob = new Blob([svgContent], { type: "image/svg+xml" });
             const objectUrl = URL.createObjectURL(blob);
 
-            imgElement.onload = () => {
+            // Use event listeners so we don't overwrite handlers later
+            imgElement.addEventListener("load", function onLowpolyLoad() {
               console.log(
                 `Successfully loaded low-poly version for ${thumbnail.bookNumber}`
               );
               URL.revokeObjectURL(objectUrl);
-            };
+              imgElement.removeEventListener("load", onLowpolyLoad);
+            });
 
-            imgElement.onerror = () => {
+            imgElement.addEventListener("error", function onLowpolyError() {
               console.error(
                 `Failed to display low-poly SVG for ${thumbnail.bookNumber}`
               );
@@ -780,7 +847,8 @@
                 "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzZjNzU3ZCI+RW5jcnlwdGVkPC90ZXh0Pjwvc3ZnPg==";
               imgElement.title =
                 "Encrypted thumbnail - Enter decryption key to view";
-            };
+              imgElement.removeEventListener("error", onLowpolyError);
+            });
 
             imgElement.src = objectUrl;
             imgElement.style.filter = "blur(1px)"; // Add slight blur to indicate it's a placeholder
@@ -1033,7 +1101,7 @@
                 downloadUrl: file.download_url,
                 rawUrl: `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/Thumbnails/${file.name}`,
                 // Include book data if found
-                title: bookData ? bookData.title : `Book #${bookNumber}`,
+                title: bookData ? bookData.title : `#${bookNumber}`,
                 artist: bookData ? bookData.artist : "Unknown Artist",
                 categories: bookData ? bookData.categories : [],
                 tags: bookData ? bookData.tags : {},
@@ -1074,9 +1142,17 @@
           item.className = "thumbnail-item";
           item.onclick = () => showThumbnailDetails(thumbnail);
 
+          // Create wrapper so we can show spinner overlay while decrypting
+          const wrapper = document.createElement("div");
+          wrapper.className = "img-wrapper";
+
           const img = document.createElement("img");
           img.className = "thumbnail-image";
           img.alt = `Book ${thumbnail.bookNumber}`;
+          // Mark identifying metadata to avoid reloading low-poly on decrypt
+          img.dataset.bookNumber = thumbnail.bookNumber;
+          img.dataset.filename = thumbnail.filename;
+          img.dataset.decrypted = "false";
 
           // Add click handler for modal view
           img.onclick = (e) => {
@@ -1084,12 +1160,27 @@
             openModal(img.src, thumbnail);
           };
 
+          const spinner = document.createElement("div");
+          spinner.className = "spinner";
+          wrapper.appendChild(img);
+          wrapper.appendChild(spinner);
+
+          // Always load low-poly placeholder first (or encrypted placeholder)
+          loadLowPolyThumbnail(img, thumbnail);
+          // If encryption key is provided, start decryption in background and swap on success
           if (encryptionKey) {
-            // If encryption key is provided, try to decrypt and display
-            loadAndDecryptThumbnail(img, thumbnail);
-          } else {
-            // Load low-poly version as placeholder (with fallback to "Encrypted")
-            loadLowPolyThumbnail(img, thumbnail);
+            spinner.style.display = "block";
+            // Use decrypt queue to limit concurrency and avoid network overload
+            enqueueDecrypt(async () => {
+              try {
+                await loadAndDecryptThumbnail(img, thumbnail);
+                // apply fade-in to indicate swap
+                img.classList.add("fade-in");
+                setTimeout(() => img.classList.remove("fade-in"), 800);
+              } finally {
+                spinner.style.display = "none";
+              }
+            });
           }
 
           const bookTitle = document.createElement("div");
@@ -1104,10 +1195,10 @@
 
           const bookNumber = document.createElement("div");
           bookNumber.className = "book-number";
-          bookNumber.textContent = `Book #${thumbnail.bookNumber}`;
+          bookNumber.textContent = `#${thumbnail.bookNumber}`;
 
           // Append in new order: image, title (largest), artist (second), number (last)
-          item.appendChild(img);
+          item.appendChild(wrapper);
           item.appendChild(bookTitle);
           item.appendChild(bookArtist);
           item.appendChild(bookNumber);
@@ -1151,29 +1242,35 @@
           const blob = new Blob([decryptedData]);
           const objectUrl = URL.createObjectURL(blob);
 
-          imgElement.onload = () => {
+          // Create a temporary Image to confirm the decrypted image loads
+          const testImg = new Image();
+          testImg.onload = () => {
             console.log(
-              `Successfully loaded ${imageType} image for ${thumbnail.filename}`
+              `Successfully loaded decrypted image for ${thumbnail.filename}`
             );
-            // Remove blur effect and update title when full-quality image loads
-            imgElement.style.filter = "none";
+            // Only swap the src after the decrypted image is fully loaded
+            imgElement.src = objectUrl;
+            try {
+              imgElement.dataset.decrypted = "true";
+            } catch (e) {}
+            imgElement.style.filter = "none"; // remove blur or placeholder style
             imgElement.title = `${thumbnail.title} - Full quality thumbnail`;
             URL.revokeObjectURL(objectUrl);
           };
-          imgElement.onerror = () => {
+          testImg.onerror = () => {
             console.error(
               `Failed to load decrypted image for ${thumbnail.filename}`
             );
             URL.revokeObjectURL(objectUrl);
-            imgElement.src =
-              "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+RGVjcnlwdCBGYWlsZWQ8L3RleHQ+PC9zdmc+";
+            // Keep the low-poly or placeholder already displayed; show small error overlay via title
+            imgElement.title = `${thumbnail.title} - Failed to decrypt`;
           };
 
-          imgElement.src = objectUrl;
+          // Start loading the decrypted data in background
+          testImg.src = objectUrl;
         } catch (error) {
           console.error("Error decrypting thumbnail:", error);
-          imgElement.src =
-            "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjI1MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZjhmOWZhIiBzdHJva2U9IiNkZWUyZTYiLz48dGV4dCB4PSI1MCUiIHk9IjUwJSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iI2RjMzU0NSI+TG9hZCBFcnJvcjwvdGV4dD48L3N2Zz4=";
+          // Keep whatever is currently displayed (low-poly or placeholder)
         }
       }
 
@@ -1185,8 +1282,32 @@
           return;
         }
 
-        // Re-display thumbnails with decryption
-        displayThumbnails(thumbnailsData);
+        // Instead of re-rendering the whole gallery (which reloads low-poly),
+        // iterate existing images in the DOM and enqueue decryption for each
+        const imgs = document.querySelectorAll(".thumbnail-image");
+        imgs.forEach((img) => {
+          if (img.dataset.decrypted === "true") return; // already decrypted
+          const filename = img.dataset.filename;
+          const bookNumber = img.dataset.bookNumber;
+          const thumbnail = thumbnailsData.find(
+            (t) => t.filename === filename && t.bookNumber == bookNumber
+          );
+          if (!thumbnail) return;
+          // show spinner if present as sibling
+          const spinner =
+            img.parentElement && img.parentElement.querySelector(".spinner");
+          if (spinner) spinner.style.display = "block";
+          enqueueDecrypt(async () => {
+            try {
+              await loadAndDecryptThumbnail(img, thumbnail);
+              img.dataset.decrypted = "true";
+              img.classList.add("fade-in");
+              setTimeout(() => img.classList.remove("fade-in"), 800);
+            } finally {
+              if (spinner) spinner.style.display = "none";
+            }
+          });
+        });
       }
 
       // Filter thumbnails by search
@@ -1210,8 +1331,8 @@
             return true;
           }
 
-          // Also search with "Book #" prefix
-          const bookLabel = `book #${thumbnail.bookNumber}`.toLowerCase();
+          // Also search with "#" prefix
+          const bookLabel = `#${thumbnail.bookNumber}`.toLowerCase();
           if (bookLabel.includes(searchTerm)) {
             return true;
           }
@@ -1297,12 +1418,11 @@
         const modalDetails = document.getElementById("modalDetails");
 
         modalImage.src = imageSrc;
-        modalTitle.textContent =
-          thumbnail.title || `Book #${thumbnail.bookNumber}`;
+        modalTitle.textContent = thumbnail.title || `#${thumbnail.bookNumber}`;
 
         const details = [];
         // Remove the main Artist line - it will show up in tags instead
-        details.push(`Book #${thumbnail.bookNumber}`);
+        details.push(`#${thumbnail.bookNumber}`);
 
         if (thumbnail.page_count && thumbnail.file_size) {
           details.push(
