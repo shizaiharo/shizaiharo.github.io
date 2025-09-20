@@ -460,7 +460,7 @@
         </button>
         <button
           class="decrypt-button"
-          onclick="clearFirebaseCache(); location.reload();"
+          onclick="forceRefreshBooks()"
           title="Refresh data from Firebase"
         >
           Refresh Data
@@ -900,23 +900,37 @@
         loadThumbnails();
       }
 
-      // Load book information from Firebase with caching and optimization
-      async function loadBooksFromFirebase() {
+      // Load book information from Firebase with smart caching
+      async function loadBooksFromFirebase(forceRefresh = false) {
         try {
           console.log("Loading books from Firebase...");
 
           // Check if we already have cached data
           const cachedData = sessionStorage.getItem("booksData");
           const cacheTimestamp = sessionStorage.getItem("booksDataTimestamp");
-          const cacheAge =
-            Date.now() - (cacheTimestamp ? parseInt(cacheTimestamp) : 0);
+          const cachedMetadata = sessionStorage.getItem("booksDataMetadata");
 
-          // Use cache if less than 5 minutes old
-          if (cachedData && cacheAge < 5 * 60 * 1000) {
-            console.log("Using cached Firebase data");
-            document.getElementById("loadingMessage").textContent =
-              "Loading from cache...";
-            return JSON.parse(cachedData);
+          if (!forceRefresh && cachedData && cacheTimestamp) {
+            const cacheAge = Date.now() - parseInt(cacheTimestamp);
+            const cacheDuration = 15 * 60 * 1000; // 15 minutes cache
+
+            // Use cache if less than cache duration old
+            if (cacheAge < cacheDuration) {
+              console.log(
+                `Using cached Firebase data (${Math.round(
+                  cacheAge / 1000 / 60
+                )} minutes old)`
+              );
+              document.getElementById("loadingMessage").textContent =
+                "Loading from cache...";
+              return JSON.parse(cachedData);
+            }
+          }
+
+          // Clear old cache if force refresh or cache is stale
+          if (forceRefresh) {
+            console.log("Force refreshing cache...");
+            clearBooksCache();
           }
 
           document.getElementById("loadingMessage").textContent =
@@ -930,12 +944,11 @@
           }
 
           // OPTIMIZATION: For Firebase v8, we can add pagination to reduce read volume
-          // Limit initial load to reduce Firebase reads - can load more on demand
+          // Load all books but use smart caching to avoid re-reading
           let query = db.collection("Book");
 
-          // OPTIMIZATION: Load only first 200 documents to reduce quota usage
-          // You can increase this number if needed, or implement "Load More" functionality
-          query = query.limit(200);
+          // Removed limit to load all books - caching will prevent unnecessary re-reads
+          // query = query.limit(1000);
 
           const querySnapshot = await query.get();
           if (querySnapshot.empty) {
@@ -965,10 +978,22 @@
 
           console.log(`Loaded ${books.length} books with titles from Firebase`);
 
-          // Cache the data for 5 minutes to reduce Firebase reads
+          // Cache the data with metadata for smart caching
+          const cacheMetadata = {
+            bookCount: books.length,
+            lastUpdated: Date.now(),
+            cacheVersion: "1.0",
+          };
+
           sessionStorage.setItem("booksData", JSON.stringify(books));
           sessionStorage.setItem("booksDataTimestamp", Date.now().toString());
-          console.log("Books data cached for 5 minutes");
+          sessionStorage.setItem(
+            "booksDataMetadata",
+            JSON.stringify(cacheMetadata)
+          );
+          console.log(
+            `Books data cached for 15 minutes (${books.length} books)`
+          );
 
           return books;
         } catch (error) {
@@ -978,14 +1003,39 @@
       }
 
       // Clear Firebase cache (useful for debugging or manual refresh)
-      function clearFirebaseCache() {
+      function clearBooksCache() {
         sessionStorage.removeItem("booksData");
         sessionStorage.removeItem("booksDataTimestamp");
-        console.log("Firebase cache cleared");
+        sessionStorage.removeItem("booksDataMetadata");
+        console.log("Books cache cleared");
+      }
+
+      // Force refresh books data
+      async function forceRefreshBooks() {
+        console.log("Force refreshing books data...");
+        clearBooksCache();
+        // Reload thumbnails with fresh data
+        await loadThumbnails(true);
       }
 
       // Add to window for debugging
-      window.clearFirebaseCache = clearFirebaseCache;
+      window.clearBooksCache = clearBooksCache;
+      window.forceRefreshBooks = forceRefreshBooks;
+
+      // Display cache status information
+      function displayCacheStatus() {
+        const cachedMetadata = sessionStorage.getItem("booksDataMetadata");
+        if (cachedMetadata) {
+          const metadata = JSON.parse(cachedMetadata);
+          const cacheAge = Date.now() - metadata.lastUpdated;
+          const ageMinutes = Math.round(cacheAge / 1000 / 60);
+          console.log(
+            `Cache Status: ${metadata.bookCount} books, ${ageMinutes} minutes old`
+          );
+        } else {
+          console.log("Cache Status: No cached data");
+        }
+      }
 
       // Extract artist from tags (updated for new flattened format)
       function extractArtist(tags) {
@@ -1052,13 +1102,13 @@
       }
 
       // Load thumbnails from GitHub repository and match with Firebase data
-      async function loadThumbnails() {
+      async function loadThumbnails(forceRefresh = false) {
         try {
           document.getElementById("loadingMessage").style.display = "block";
           document.getElementById("errorMessage").style.display = "none";
 
           // Load book data from Firebase first
-          booksData = await loadBooksFromFirebase();
+          booksData = await loadBooksFromFirebase(forceRefresh);
           console.log("Books data loaded:", booksData.length);
 
           // Build tag suggestions for search
